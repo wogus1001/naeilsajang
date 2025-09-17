@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>권리금 예측 프론트</title>
+  <!-- 개발 편의용 Tailwind CDN (프로덕션에선 PostCSS/CLI 권장) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .container { max-width: 1200px; }
+    th, td { white-space: nowrap; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <header class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">권리금 예측 데모 (프론트)</h1>
+      <div class="text-sm text-gray-600">API: <span id="apiBaseText"></span> | 상태: <span id="apiStatus">...</span></div>
+    </header>
+
+    <!-- 설정 -->
+    <section class="bg-white rounded-2xl shadow p-5 space-y-3">
+      <h2 class="text-lg font-semibold">설정</h2>
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <label class="text-sm text-gray-600">API Base</label>
+        <input id="apiBase" class="border rounded-md px-3 py-2 w-full sm:w-96" value="http://localhost:8000" />
+        <button id="btnConnect" class="px-3 py-2 bg-black text-white rounded-md">연결</button>
+        <button id="btnHealth" class="px-3 py-2 border rounded-md">헬스 체크</button>
+      </div>
+      <p class="text-xs text-gray-500">FastAPI 서버(app.py)가 실행 중이어야 합니다. 기본 포트 8000.</p>
+      <div id="diag" class="text-xs text-gray-600"></div>
+      <div id="alert" class="hidden rounded-md border p-3 text-sm"></div>
+    </section>
+
+    <!-- 단건 예측 / 배치 예측 -->
+    <section class="grid md:grid-cols-2 gap-6">
+      <!-- 단건 예측 -->
+      <div class="bg-white rounded-2xl shadow p-5 space-y-4">
+        <h2 class="text-lg font-semibold">단건 예측</h2>
+        <div id="singleForm" class="grid sm:grid-cols-2 gap-4"></div>
+        <button class="px-4 py-2 bg-black text-white rounded-md" id="btnPredict">예측하기</button>
+        <div id="singleResult" class="mt-2 text-emerald-600 font-semibold hidden"></div>
+      </div>
+
+      <!-- 배치 예측 -->
+      <div class="bg-white rounded-2xl shadow p-5 space-y-4">
+        <h2 class="text-lg font-semibold">배치 예측 (CSV/XLSX 업로드)</h2>
+        <input id="batchFile" type="file" accept=".csv,.xlsx" class="block" />
+        <div class="flex gap-2">
+          <button class="px-4 py-2 bg-black text-white rounded-md" id="btnBatch">업로드 & 예측</button>
+          <button class="px-4 py-2 border rounded-md" id="btnDownload">CSV 다운로드</button>
+          <button class="px-4 py-2 border rounded-md" id="btnBatchTest">테스트 CSV 업로드</button>
+        </div>
+        <div id="batchInfo" class="text-sm text-gray-600"></div>
+        <div class="overflow-auto border rounded-lg max-h-96 mt-2">
+          <table id="batchTable" class="min-w-full text-sm">
+            <thead class="bg-gray-100 sticky top-0"></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="text-xs text-gray-500">* 업로드 파일의 열 이름은 학습 스키마(예: 전용면적/월세/보증금/시도/시군구/업종 등)와 일치하도록 해주세요.</p>
+      </div>
+    </section>
+
+    <!-- 수동 테스트 케이스 / 트러블슈터 -->
+    <section class="bg-white rounded-2xl shadow p-5 space-y-3">
+      <h2 class="text-lg font-semibold">수동 테스트 케이스</h2>
+      <ol class="list-decimal pl-5 text-sm space-y-1">
+        <li>서버가 꺼져 있는 상태에서 <span class="mono">연결</span> 버튼을 누르면, 상단에 "연결 실패" 경고가 보여야 한다.</li>
+        <li>서버를 켠 뒤 <span class="mono">연결</span> 버튼을 다시 눌러 폼이 생성되어야 한다(상태: ok).</li>
+        <li>기본값 상태에서 <span class="mono">예측하기</span> → 예측 권리금이 숫자로 표시되어야 한다.</li>
+        <li>작은 CSV 2행을 업로드하면 표에 2행이 렌더링되고, <span class="mono">CSV 다운로드</span> 클릭 시 파일 저장이 되어야 한다.</li>
+      </ol>
+      <p class="text-xs text-gray-500">예상 동작이 다르면 아래 경고 상자를 캡처해서 알려주세요.</p>
+    </section>
+
+    <footer class="text-xs text-gray-500">※ 입력값이 원본 분포와 가까울수록 예측 신뢰도가 높습니다.</footer>
+  </div>
+
+  <script>
+    let API_BASE = 'http://localhost:8000';
+    let NUM_COLS = [];
+    let CAT_COLS = [];
+    let CATEGORY_OPTIONS = {}; // 서버에서 내려주는 카테고리 후보 목록 (/categories)
+
+    const apiBaseEl = document.getElementById('apiBase');
+    const apiBaseTextEl = document.getElementById('apiBaseText');
+    const apiStatusEl = document.getElementById('apiStatus');
+    const alertEl = document.getElementById('alert');
+    const diagEl = document.getElementById('diag');
+
+    // ===== 공용 유틸: 타임아웃 + 에러 메시지 보강된 fetch =====
+    async function fetchJSON(url, {timeout=8000, ...opts} = {}){
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        const res = await fetch(url, { mode: 'cors', cache: 'no-store', ...opts, signal: controller.signal });
+        if (!res.ok) {
+          const text = await res.text().catch(()=> '');
+          throw new Error(`HTTP ${res.status} ${res.statusText}\n${text.slice(0,200)}`);
+        }
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('application/json')) return await res.json();
+        try { return await res.json(); } catch { return {}; }
+      } finally { clearTimeout(id); }
+    }
+
+    function showAlert(kind, msg){
+      // kind: 'ok' | 'warn' | 'error'
+      const base = 'rounded-md border p-3 text-sm';
+      const styles = {
+        ok: 'border-emerald-300 bg-emerald-50 text-emerald-700',
+        warn: 'border-amber-300 bg-amber-50 text-amber-700',
+        error: 'border-rose-300 bg-rose-50 text-rose-700'
+      }
+      alertEl.className = `${base} ${styles[kind] || styles.warn}`;
+      alertEl.textContent = msg;
+      alertEl.classList.remove('hidden');
+    }
+
+    function clearAlert(){ alertEl.classList.add('hidden'); alertEl.textContent=''; }
+
+    function diagnostics(){
+      const proto = location.protocol; // http:, https:, file:
+      const hints = [];
+      hints.push(`페이지 프로토콜: ${proto}`);
+      hints.push(`API 주소: ${API_BASE}`);
+      if (proto === 'https:' && API_BASE.startsWith('http://')) {
+        hints.push('⚠️ HTTPS 페이지에서 HTTP API는 차단됩니다. API를 https로 올리거나, 이 페이지를 http로 여세요.');
+      }
+      if (proto === 'file:') {
+        hints.push('ℹ️ file:// 로 열었습니다. 일부 환경에서 네트워크 요청이 제한될 수 있습니다. 가능한 경우: python -m http.server 5173');
+      }
+      // 간단한 구분점 문자 사용 (escape 이슈 회피)
+      diagEl.textContent = hints.join(' · ');
+    }
+
+    // 연결/헬스
+    async function initHealth(){
+      clearAlert(); diagnostics();
+
+      API_BASE = apiBaseEl.value.trim() || 'http://localhost:8000';
+      apiBaseTextEl.textContent = API_BASE;
+      apiStatusEl.textContent = '연결 중…';
+
+      try {
+        const j = await fetchJSON(`${API_BASE}/health`, { timeout: 5000 });
+        NUM_COLS = j.num_cols || [];
+        CAT_COLS = j.cat_cols || [];
+
+        // categories는 실패해도 폼은 그리게 처리
+        try {
+          CATEGORY_OPTIONS = await fetchJSON(`${API_BASE}/categories`, { timeout: 5000 });
+        } catch (e) {
+          console.warn('categories fetch failed', e);
+          CATEGORY_OPTIONS = {};
+        }
+
+        renderSingleForm();
+        apiStatusEl.textContent = j.status || 'ok';
+        showAlert('ok', '서버 연결 성공. 폼을 생성했습니다.');
+      } catch (e) {
+        apiStatusEl.textContent = '접속 실패';
+        showAlert('error', `서버에 연결할 수 없습니다. (Failed to fetch)\n- 서버(app.py) 실행/포트 확인\n- 방화벽/네트워크 제한\n- Mixed Content(https↔http) 여부\n\n상세: ${e.message}`);
+      }
+    }
+
+    function renderSingleForm(){
+      const form = document.getElementById('singleForm');
+      form.innerHTML = '';
+
+      // 숫자 입력
+      NUM_COLS.forEach(k => {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-col';
+        wrap.innerHTML = `
+          <label class="text-sm text-gray-600 mb-1">${k}</label>
+          <input data-key="${k}" type="number" class="border rounded-md px-3 py-2" placeholder="숫자 입력" />
+        `;
+        form.appendChild(wrap);
+      });
+
+      // 범주 입력: 드롭다운 우선, 후보 없으면 텍스트 입력으로 대체
+      CAT_COLS.forEach(k => {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex flex-col';
+        const opts = CATEGORY_OPTIONS && Array.isArray(CATEGORY_OPTIONS[k]) ? CATEGORY_OPTIONS[k] : null;
+        if (opts && opts.length) {
+          const select = document.createElement('select');
+          select.className = 'border rounded-md px-3 py-2';
+          select.setAttribute('data-key', k);
+          const ph = document.createElement('option'); ph.value = ''; ph.textContent = '(선택)'; select.appendChild(ph);
+          opts.slice(0, 300).forEach(v => { const o = document.createElement('option'); o.value = String(v); o.textContent = String(v); select.appendChild(o); });
+          wrap.innerHTML = `<label class="text-sm text-gray-600 mb-1">${k}</label>`;
+          wrap.appendChild(select);
+        } else {
+          wrap.innerHTML = `
+            <label class="text-sm text-gray-600 mb-1">${k}</label>
+            <input data-key="${k}" class="border rounded-md px-3 py-2" placeholder="텍스트/카테고리 입력" />
+          `;
+        }
+        form.appendChild(wrap);
+      });
+
+      // 기본값 예시
+      const defaults = {
+        '전용면적': 66, '월세': 2500000, '보증금': 30000000,
+        '시도': '서울특별시', '시군구': '강남구', '업종': '한식',
+        '매장 타입': '로드샵', '운영 상태': '운영중', '지하 여부': '지상', '매매 가능 일정': '즉시'
+      };
+      for (const [k, v] of Object.entries(defaults)) {
+        const el = form.querySelector(`[data-key="${k}"]`);
+        if (!el) continue;
+        if (el.tagName === 'SELECT') {
+          const exists = Array.from(el.options).some(o => o.value === String(v));
+          el.value = exists ? String(v) : '';
+        } else { el.value = v; }
+      }
+    }
+
+    async function predictSingle(){
+      clearAlert();
+      const form = document.getElementById('singleForm');
+      const inputs = form.querySelectorAll('[data-key]');
+      const payload = {};
+      inputs.forEach(el => {
+        const key = el.getAttribute('data-key'); if (!key) return;
+        if (el.type === 'number' && el.value !== '') payload[key] = Number(el.value);
+        else if (el.value !== '') payload[key] = el.value;
+      });
+      try {
+        const j = await fetchJSON(`${API_BASE}/predict`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload), timeout: 8000
+        });
+        const el = document.getElementById('singleResult');
+        if (j && typeof j['predicted_권리금'] !== 'undefined') {
+          el.textContent = `예측 권리금: ${Math.round(j['predicted_권리금']).toLocaleString('ko-KR')} 원`;
+          el.classList.remove('hidden');
+          showAlert('ok', '예측 성공');
+        } else {
+          el.textContent = '예측 실패'; el.classList.remove('hidden');
+          showAlert('warn', '예측은 수행되었지만 응답 형식이 예상과 다릅니다.');
+        }
+      } catch (e) {
+        showAlert('error', `예측 요청 실패 (Failed to fetch)\n서버 연결 상태 / CORS / Mixed Content를 확인하세요.\n상세: ${e.message}`);
+      }
+    }
+
+    async function batchPredict(){
+      clearAlert();
+      const f = document.getElementById('batchFile').files[0];
+      if (!f) { showAlert('warn', 'CSV 또는 XLSX 파일을 선택하세요.'); return; }
+      const fd = new FormData(); fd.append('file', f);
+      try {
+        const j = await fetchJSON(`${API_BASE}/batch_predict`, { method: 'POST', body: fd, timeout: 20000 });
+        const rows = j.data || [];
+        document.getElementById('batchInfo').textContent = `총 ${rows.length}건`;
+        renderTable(rows); window.__batchRows = rows;
+        showAlert('ok', '배치 예측 성공');
+      } catch (e) {
+        showAlert('error', `배치 예측 요청 실패 (Failed to fetch)\n서버 연결 상태 / CORS / Mixed Content를 확인하세요.\n상세: ${e.message}`);
+      }
+    }
+
+    function renderTable(rows){
+      const thead = document.querySelector('#batchTable thead');
+      const tbody = document.querySelector('#batchTable tbody');
+      thead.innerHTML = ''; tbody.innerHTML = '';
+      if (!rows.length) return;
+      const cols = Object.keys(rows[0]);
+      const trH = document.createElement('tr');
+      cols.forEach(c => { const th = document.createElement('th'); th.className = 'px-3 py-2 text-left'; th.textContent = c; trH.appendChild(th); });
+      thead.appendChild(trH);
+      rows.forEach((r, i) => {
+        const tr = document.createElement('tr'); tr.className = i % 2 ? 'bg-gray-50' : 'bg-white';
+        cols.forEach(c => { const td = document.createElement('td'); td.className = 'px-3 py-2'; td.textContent = String(r[c] ?? ''); tr.appendChild(td); });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function downloadCSV(){
+      const rows = window.__batchRows || [];
+      if (!rows.length) { showAlert('warn', '다운로드할 데이터가 없습니다. 먼저 업로드/예측을 실행하세요.'); return; }
+      const cols = Object.keys(rows[0]);
+      const header = cols.join(',');
+      const lines = rows.map(r => cols.map(c => (r[c] ?? '')).join(','));
+      const csv = [header, ...lines].join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'preds.csv'; a.click(); URL.revokeObjectURL(url);
+    }
+
+    // 서버 확인용: 결측치 없는 미니 CSV를 생성해 업로드(서버 NaN JSON 직렬화 문제 추적용)
+    async function batchPredictTest(){
+      clearAlert();
+      // 모델이 기대하는 대표 컬럼 위주로 2행 테스트 데이터 생성 (빈값 없음)
+      const cols = ['전용면적','월세','보증금','시도','시군구','업종','매장 타입','운영 상태','지하 여부','매매 가능 일정'];
+      const rows = [
+        [66,2500000,30000000,'서울특별시','강남구','한식','로드샵','운영중','지상','즉시'],
+        [40,1200000,10000000,'서울특별시','마포구','카페','로드샵','운영중','지상','1~2개월']
+      ];
+      const csv = [cols.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const fd = new FormData();
+      fd.append('file', new File([blob], 'test.csv', { type: 'text/csv' }));
+      try {
+        const j = await fetchJSON(`${API_BASE}/batch_predict`, { method: 'POST', body: fd, timeout: 20000 });
+        const data = j.data || [];
+        document.getElementById('batchInfo').textContent = `테스트 응답 ${data.length}건`;
+        renderTable(data); window.__batchRows = data;
+        showAlert('ok', '테스트 CSV 업로드/예측 성공 (서버 직렬화 정상 동작 확인)');
+      } catch (e) {
+        const msg = [
+          '테스트 CSV 업로드도 실패했습니다.',
+          '서버가 NaN/Inf 값을 JSON으로 직렬화하지 못할 수 있습니다.',
+          '권장 서버 패치:',
+          "- out = df.copy(); out['predicted_권리금'] = yhat;",
+          '- out = out.replace({np.nan: None, np.inf: None, -np.inf: None});',
+          '- from fastapi.encoders import jsonable_encoder',
+          '- return jsonable_encoder({...})',
+          `상세: ${e.message}`
+        ].join('\n');
+        showAlert('error', msg);
+      }
+    }
+
+    // 이벤트 바인딩
+    document.getElementById('btnConnect').addEventListener('click', initHealth);
+    document.getElementById('btnHealth').addEventListener('click', initHealth);
+    document.getElementById('btnPredict').addEventListener('click', predictSingle);
+    document.getElementById('btnBatch').addEventListener('click', batchPredict);
+    document.getElementById('btnDownload').addEventListener('click', downloadCSV);
+    document.getElementById('btnBatchTest').addEventListener('click', batchPredictTest);
+
+    // 첫 진입 시 진단 + 연결 상태 표시
+    (function bootstrap(){ apiBaseTextEl.textContent = API_BASE; diagnostics(); })();
+  </script>
+</body>
+</html>
