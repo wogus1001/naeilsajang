@@ -9,6 +9,7 @@ import numpy as np
 import joblib
 import io
 import pathlib
+import os
 
 # ===== 경로 설정 =====
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -40,9 +41,23 @@ def engineer(df_in: pd.DataFrame) -> pd.DataFrame:
     return X
 
 # ===== 모델 로드 =====
+# (아래 6줄이 핵심 패치입니다: 언피클이 찾는 __main__.engineer 를 미리 주입)
+import __main__
+__main__.engineer = engineer  # 1) 현재 파일의 engineer를 등록
+try:
+    # 2) 보너스: premium_train_v2.py에 동일 함수가 있으면 그것도 등록(선택)
+    from premium_train_v2 import engineer as _eng2
+    __main__.engineer = _eng2
+except Exception:
+    pass
+
+# 디버깅용 로그(배포 로그에서 이 줄이 보여야 패치가 실제로 적용된 것)
+print("[app] registering __main__.engineer =", getattr(__main__, "engineer", None))
+
 try:
     # 저장된 튜플: (engineer, pipe, present_num, present_cat, num_cols, cat_cols, target)
     eng_saved, pipe, present_num, present_cat, num_cols, cat_cols, target = joblib.load(MODEL_PATH)
+    print("[app] model loaded ok from:", MODEL_PATH)
 except Exception as e:
     raise RuntimeError(f"모델 로드 실패: {e}")
 
@@ -57,10 +72,15 @@ ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "null",  # file:// 로 열었을 때 일부 브라우저에서 보내는 Origin
 ]
+# 배포 시에는 환경변수로 프론트 주소를 지정할 수도 있어요.
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "").strip()
+if FRONTEND_ORIGIN:
+    ALLOWED_ORIGINS = [FRONTEND_ORIGIN]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=False,   # 개발 편의: 와일드카드/명시 오리진과 함께 사용
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -162,7 +182,14 @@ def _merge_category_maps(a: Dict[str, List[str]], b: Dict[str, List[str]]) -> Di
 # ===== 엔드포인트 =====
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_loaded": True, "num_cols": num_cols, "cat_cols": cat_cols}
+    return {
+        "status": "ok",
+        "model_loaded": True,
+        "model_path": str(MODEL_PATH),
+        "num_cols": list(num_cols),
+        "cat_cols": list(cat_cols),
+        "allowed_origins": ALLOWED_ORIGINS,
+    }
 
 @app.get("/categories")
 def categories():
@@ -218,4 +245,4 @@ async def batch_predict(file: UploadFile = File(...)):
 # ===== 개발용 실행 =====
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("api.app:app", host="0.0.0.0", port=8000)
