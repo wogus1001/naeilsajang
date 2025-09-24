@@ -245,4 +245,4 @@ async def batch_predict(file: UploadFile = File(...)):
 # ===== 개발용 실행 =====
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api.app:app", host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
