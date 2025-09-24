@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>권리금 예측 프론트</title>
-  <!-- 개발 편의용 Tailwind CDN (프로덕션에선 PostCSS/CLI 권장) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .container { max-width: 1200px; }
@@ -24,18 +23,18 @@
       <h2 class="text-lg font-semibold">설정</h2>
       <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label class="text-sm text-gray-600">API Base</label>
-        <input id="apiBase" class="border rounded-md px-3 py-2 w-full sm:w-96" value="http://localhost:8000" />
+        <!-- ✅ CHANGED: 입력은 읽기 전용 + Render HTTPS 고정 표기 -->
+        <input id="apiBase" class="border rounded-md px-3 py-2 w-full sm:w-96" value="https://naeilsajang.onrender.com" readonly />
         <button id="btnConnect" class="px-3 py-2 bg-black text-white rounded-md">연결</button>
         <button id="btnHealth" class="px-3 py-2 border rounded-md">헬스 체크</button>
       </div>
-      <p class="text-xs text-gray-500">FastAPI 서버(app.py)가 실행 중이어야 합니다. 기본 포트 8000.</p>
+      <p class="text-xs text-gray-500">FastAPI 서버(app.py)가 실행 중이어야 합니다. Render 무료 플랜은 콜드스타트로 첫 응답이 지연될 수 있어요.</p>
       <div id="diag" class="text-xs text-gray-600"></div>
       <div id="alert" class="hidden rounded-md border p-3 text-sm"></div>
     </section>
 
     <!-- 단건 예측 / 배치 예측 -->
     <section class="grid md:grid-cols-2 gap-6">
-      <!-- 단건 예측 -->
       <div class="bg-white rounded-2xl shadow p-5 space-y-4">
         <h2 class="text-lg font-semibold">단건 예측</h2>
         <div id="singleForm" class="grid sm:grid-cols-2 gap-4"></div>
@@ -43,7 +42,6 @@
         <div id="singleResult" class="mt-2 text-emerald-600 font-semibold hidden"></div>
       </div>
 
-      <!-- 배치 예측 -->
       <div class="bg-white rounded-2xl shadow p-5 space-y-4">
         <h2 class="text-lg font-semibold">배치 예측 (CSV/XLSX 업로드)</h2>
         <input id="batchFile" type="file" accept=".csv,.xlsx" class="block" />
@@ -63,7 +61,6 @@
       </div>
     </section>
 
-    <!-- 수동 테스트 케이스 / 트러블슈터 -->
     <section class="bg-white rounded-2xl shadow p-5 space-y-3">
       <h2 class="text-lg font-semibold">수동 테스트 케이스</h2>
       <ol class="list-decimal pl-5 text-sm space-y-1">
@@ -79,10 +76,12 @@
   </div>
 
   <script>
-    let API_BASE = 'http://localhost:8000';
+    // ✅ CHANGED: API_BASE를 상수로 고정 (사용자 입력으로 덮어쓰지 않음)
+    const API_BASE = 'https://naeilsajang.onrender.com';
+
     let NUM_COLS = [];
     let CAT_COLS = [];
-    let CATEGORY_OPTIONS = {}; // 서버에서 내려주는 카테고리 후보 목록 (/categories)
+    let CATEGORY_OPTIONS = {};
 
     const apiBaseEl = document.getElementById('apiBase');
     const apiBaseTextEl = document.getElementById('apiBaseText');
@@ -90,7 +89,6 @@
     const alertEl = document.getElementById('alert');
     const diagEl = document.getElementById('diag');
 
-    // ===== 공용 유틸: 타임아웃 + 에러 메시지 보강된 fetch =====
     async function fetchJSON(url, {timeout=8000, ...opts} = {}){
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeout);
@@ -107,7 +105,6 @@
     }
 
     function showAlert(kind, msg){
-      // kind: 'ok' | 'warn' | 'error'
       const base = 'rounded-md border p-3 text-sm';
       const styles = {
         ok: 'border-emerald-300 bg-emerald-50 text-emerald-700',
@@ -118,40 +115,36 @@
       alertEl.textContent = msg;
       alertEl.classList.remove('hidden');
     }
-
     function clearAlert(){ alertEl.classList.add('hidden'); alertEl.textContent=''; }
 
     function diagnostics(){
-      const proto = location.protocol; // http:, https:, file:
+      const proto = location.protocol;
       const hints = [];
       hints.push(`페이지 프로토콜: ${proto}`);
       hints.push(`API 주소: ${API_BASE}`);
       if (proto === 'https:' && API_BASE.startsWith('http://')) {
-        hints.push('⚠️ HTTPS 페이지에서 HTTP API는 차단됩니다. API를 https로 올리거나, 이 페이지를 http로 여세요.');
+        hints.push('⚠️ HTTPS 페이지에서 HTTP API는 차단됩니다.');
       }
       if (proto === 'file:') {
-        hints.push('ℹ️ file:// 로 열었습니다. 일부 환경에서 네트워크 요청이 제한될 수 있습니다. 가능한 경우: python -m http.server 5173');
+        hints.push('ℹ️ file:// 로 열었습니다. 간단 서버 권장: python -m http.server 5173');
       }
-      // 간단한 구분점 문자 사용 (escape 이슈 회피)
       diagEl.textContent = hints.join(' · ');
     }
 
-    // 연결/헬스
+    // ✅ CHANGED: 입력칸 값으로 재설정하지 않고 고정된 API_BASE만 사용
     async function initHealth(){
       clearAlert(); diagnostics();
-
-      API_BASE = apiBaseEl.value.trim() || 'http://localhost:8000';
       apiBaseTextEl.textContent = API_BASE;
+      apiBaseEl.value = API_BASE; // 화면 표기만 동기화
       apiStatusEl.textContent = '연결 중…';
 
       try {
-        const j = await fetchJSON(`${API_BASE}/health`, { timeout: 5000 });
+        const j = await fetchJSON(`${API_BASE}/health`, { timeout: 12000 });
         NUM_COLS = j.num_cols || [];
         CAT_COLS = j.cat_cols || [];
 
-        // categories는 실패해도 폼은 그리게 처리
         try {
-          CATEGORY_OPTIONS = await fetchJSON(`${API_BASE}/categories`, { timeout: 5000 });
+          CATEGORY_OPTIONS = await fetchJSON(`${API_BASE}/categories`, { timeout: 12000 });
         } catch (e) {
           console.warn('categories fetch failed', e);
           CATEGORY_OPTIONS = {};
@@ -162,7 +155,7 @@
         showAlert('ok', '서버 연결 성공. 폼을 생성했습니다.');
       } catch (e) {
         apiStatusEl.textContent = '접속 실패';
-        showAlert('error', `서버에 연결할 수 없습니다. (Failed to fetch)\n- 서버(app.py) 실행/포트 확인\n- 방화벽/네트워크 제한\n- Mixed Content(https↔http) 여부\n\n상세: ${e.message}`);
+        showAlert('error', `서버에 연결할 수 없습니다. (Failed to fetch)\n상세: ${e.message}`);
       }
     }
 
@@ -170,7 +163,6 @@
       const form = document.getElementById('singleForm');
       form.innerHTML = '';
 
-      // 숫자 입력
       NUM_COLS.forEach(k => {
         const wrap = document.createElement('div');
         wrap.className = 'flex flex-col';
@@ -181,7 +173,6 @@
         form.appendChild(wrap);
       });
 
-      // 범주 입력: 드롭다운 우선, 후보 없으면 텍스트 입력으로 대체
       CAT_COLS.forEach(k => {
         const wrap = document.createElement('div');
         wrap.className = 'flex flex-col';
@@ -203,7 +194,6 @@
         form.appendChild(wrap);
       });
 
-      // 기본값 예시
       const defaults = {
         '전용면적': 66, '월세': 2500000, '보증금': 30000000,
         '시도': '서울특별시', '시군구': '강남구', '업종': '한식',
@@ -232,7 +222,7 @@
       try {
         const j = await fetchJSON(`${API_BASE}/predict`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload), timeout: 8000
+          body: JSON.stringify(payload), timeout: 12000
         });
         const el = document.getElementById('singleResult');
         if (j && typeof j['predicted_권리금'] !== 'undefined') {
@@ -244,7 +234,7 @@
           showAlert('warn', '예측은 수행되었지만 응답 형식이 예상과 다릅니다.');
         }
       } catch (e) {
-        showAlert('error', `예측 요청 실패 (Failed to fetch)\n서버 연결 상태 / CORS / Mixed Content를 확인하세요.\n상세: ${e.message}`);
+        showAlert('error', `예측 요청 실패 (Failed to fetch)\n상세: ${e.message}`);
       }
     }
 
@@ -254,13 +244,13 @@
       if (!f) { showAlert('warn', 'CSV 또는 XLSX 파일을 선택하세요.'); return; }
       const fd = new FormData(); fd.append('file', f);
       try {
-        const j = await fetchJSON(`${API_BASE}/batch_predict`, { method: 'POST', body: fd, timeout: 20000 });
+        const j = await fetchJSON(`${API_BASE}/batch_predict`, { method: 'POST', body: fd, timeout: 30000 });
         const rows = j.data || [];
         document.getElementById('batchInfo').textContent = `총 ${rows.length}건`;
         renderTable(rows); window.__batchRows = rows;
         showAlert('ok', '배치 예측 성공');
       } catch (e) {
-        showAlert('error', `배치 예측 요청 실패 (Failed to fetch)\n서버 연결 상태 / CORS / Mixed Content를 확인하세요.\n상세: ${e.message}`);
+        showAlert('error', `배치 예측 요청 실패 (Failed to fetch)\n상세: ${e.message}`);
       }
     }
 
@@ -292,10 +282,8 @@
       const a = document.createElement('a'); a.href = url; a.download = 'preds.csv'; a.click(); URL.revokeObjectURL(url);
     }
 
-    // 서버 확인용: 결측치 없는 미니 CSV를 생성해 업로드(서버 NaN JSON 직렬화 문제 추적용)
     async function batchPredictTest(){
       clearAlert();
-      // 모델이 기대하는 대표 컬럼 위주로 2행 테스트 데이터 생성 (빈값 없음)
       const cols = ['전용면적','월세','보증금','시도','시군구','업종','매장 타입','운영 상태','지하 여부','매매 가능 일정'];
       const rows = [
         [66,2500000,30000000,'서울특별시','강남구','한식','로드샵','운영중','지상','즉시'],
@@ -306,20 +294,16 @@
       const fd = new FormData();
       fd.append('file', new File([blob], 'test.csv', { type: 'text/csv' }));
       try {
-        const j = await fetchJSON(`${API_BASE}/batch_predict`, { method: 'POST', body: fd, timeout: 20000 });
+        const j = await fetchJSON(`${API_BASE}/batch_predict`, { method: 'POST', body: fd, timeout: 30000 });
         const data = j.data || [];
         document.getElementById('batchInfo').textContent = `테스트 응답 ${data.length}건`;
         renderTable(data); window.__batchRows = data;
-        showAlert('ok', '테스트 CSV 업로드/예측 성공 (서버 직렬화 정상 동작 확인)');
+        showAlert('ok', '테스트 CSV 업로드/예측 성공');
       } catch (e) {
         const msg = [
           '테스트 CSV 업로드도 실패했습니다.',
           '서버가 NaN/Inf 값을 JSON으로 직렬화하지 못할 수 있습니다.',
-          '권장 서버 패치:',
-          "- out = df.copy(); out['predicted_권리금'] = yhat;",
-          '- out = out.replace({np.nan: None, np.inf: None, -np.inf: None});',
-          '- from fastapi.encoders import jsonable_encoder',
-          '- return jsonable_encoder({...})',
+          '필요 시 서버에서 NaN/Inf → None 치환 후 응답하세요.',
           `상세: ${e.message}`
         ].join('\n');
         showAlert('error', msg);
@@ -334,8 +318,12 @@
     document.getElementById('btnDownload').addEventListener('click', downloadCSV);
     document.getElementById('btnBatchTest').addEventListener('click', batchPredictTest);
 
-    // 첫 진입 시 진단 + 연결 상태 표시
-    (function bootstrap(){ apiBaseTextEl.textContent = API_BASE; diagnostics(); })();
+    // 부트스트랩
+    (function bootstrap(){
+      apiBaseTextEl.textContent = API_BASE;
+      diagnostics();
+      apiBaseEl.value = API_BASE; // 화면 표기(읽기 전용)
+    })();
   </script>
 </body>
 </html>
