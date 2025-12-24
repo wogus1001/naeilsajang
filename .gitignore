@@ -15,6 +15,19 @@
 /web_backup_20251204/
 /__pycache__/
 /백업/
+/ERP/api/
+/ERP/백업/
+/ERP/__pycache__/
+/ERP/final_project/
+/ERP/match/
+/ERP/naeilsajang_matching_mvp/
+/ERP/src/
+/ERP/web_backup_20251204/
+/ERP/dist/
+/ERP/build/
+/ERP/debug/
+/ERP/artifacts/
+/ERP/user_profile/
 
 # Root files to ignore
 /*.js
