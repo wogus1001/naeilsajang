@@ -1,0 +1,46 @@
+# Root folders to ignore
+/.user_data_proposal/
+/.venv/
+/.venv311/
+/api/
+/artifacts/
+/build/
+/debug/
+/dist/
+/final_project/
+/match/
+/naeilsajang_matching_mvp/
+/src/
+/user_profile/
+/web_backup_20251204/
+/__pycache__/
+/백업/
+
+# Root files to ignore
+/*.js
+/*.ps1
+/*.csv
+/*.py
+/*.joblib
+/.antigravityrules
+
+# Global exclusions (apply to nested paths too)
+**/node_modules/
+**/.next/
+**/dist/
+**/build/
+**/__pycache__/
+**/.venv/
+**/.venv311/
+**.DS_Store
+**/*.pem
+**/npm-debug.log*
+
+# Backup and Large binaries
+**/web_backup_*/
+**/backups/
+**/*.zip
+**/*.exe
+**/*.pkg
+**/*.tar.gz
+**/*.7z
