@@ -1,0 +1,232 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2200;
+}
+
+.modal {
+    background: white;
+    width: 900px;
+    height: 600px;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #1c7ed6;
+}
+
+.header {
+    background: linear-gradient(to right, #e7f5ff, #f8f9fa);
+    padding: 6px 12px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #343a40;
+}
+
+.closeBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #868e96;
+}
+
+.toolbar {
+    padding: 8px;
+    background: #f1f3f5;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.searchGroup {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.label {
+    font-size: 12px;
+    font-weight: bold;
+    color: #495057;
+}
+
+.searchInput {
+    border: 1px solid #ced4da;
+    padding: 4px;
+    font-size: 12px;
+    width: 200px;
+}
+
+.btnSearch,
+.btnReset {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    border: 1px solid #ced4da;
+    background: white;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.tableContainer {
+    flex: 1;
+    overflow: auto;
+    background: white;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    table-layout: fixed;
+    /* Fixed layout for ellipsis */
+}
+
+.table th {
+    background: #f1f3f5;
+    border-bottom: 1px solid #ced4da;
+    border-right: 1px solid #dee2e6;
+    padding: 6px;
+    position: sticky;
+    top: 0;
+    text-align: center;
+    color: #495057;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+.table td {
+    border-bottom: 1px solid #f1f3f5;
+    border-right: 1px solid #dee2e6;
+    padding: 6px;
+    color: #343a40;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.addressCell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table tr:hover {
+    background: #e7f5ff;
+}
+
+.selectedRow {
+    background: #d0ebff !important;
+}
+
+.statusBadge {
+    padding: 2px 6px;
+    border-radius: 2px;
+    color: white;
+    font-size: 11px;
+    background: #868e96;
+    display: inline-block;
+    min-width: 40px;
+}
+
+.statusBadge[data-status="보류"] {
+    background: #f59f00;
+}
+
+.statusBadge[data-status="진행"] {
+    background: #228be6;
+}
+
+.statusBadge[data-status="완료"] {
+    background: #40c057;
+}
+
+.statusBadge[data-status="manage"] {
+    background: #15aabf;
+}
+
+.statusBadge[data-status="joint"] {
+    background: #be4bdb;
+}
+
+.footer {
+    padding: 8px 12px;
+    background: #d0ebff;
+    border-top: 1px solid #74c0fc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.footerLeft {
+    display: flex;
+    align-items: center;
+}
+
+.footerRight {
+    display: flex;
+    gap: 8px;
+}
+
+.btnSelect {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: white;
+    border: 1px solid #ced4da;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btnClose {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: white;
+    border: 1px solid #ced4da;
+    padding: 4px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #e03131;
+}
+
+/* Card Popup Styles */
+.cardOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2300;
+}
+
+.cardModal {
+    width: 900px;
+    height: 90vh;
+    /* Responsive height */
+    background: white;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}

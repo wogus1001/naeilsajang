@@ -1,0 +1,2 @@
+﻿start_time,end_time,total_sec,sec_per_epoch_avg,samples_per_sec,sec_per_1000_samples,epochs,tta_sec,target_mae,train_size
+2025-10-30T15:33:52.587864,2025-10-30T15:33:54.890075,2.3022131,0.23004492,16449.38950252,0.06079253,10,0.1331671,30000000,3787

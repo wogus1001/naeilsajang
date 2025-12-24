@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local Env Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Backups
+src_backup_current/
+web_backup_*/
+backups/
+
+# Python Virtual Environments
+.venv*
+venv/
+ENV/
+env/
+naeilsajang_matching_mvp/
+
+# Browser/User Data
+.user_data_proposal/
+user_profile/
+
+# Large Binaries
+*.zip
+*.exe
+*.pkg
+*.tar.gz
+*.7z
+

@@ -1,0 +1,12 @@
+{
+  "start_time": "2025-10-30T15:33:52.587864",
+  "end_time": "2025-10-30T15:33:54.890075",
+  "total_sec": 2.3022131,
+  "sec_per_epoch_avg": 0.23004492,
+  "samples_per_sec": 16449.38950252,
+  "sec_per_1000_samples": 0.06079253,
+  "epochs": 10,
+  "tta_sec": 0.1331671,
+  "target_mae": 30000000,
+  "train_size": 3787
+}
