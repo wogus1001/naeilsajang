@@ -1,0 +1,304 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 16px;
+    padding: 16px;
+    position: relative;
+    /* Ensure container is a positioning context */
+}
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f1f3f5;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+.title {
+    font-size: 16px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.searchGroup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.searchInput {
+    padding: 4px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 13px;
+    width: 200px;
+}
+
+.filterCheck {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    margin-right: 12px;
+}
+
+/* Grid Table */
+.tableContainer {
+    flex: 1;
+    overflow: auto;
+    border: 1px solid #dee2e6;
+    background: white;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: center;
+}
+
+.table th {
+    background: #FFEC99;
+    /* Yellow header from screenshot */
+    padding: 8px 4px;
+    border: 1px solid #dee2e6;
+    font-weight: bold;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table td {
+    border: 1px solid #dee2e6;
+    padding: 6px 4px;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    /* Prevent huge columns */
+}
+
+/* Row Hover */
+.tr:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+/* Status Badges */
+.badge {
+    color: white;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 11px;
+    display: inline-block;
+    min-width: 40px;
+    text-align: center;
+    /* Center the text */
+}
+
+.badgeProgress {
+    background-color: #FA5252;
+}
+
+.badgeManage {
+    background-color: #228BE6;
+}
+
+.badgeHold {
+    background-color: #FAB005;
+}
+
+.badgeCommon {
+    background-color: #BE4BDB;
+}
+
+.badgeComplete {
+    background-color: #40C057;
+}
+
+/* Class Badges (A급, B급) */
+.classBadge {
+    font-weight: bold;
+    color: #495057;
+}
+
+/* Footer */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #e9ecef;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.footerBtn {
+    border: 1px solid #ced4da;
+    background: white;
+    padding: 2px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.footerBtn:hover {
+    background: #f1f3f5;
+}
+
+.primaryBtn {
+    background: #e7f5ff;
+    color: #1971c2;
+    border-color: #1971c2;
+}
+
+.iconUser {
+    color: #e03131;
+    /* Pink user icon */
+}
+
+/* Modal Styles */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modalContent {
+    width: 90%;
+    max-width: 1200px;
+    height: 90vh;
+    background-color: #fff;
+    border-radius: 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.closeBtn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #868e96;
+    z-index: 10;
+}
+
+/* Drawer Styles */
+.drawerOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 2000;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.drawerContent {
+    min-width: 400px;
+    height: 100%;
+    background-color: #fff;
+    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.3s ease-out;
+}
+
+.drawerResizer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: ew-resize;
+    background: transparent;
+    z-index: 10;
+    transition: background 0.2s;
+}
+
+.drawerResizer:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+/* Favorite Filter */
+.activeFavorite {
+    /* Color handled inline or via child elements */
+}
+
+.checkboxSquare {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #adb5bd;
+    border-radius: 2px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.checkboxInner {
+    width: 10px;
+    height: 10px;
+    background: #FAB005;
+    border-radius: 1px;
+}
+
+/* Status Filter Buttons */
+.statusFilterBtn {
+    cursor: pointer;
+    opacity: 0.4;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 2px 6px;
+    /* Added horizontal padding */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Center the content */
+    gap: 4px;
+    /* Space between checkbox and text */
+}
+
+.statusFilterBtn:hover {
+    opacity: 0.7;
+}
+
+.statusFilterBtn.active {
+    opacity: 1;
+    transform: scale(1.05);
+    /* box-shadow: 0 1px 2px rgba(0,0,0,0.1); */
+}
