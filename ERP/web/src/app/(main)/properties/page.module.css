@@ -3,6 +3,9 @@
     flex-direction: column;
     height: 100%;
     gap: 24px;
+    max-width: 100%;
+    overflow: hidden;
+    /* Prevent page-level horizontal scroll */
 }
 
 /* Toolbar */
@@ -311,24 +314,32 @@
     color: var(--text-sub);
 }
 
+.gridWrapper {
+    width: fit-content;
+    background: transparent;
+}
+
 /* Grid & Table Styles (Preserved) */
 .gridContainer {
-    background-color: var(--bg-white);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    background-color: #f1f3f5 !important;
     overflow: auto;
     flex: 1;
     min-height: 0;
+    width: 100%;
 }
 
 .table {
-    border-collapse: separate;
+    border-collapse: collapse;
     border-spacing: 0;
     font-size: 14px;
     table-layout: fixed;
+    background: #fff;
+    width: max-content;
+    /* Fallback */
 }
 
 .table th {
+    box-sizing: border-box;
     padding: 16px;
     text-align: left;
     color: var(--text-sub);
@@ -339,10 +350,12 @@
     position: sticky;
     top: 0;
     background: #fff;
+    /* Changed from inherit to ensure white background on sticky headers */
     z-index: 5;
 }
 
 .table td {
+    box-sizing: border-box;
     padding: 16px;
     border-bottom: 1px solid hsl(var(--border));
     border-right: 1px solid hsl(var(--border));
@@ -351,7 +364,32 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    background: #fff;
+    background: inherit;
+}
+
+.checkboxCell {
+    padding: 0 !important;
+    width: 40px;
+}
+
+.checkboxLabel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 48px;
+    /* Ensure a decent click area even if row is short */
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.checkboxLabel:hover {
+    background-color: #f8f9fa;
+}
+
+.selectedRow .checkboxLabel:hover {
+    background-color: rgba(34, 139, 230, 0.1);
 }
 
 .table th:last-child,
@@ -676,6 +714,7 @@
         transform: translateX(0);
     }
 }
+
 /* Sort Modal Styles */
 .sortDivider {
     width: 1px;
@@ -761,4 +800,3 @@
     background-color: var(--bg-gray);
     color: var(--text-main);
 }
-

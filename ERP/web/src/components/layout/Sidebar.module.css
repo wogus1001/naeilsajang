@@ -5,11 +5,12 @@
     border-right: 1px solid hsl(var(--border));
     display: flex;
     flex-direction: column;
-    position: fixed;
-    left: 0;
-    top: 0;
+    position: relative;
+    /* Anchor for toggleBtn */
     z-index: 100;
     transition: width 0.3s ease;
+    flex-shrink: 0;
+    /* Prevent sidebar from shrinking */
 }
 
 .sidebar.collapsed {
@@ -63,11 +64,12 @@
 
 .contentContainer {
     width: 240px;
-    /* Fixed width content to prevent layout shifts during collapse */
     height: 100%;
     display: flex;
     flex-direction: column;
     transition: opacity 0.2s ease;
+    overflow: hidden;
+    /* Prevent child overflow during collapse/expand */
 }
 
 .logoIcon {
@@ -78,6 +80,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .gridIcon {
@@ -101,10 +104,13 @@
     font-weight: 700;
     font-size: 18px;
     color: #000;
+    white-space: nowrap;
 }
 
 .searchWrapper {
     padding: 16px 20px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .searchInput {
@@ -115,6 +121,8 @@
     border-radius: 20px;
     font-size: 14px;
     outline: none;
+    box-sizing: border-box;
+    /* Crucial to prevent overflow with 100% width */
 }
 
 .nav {

@@ -264,7 +264,7 @@ export default function PropertiesPage() {
 
     // Column Reordering State
     const [columnOrder, setColumnOrder] = useState<string[]>([
-        'no', 'isFavorite', 'processStatus', 'grade', 'name', 'address', 'status', 'type', 'industryDetail', 'features', 'floor', 'area',
+        'no', 'isFavorite', 'processStatus', 'grade', 'name', 'address', 'status', 'type', 'industryDetail', 'operationType', 'features', 'floor', 'area',
         'deposit', 'monthlyRent', 'premium', 'totalPrice', 'monthlyProfit', 'monthlyRevenue', 'yield',
         'manager', 'createdAt', 'updatedAt'
     ]);
@@ -519,11 +519,13 @@ export default function PropertiesPage() {
 
     // Selection Handlers
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newSelected = new Set(selectedIds);
         if (e.target.checked) {
-            setSelectedIds(new Set(properties.map(p => p.id)));
+            paginatedProperties.forEach(p => newSelected.add(p.id));
         } else {
-            setSelectedIds(new Set());
+            paginatedProperties.forEach(p => newSelected.delete(p.id));
         }
+        setSelectedIds(newSelected);
     };
 
     const handleSelectRow = (id: string, checked: boolean) => {
@@ -1240,7 +1242,10 @@ export default function PropertiesPage() {
         return labels[column] || column;
     };
 
-    const totalWidth = Array.from(visibleColumns).reduce((acc, col) => acc + (columnWidths[col] || 0), 0) + 40; // Sum of visible columns + Checkbox(40)
+    // Calculate total width based on RENDERED columns only to prevent ghost space
+    const renderedColumns = columnOrder.filter(col => visibleColumns.has(col));
+    const tableWidth = 40 + renderedColumns.reduce((acc, col) => acc + (columnWidths[col] || 100), 0) + (renderedColumns.length * 2);
+    const totalWidth = tableWidth; // Keep totalWidth for compatibility if used elsewhere
 
     return (
         <div className={styles.container}>
@@ -2111,83 +2116,88 @@ export default function PropertiesPage() {
 
 
             {/* Data Grid */}
-            < div className={styles.gridContainer} >
-                <table className={styles.table} style={{ minWidth: '100%', width: totalWidth }}>
-                    <thead>
-                        <tr>
-                            <th style={{ width: '40px', textAlign: 'center', position: 'sticky', left: 0, zIndex: 10 }}>
-                                <input
-                                    type="checkbox"
-                                    checked={paginatedProperties.length > 0 && selectedIds.size === paginatedProperties.length}
-                                    onChange={handleSelectAll}
-                                />
-                            </th>
-                            {columnOrder.map(column => {
-                                if (!visibleColumns.has(column)) return null;
-                                const isSortable = ['name', 'area', 'deposit', 'monthlyRent', 'premium', 'totalPrice', 'createdAt'].includes(column);
-                                return (
-                                    <th
-                                        key={column}
-                                        style={{ width: columnWidths[column], cursor: 'move' }}
-                                        className={column === 'grade' ? styles.cellCompact : (isSortable ? styles.sortableHeader : '')}
-                                        onClick={() => isSortable && handleSort(column as SortKey)}
-                                        draggable
-                                        onDragStart={(e) => handleColumnDragStart(e, column)}
-                                        onDragOver={(e) => handleColumnDragOver(e, column)}
-                                        onDrop={(e) => handleColumnDrop(e, column)}
-                                    >
-                                        <div className={styles.headerContent} style={column === 'grade' || column === 'no' || column === 'isFavorite' ? { justifyContent: 'center' } : {}}>
-                                            {getHeaderLabel(column)}
-                                            {isSortable && sortRules.length > 0 && sortRules[0].key === column && (sortRules[0].direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
-                                        </div>
-                                        <Resizer onResize={(e) => handleMouseDown(e, column)} onAutoFit={() => handleAutoFit(column)} />
-                                    </th>
-                                );
-                            })}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {isLoading ? (
+            <div className={styles.gridContainer}>
+                <div className={styles.gridWrapper} style={{ width: tableWidth }}>
+                    <table className={styles.table} style={{ width: tableWidth, tableLayout: 'fixed' }}>
+                        <thead>
                             <tr>
-                                <td colSpan={visibleColumns.size + 1} style={{ textAlign: 'center', padding: '40px', color: '#666' }}>데이터를 불러오는 중...</td>
+                                <th className={styles.checkboxCell} style={{ textAlign: 'center', position: 'sticky', left: 0, zIndex: 10 }}>
+                                    <label className={styles.checkboxLabel}>
+                                        <input
+                                            type="checkbox"
+                                            checked={paginatedProperties.length > 0 && paginatedProperties.every(p => selectedIds.has(p.id))}
+                                            onChange={handleSelectAll}
+                                        />
+                                    </label>
+                                </th>
+                                {columnOrder.map(column => {
+                                    if (!visibleColumns.has(column)) return null;
+                                    const isSortable = ['name', 'area', 'deposit', 'monthlyRent', 'premium', 'totalPrice', 'createdAt'].includes(column);
+                                    return (
+                                        <th
+                                            key={column}
+                                            style={{ width: columnWidths[column] || 100, cursor: 'move' }}
+                                            className={column === 'grade' ? styles.cellCompact : (isSortable ? styles.sortableHeader : '')}
+                                            onClick={() => isSortable && handleSort(column as SortKey)}
+                                            draggable
+                                            onDragStart={(e) => handleColumnDragStart(e, column)}
+                                            onDragOver={(e) => handleColumnDragOver(e, column)}
+                                            onDrop={(e) => handleColumnDrop(e, column)}
+                                        >
+                                            <div className={styles.headerContent} style={column === 'grade' || column === 'no' || column === 'isFavorite' ? { justifyContent: 'center' } : {}}>
+                                                {getHeaderLabel(column)}
+                                                {isSortable && sortRules.length > 0 && sortRules[0].key === column && (sortRules[0].direction === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+                                            </div>
+                                            <Resizer onResize={(e) => handleMouseDown(e, column)} onAutoFit={() => handleAutoFit(column)} />
+                                        </th>
+                                    );
+                                })}
                             </tr>
-                        ) : paginatedProperties.length === 0 ? (
-                            <tr>
-                                <td colSpan={visibleColumns.size + 1} style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                                    {searchTerm || statusFilter.length > 0 ? "검색 결과가 없습니다." : "등록된 매물이 없습니다."}
-                                </td>
-                            </tr>
-                        ) : (
-                            paginatedProperties.map((item, index) => (
-                                <tr
-                                    key={item.id}
-                                    onClick={() => handleRowClick(item.id)}
-                                    style={{ cursor: 'pointer' }}
-                                    className={`${styles.tableRow} ${selectedIds.has(item.id) ? styles.selectedRow : ''}`}
-                                >
-                                    <td
-                                        onClick={(e) => e.stopPropagation()}
-                                        style={{ textAlign: 'center', position: 'sticky', left: 0, background: 'inherit', zIndex: 1, padding: 0 }}
-                                    >
-                                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.has(item.id)}
-                                                onChange={(e) => handleSelectRow(item.id, e.target.checked)}
-                                            />
-                                        </div>
-                                    </td>
-                                    {columnOrder.map(column => visibleColumns.has(column) ? (
-                                        <React.Fragment key={column}>
-                                            {renderCell(item, column, index)}
-                                        </React.Fragment>
-                                    ) : null)}
+                        </thead>
+                        <tbody>
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={visibleColumns.size + 1} style={{ textAlign: 'center', padding: '40px', color: '#666' }}>데이터를 불러오는 중...</td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div >
+                            ) : paginatedProperties.length === 0 ? (
+                                <tr>
+                                    <td colSpan={visibleColumns.size + 1} style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+                                        {searchTerm || statusFilter.length > 0 ? "검색 결과가 없습니다." : "등록된 매물이 없습니다."}
+                                    </td>
+                                </tr>
+                            ) : (
+                                paginatedProperties.map((item, index) => (
+                                    <tr
+                                        key={item.id}
+                                        onClick={() => handleRowClick(item.id)}
+                                        style={{ cursor: 'pointer' }}
+                                        className={`${styles.tableRow} ${selectedIds.has(item.id) ? styles.selectedRow : ''}`}
+                                    >
+                                        <td
+                                            className={styles.checkboxCell}
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{ textAlign: 'center', position: 'sticky', left: 0, background: '#fff', zIndex: 1 }}
+                                        >
+                                            <label className={styles.checkboxLabel}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(item.id)}
+                                                    onChange={(e) => handleSelectRow(item.id, e.target.checked)}
+                                                />
+                                            </label>
+                                        </td>
+                                        {columnOrder.map(column => visibleColumns.has(column) ? (
+                                            <React.Fragment key={column}>
+                                                {renderCell(item, column, index)}
+                                            </React.Fragment>
+                                        ) : null)}
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             {/* Footer & Pagination */}
             < div className={styles.footer} >

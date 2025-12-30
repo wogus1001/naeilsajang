@@ -3051,5 +3051,19 @@
     "userId": "admin",
     "companyName": "내일",
     "createdAt": "2025-12-24T05:09:11.360Z"
+  },
+  {
+    "id": "1766567256683",
+    "title": "[금액변동] [[테스트] 강남 한식 매물 1] · (8,000 만원)",
+    "date": "2025-12-24",
+    "scope": "work",
+    "status": "completed",
+    "type": "price_change",
+    "color": "#fd7e14",
+    "details": "자동 생성된 내역입니다.",
+    "propertyId": "17654157413210",
+    "userId": "admin",
+    "companyName": "내일",
+    "createdAt": "2025-12-24T09:07:36.683Z"
   }
 ]
