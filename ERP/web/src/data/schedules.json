@@ -3234,5 +3234,19 @@
     "userId": "test1",
     "scope": "work",
     "createdAt": "2025-12-31T03:14:50.658Z"
+  },
+  {
+    "id": "1767158659134",
+    "title": "[신규] [testetst] · (0 만원)",
+    "date": "2025-12-31",
+    "scope": "work",
+    "status": "progress",
+    "type": "work",
+    "color": "#7950f2",
+    "details": "자동 생성된 내역입니다.",
+    "propertyId": "1767158658777",
+    "userId": "test1",
+    "companyName": "내일",
+    "createdAt": "2025-12-31T05:24:19.134Z"
   }
 ]

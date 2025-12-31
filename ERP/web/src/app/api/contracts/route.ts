@@ -1,93 +1,147 @@
 import { NextResponse } from 'next/server';
 import { getContracts, uCanSignClient } from '@/lib/ucansign/client';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+// Service Role Client
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
+
+async function resolveUserId(legacyId: string) {
+    if (!legacyId) return null;
+    const email = `${legacyId}@example.com`;
+    const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
+    if (u) return u.id;
+    // fallback for admin if email is different?
+    if (legacyId === 'admin') {
+        const { data: a } = await supabaseAdmin.from('profiles').select('id').ilike('email', 'admin%').limit(1).single();
+        return a?.id;
+    }
+    return null;
+}
+
+// Transform DB -> Frontend
+function transformContract(row: any) {
+    if (!row) return null;
+    const { data, ...core } = row;
+    return {
+        ...data,
+        ...core,
+        // Ensure critical fields
+        id: core.id,
+        status: core.status,
+        name: core.name,
+        propertyId: core.property_id,
+        createdAt: core.created_at
+    };
+}
 
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const userId = searchParams.get('userId');
+        const userId = searchParams.get('userId'); // Legacy 'admin'
 
         if (!userId) {
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
         }
 
         const status = searchParams.get('status');
+        const userUuid = await resolveUserId(userId);
 
-        // If status is specific, fetch that. Otherwise fetch both ongoing and completed.
-        let contracts: any[] = [];
-
-        // Hybrid Approach: Fetch from API List AND Local Store (Detail Fetch)
-
-        // 1. Fetch from API List
-        console.log(`[API] Fetching contracts with status: ${status || 'ALL'}`);
-        const apiContracts = await getContracts(userId, status || undefined) || [];
-        console.log(`[API] Fetched ${apiContracts.length} contracts.`);
-
-        // 2. Fetch from Local Store
-        const filePath = path.join(process.cwd(), 'src/data/contracts.json');
-
-        let localContracts: any[] = [];
-        if (fs.existsSync(filePath)) {
-            const fileData = fs.readFileSync(filePath, 'utf8');
-            try {
-                const allLocal = JSON.parse(fileData);
-                // Filter by user
-                const userLocal = allLocal.filter((c: any) => c.userId === userId);
-
-                // Fetch fresh status for each local contract
-                // Can use getTemplate or getDocument? getTemplate is for templates.
-                // We need a getDocument function. client.ts has getContracts (list).
-                // We need to add getDocument(userId, docId) to client.ts or just call uCanSignClient directly here?
-                // Better to add getDocument to client. We'll assume it exists or use uCanSignClient.
-
-                // Actually, let's use uCanSignClient import
-
-                localContracts = await Promise.all(userLocal.map(async (c: any) => {
-                    try {
-                        const detail = await uCanSignClient(userId, `/documents/${c.ucansignId}`);
-                        if (detail?.result) {
-                            return {
-                                ...detail.result,
-                                id: detail.result.documentId,
-                                documentName: detail.result.name, // Normalise
-                                // Keep local valid if remote fails? No, remote is truth.
-                            };
-                        }
-                        return c; // Fallback to local data if fetch fails
-                    } catch (e) {
-                        return c;
-                    }
-                }));
-
-            } catch (e) { console.error("Local read error", e); }
+        // 1. Fetch from External API (Source of Truth for Status)
+        console.log(`[API] Fetching contracts from uCanSign for ${userId}`);
+        let apiContracts: any[] = [];
+        try {
+            apiContracts = await getContracts(userId, status || undefined) || [];
+        } catch (e: any) {
+            console.error('External API List Error:', e.message);
+            // If error is related to Auth, re-throw to trigger NEED_AUTH response
+            const msg = e.message || '';
+            if (
+                msg.includes('Unauthorized') ||
+                msg.includes('reconnect') ||
+                msg.includes('Token') ||
+                msg.includes('connected') // "User is not connected to UCanSign"
+            ) {
+                throw e;
+            }
+            // Proceed with DB only if External fails for other reasons (network, etc)
         }
 
-        // 3. Merge and Dedup
+        // 2. Fetch from DB
+        let dbContracts: any[] = [];
+        if (userUuid) {
+            const { data, error } = await supabaseAdmin
+                .from('contracts')
+                .select('*')
+                .eq('user_id', userUuid);
+
+            if (!error && data) {
+                dbContracts = data.map(transformContract);
+            }
+        }
+
+        // 3. Sync & Refresh DB Statuses
+        // Iterate DB contracts. If `ucansignId` exists, fetch fresh detail from External.
+        // If status changed, update DB.
+        const refreshedDbContracts = await Promise.all(dbContracts.map(async (c) => {
+            if (c.ucansignId) {
+                try {
+                    const detail = await uCanSignClient(userId, `/documents/${c.ucansignId}`);
+                    if (detail?.result) {
+                        const freshStatus = detail.result.status;
+                        const freshName = detail.result.name;
+
+                        // Check for update
+                        if (c.status !== freshStatus || c.name !== freshName) {
+                            console.log(`Syncing Contract ${c.id}: ${c.status} -> ${freshStatus}`);
+                            await supabaseAdmin
+                                .from('contracts')
+                                .update({
+                                    status: freshStatus,
+                                    name: freshName,
+                                    updated_at: new Date().toISOString()
+                                })
+                                .eq('id', c.id);
+
+                            return { ...c, status: freshStatus, name: freshName, documentName: freshName };
+                        }
+                        return { ...c, documentName: freshName };
+                    }
+                } catch (e) {
+                    console.error(`Failed to refresh contract ${c.id}`, e);
+                }
+            }
+            return c;
+        }));
+
+        // 4. Merge
         const map = new Map();
+        // Add External first
         apiContracts.forEach(c => map.set(c.id, c));
-        localContracts.forEach(c => map.set(c.id, c)); // Local (refreshed) overwrites API list if duplicate
+        // Overwrite with DB (contains propertyId and synced status)
+        refreshedDbContracts.forEach(c => map.set(c.id, { ...map.get(c.id), ...c }));
 
-        contracts = Array.from(map.values());
-
-        // DEBUG: Log statuses
-        contracts.forEach((c: any) => {
-            console.log(`Contract Debug [${c.id}]: Status='${c.status}', Name='${c.documentName}'`);
-        });
+        const mergedContracts = Array.from(map.values());
 
         // Sort
-        contracts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        mergedContracts.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-        return NextResponse.json({ contracts });
+        return NextResponse.json({ contracts: mergedContracts });
+
     } catch (error: any) {
-        console.error('API Error:', error);
-
-        // Check for auth-related errors to trigger re-login UI
+        console.error('Contracts API Error:', error);
         const errMsg = error.message?.toLowerCase() || '';
-        if (errMsg.includes('unauthorized') || errMsg.includes('reconnect') || errMsg.includes('token') || errMsg.includes('not connected')) {
+        if (errMsg.includes('unauthorized') || errMsg.includes('reconnect') || errMsg.includes('token') || errMsg.includes('connected')) {
             return NextResponse.json({ code: 'NEED_AUTH', error: 'Authentication required' }, { status: 401 });
         }
-
-        return NextResponse.json({ error: error.message || 'Failed to fetch contracts' }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to fetch contracts' }, { status: 500 });
     }
 }

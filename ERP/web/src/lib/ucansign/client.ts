@@ -1,85 +1,109 @@
 
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
 export const UCANSIGN_BASE_URL = process.env.UCANSIGN_BASE_URL || 'https://app.ucansign.com/openapi';
-// Force rebuild
+
+// Service Role Client (for backend token management)
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
 
 interface RequestOptions extends RequestInit {
     headers?: Record<string, string>;
 }
 
 // Helper to update token in DB
-const updateTokenInDB = (userId: string, authResult: any) => {
+const updateTokenInDB = async (userId: string, authResult: any) => {
     try {
-        const filePath = path.join(process.cwd(), 'src/data/users.json');
-        if (!fs.existsSync(filePath)) return;
+        const { error } = await supabaseAdmin.from('profiles').update({
+            ucansign_access_token: authResult.accessToken,
+            ucansign_refresh_token: authResult.refreshToken, // Maintain if new one not provided? uCanSign usually rotates.
+            ucansign_expires_at: Date.now() + (29 * 60 * 1000)
+        }).eq('id', userId);
 
-        const users = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        const userIndex = users.findIndex((u: any) => u.id === userId);
-
-        if (userIndex !== -1) {
-            users[userIndex].ucansign = {
-                ...users[userIndex].ucansign,
-                accessToken: authResult.accessToken,
-                refreshToken: authResult.refreshToken || users[userIndex].ucansign.refreshToken, // Maintain refresh token if not returned
-                // Update expiry (30 mins from now)
-                expiresAt: Date.now() + (29 * 60 * 1000)
-            };
-            fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
-        }
+        if (error) console.error('Failed to update token in Supabase:', error);
     } catch (e) {
         console.error('Failed to update token in DB:', e);
     }
 };
 
+// Helper to disconnect user (clear tokens)
+const disconnectUserInDB = async (userId: string) => {
+    try {
+        const { error } = await supabaseAdmin.from('profiles').update({
+            ucansign_access_token: null,
+            ucansign_refresh_token: null,
+            ucansign_expires_at: null
+        }).eq('id', userId);
+        if (error) console.error('Failed to disconnect user in Supabase:', error);
+    } catch (e) {
+        console.error('Failed to disconnect user in DB:', e);
+    }
+};
+
 const getUserToken = async (userId: string, forceRefresh = false): Promise<string> => {
-    // 1. Read User Data
-    const filePath = path.join(process.cwd(), 'src/data/users.json');
-    if (!fs.existsSync(filePath)) throw new Error('User DB not found');
+    // 1. Read User Data from Supabase
+    const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('ucansign_access_token, ucansign_refresh_token, ucansign_expires_at')
+        .eq('id', userId)
+        .single();
 
-    const users = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const user = users.find((u: any) => u.id === userId);
-
-    if (!user || !user.ucansign || !user.ucansign.accessToken) {
+    if (error || !profile || !profile.ucansign_access_token) {
         throw new Error('User is not connected to UCanSign');
     }
 
-    const { accessToken, refreshToken, expiresAt } = user.ucansign;
+    const { ucansign_access_token: accessToken, ucansign_refresh_token: refreshToken, ucansign_expires_at: expiresAt } = profile;
 
     // 2. Check Expiry (with 2 min buffer) OR Force Refresh
-    if (!forceRefresh && Date.now() < expiresAt - 120000) {
+    // expiresAt is bigint/number
+    if (!forceRefresh && Date.now() < Number(expiresAt) - 120000) {
         return accessToken;
     }
 
     // 3. Refresh Token
     console.log(`Refreshing token for user ${userId} (Force: ${forceRefresh})...`);
     try {
+        const payload: any = {
+            grantType: 'refresh',
+            clientId: process.env.UCANSIGN_CLIENT_ID,
+            clientSecret: process.env.UCANSIGN_CLIENT_SECRET,
+            accessToken: accessToken,
+        };
+        if (refreshToken) payload.refreshToken = refreshToken;
+
         const response = await fetch(`${UCANSIGN_BASE_URL}/user/oauth/auth`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                grantType: 'refresh',
-                clientId: process.env.UCANSIGN_CLIENT_ID,
-                clientSecret: process.env.UCANSIGN_CLIENT_SECRET,
-                accessToken: accessToken,
-                refreshToken: refreshToken
-            }),
+            body: JSON.stringify(payload),
         });
 
         const data = await response.json();
 
         if (data.msg?.toLowerCase() === 'success' && data.result?.accessToken) {
             // Success - Update DB
-            updateTokenInDB(userId, data.result);
+            await updateTokenInDB(userId, data.result);
             return data.result.accessToken;
         } else {
             console.error('Refresh Failed:', data);
+            // If refresh fails, disconnect the user to prevent stuck state
+            await disconnectUserInDB(userId);
             throw new Error('Failed to refresh token. Please reconnect UCanSign.');
         }
 
     } catch (e) {
         console.error('Refresh Error:', e);
+        // If critical network error or other, we might not want to disconnect immediately, but for now assuming auth failure is likely
+        if (e instanceof Error && e.message.includes('reconnect')) {
+            throw e; // Already disconnected above
+        }
         throw e;
     }
 };

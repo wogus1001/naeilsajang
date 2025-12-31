@@ -28,9 +28,16 @@ export default function NoticeListPage() {
         try {
             const res = await fetch(`/api/notices?companyName=${encodeURIComponent(companyName || '')}`);
             const data = await res.json();
-            setNotices(data);
+
+            if (Array.isArray(data)) {
+                setNotices(data);
+            } else {
+                console.error('API returned non-array:', data);
+                setNotices([]);
+            }
         } catch (error) {
             console.error('Failed to fetch notices:', error);
+            setNotices([]);
         } finally {
             setLoading(false);
         }

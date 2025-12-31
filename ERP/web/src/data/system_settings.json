@@ -2,7 +2,7 @@
   "announcement": {
     "message": "123",
     "level": "warning",
-    "active": true
+    "active": false
   },
   "features": {
     "electronicContracts": true,

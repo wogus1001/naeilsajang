@@ -1,88 +1,110 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
-const DATA_FILE = path.join(process.cwd(), 'src/data/notices.json');
+// Use Service Role to bypass RLS during hybrid migration
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
 
-const getNotices = () => {
-    if (!fs.existsSync(DATA_FILE)) return [];
-    const fileContent = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(fileContent);
-};
-
-const saveNotices = (notices: any[]) => {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(notices, null, 2), 'utf8');
-};
-
+// GET: Fetch notices (System + Team)
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const companyName = searchParams.get('companyName');
         const limit = searchParams.get('limit');
-        const id = searchParams.get('id'); // Optional: fetch single notice by ID in list API or separate? Let's use separate route for Clean URL properly, but this can serve filtering.
 
-        const notices = getNotices();
-
-        let filteredNotices = notices;
-
-        // Filter valid notices for this user
+        // 1. Resolve Company ID if needed
+        let companyId = null;
         if (companyName) {
-            // Include SYSTEM notices AND TEAM notices for this company
-            filteredNotices = notices.filter((n: any) =>
-                n.type === 'system' || (n.type === 'team' && n.companyName === companyName)
-            );
-        } else {
-            // If no company name provided, maybe just return system notices? Or all? 
-            // For now, return system notices only to be safe, unless user is admin?
-            // Let's assume dashboard might call without company if generic.
-            // But usually we pass companyName.
-            filteredNotices = notices.filter((n: any) => n.type === 'system');
+            const { data: company } = await supabaseAdmin.from('companies').select('id').eq('name', companyName).single();
+            if (company) companyId = company.id;
         }
 
-        // Sort by isPinned desc, then date desc
-        filteredNotices.sort((a: any, b: any) => {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        });
+        // 2. Build Query
+        let query = supabaseAdmin
+            .from('notices')
+            .select(`
+                *,
+                author:profiles!author_id(name, role)
+            `)
+            .order('is_pinned', { ascending: false })
+            .order('created_at', { ascending: false });
+
+        if (companyId) {
+            // (type = 'system' AND company_id IS NULL) OR (company_id = :companyId)
+            // Supabase 'or' syntax: "condition1,condition2"
+            query = query.or(`company_id.is.null,company_id.eq.${companyId}`);
+        } else {
+            // If no company context, only show system notices
+            query = query.is('company_id', null);
+        }
 
         if (limit) {
-            filteredNotices = filteredNotices.slice(0, parseInt(limit));
+            query = query.limit(parseInt(limit));
         }
 
-        return NextResponse.json(filteredNotices);
+        const { data: notices, error } = await query;
+
+        if (error) throw error;
+
+        // Transform for frontend compatibility if needed
+        // (Date format, author info structure, etc.)
+        const formatted = notices.map(n => ({
+            ...n,
+            createdAt: new Date(n.created_at).toLocaleDateString().replace(/-/g, '.'), // Keep YYYY.MM.DD
+            authorName: n.author?.name || '관리자', // Join profile name
+            authorRole: n.author?.role || 'admin',
+            // isPinned is snake_case in DB, camelCase in frontend? map if needed
+            isPinned: n.is_pinned
+        }));
+
+        return NextResponse.json(formatted);
     } catch (error) {
         console.error('Fetch notices error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
+// POST: Create Notice
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { title, content, type, authorName, authorRole, companyName, authorId, isPinned } = body;
+        const { title, content, type, authorId, companyName, isPinned } = body;
 
-        if (!title || !content || !type || !authorName) {
-            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+        // Resolve IDs
+        // Author
+        const email = `${authorId}@example.com`;
+        const { data: author } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
+        if (!author) return NextResponse.json({ error: 'Author not found' }, { status: 400 });
+
+        // Company
+        let companyUuid = null;
+        if (type === 'team' && companyName) {
+            const { data: company } = await supabaseAdmin.from('companies').select('id').eq('name', companyName).single();
+            if (company) companyUuid = company.id;
         }
 
-        const notices = getNotices();
-        const newNotice = {
-            id: `notice_${Date.now()}`,
-            title,
-            content,
-            type, // 'system' or 'team'
-            authorName,
-            authorRole,
-            authorId,
-            companyName: type === 'team' ? companyName : undefined,
-            isPinned: isPinned || false,
-            createdAt: new Date().toISOString().split('T')[0].replace(/-/g, '.'), // YYYY.MM.DD format
-            views: 0
-        };
+        const { data: newNotice, error } = await supabaseAdmin
+            .from('notices')
+            .insert({
+                title,
+                content,
+                type,
+                author_id: author.id,
+                company_id: companyUuid,
+                is_pinned: isPinned || false
+            })
+            .select()
+            .single();
 
-        notices.unshift(newNotice);
-        saveNotices(notices);
+        if (error) throw error;
 
         return NextResponse.json(newNotice);
     } catch (error) {

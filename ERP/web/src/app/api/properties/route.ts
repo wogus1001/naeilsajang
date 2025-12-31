@@ -1,128 +1,223 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
-const dataFilePath = path.join(process.cwd(), 'src/data/properties.json');
+// Service Role Client for Hybrid Migration
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
 
-// Helper to read data
-function getProperties() {
-    if (!fs.existsSync(dataFilePath)) {
-        return [];
+// Helper Query: Resolve Company/User UUIDs
+async function resolveIds(legacyCompany: string, legacyManager: string) {
+    let companyId = null;
+    let managerId = null;
+
+    if (legacyCompany) {
+        const { data: c } = await supabaseAdmin.from('companies').select('id').eq('name', legacyCompany).single();
+        if (c) companyId = c.id;
     }
-    const fileData = fs.readFileSync(dataFilePath, 'utf8');
-    try {
-        return JSON.parse(fileData);
-    } catch (error) {
-        return [];
+
+    if (legacyManager) {
+        const email = `${legacyManager}@example.com`;
+        const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
+        if (u) managerId = u.id;
+        // Also fallback: if manager found but no company yet, maybe infer company?
     }
+
+    return { companyId, managerId };
 }
 
-// Helper to write data
-function saveProperties(properties: any[]) {
-    fs.writeFileSync(dataFilePath, JSON.stringify(properties, null, 2));
+// Helper: Transform DB Row -> Frontend Object
+function transformProperty(row: any) {
+    if (!row) return null;
+    const { data, ...core } = row;
+    // CamelCase conversion for core fields if needed?
+    // DB: status, operation_type, is_favorite, address, name
+    // Frontend expects: status, operationType, isFavorite, address, name
+    // We must map snake_case core cols back to camelCase if frontend expects camelCase.
+    // Based on `properties.json`: operationType, isFavorite are used.
+
+    return {
+        ...data, // Spread JSONB first (defaults)
+        ...core, // Overwrite with Core columns (validated)
+        // Manual map for snake_case -> camelCase override
+        operationType: core.operation_type,
+        isFavorite: core.is_favorite,
+        companyId: core.company_id,
+        managerId: row.manager_id, // keep snake? No, frontend likely uses `managerId`.
+        // We need to fetch manager Legacy ID? Or just use what's in `data` if preserved? 
+        // The migration script put everything remaining into `data`.
+        // So `managerId` (legacy string) is likely inside `data` if we didn't filter it out?
+        // Wait, splitData removed 'managerId' from data.
+        // So we might lose the legacy "test1" string if we only return UUID.
+        // Frontend might display manager Name.
+        // For now, let's trust the `data` blob or better yet, generic object spread.
+        createdAt: core.created_at,
+        updatedAt: core.updated_at
+    };
 }
 
+// GET
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const company = searchParams.get('company'); // New: company filter
-    let properties = getProperties(); // Changed to let for filtering
+    const company = searchParams.get('company');
 
-    if (id) {
-        const property = properties.find((p: any) => String(p.id) === String(id));
-        if (property) {
-            return NextResponse.json(property);
-        } else {
-            return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+    try {
+        if (id) {
+            const { data: prop, error } = await supabaseAdmin.from('properties').select('*').eq('id', id).single();
+            if (error || !prop) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+            return NextResponse.json(transformProperty(prop));
         }
-    }
 
-    if (company) {
-        // Filter by company name using loose text match if schema is not strict, 
-        // OR strict match if we trust auth.
-        // Assuming properties have 'authorCompany' or we check property manager's company.
-        // However, property schema currently stores 'managerId' and 'managerName'.
-        // It DOES NOT explicitely store 'companyName' of the owner.
-        // BUT, we can assume properties created by users of Company A belong to Company A.
-        // We might need to store 'companyName' on Property creation in POST.
-        properties = properties.filter((p: any) => p.companyName === company);
-    }
+        let query = supabaseAdmin.from('properties').select('*').order('created_at', { ascending: false });
 
-    return NextResponse.json(properties);
+        if (company) {
+            // Resolve company name -> UUID
+            const { companyId } = await resolveIds(company, '');
+            if (companyId) {
+                query = query.eq('company_id', companyId);
+            } else {
+                return NextResponse.json([]); // Company not found
+            }
+        }
+
+        const { data: properties, error } = await query;
+        if (error) throw error;
+
+        return NextResponse.json(properties.map(transformProperty));
+
+    } catch (error) {
+        console.error('Properties GET error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
 }
 
+// POST
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const properties = getProperties();
+        const { companyName, managerId, name, status, operationType, address, isFavorite, ...rest } = body;
 
-        const newProperty = {
-            id: Date.now().toString(), // Simple ID generation
-            ...body,
-            companyName: body.companyName, // Save company name
-            createdAt: new Date().toISOString(),
+        const { companyId, managerId: mgrUuid } = await resolveIds(companyName, managerId);
+
+        if (!companyId) return NextResponse.json({ error: 'Invalid Company' }, { status: 400 });
+
+        const newId = Date.now().toString(); // Consistent ID gen
+
+        const corePayload = {
+            id: newId,
+            company_id: companyId,
+            manager_id: mgrUuid,
+            name,
+            status,
+            operation_type: operationType,
+            address,
+            is_favorite: isFavorite || false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            data: {
+                ...rest,
+                companyName, // Keep legacy fields in JSON for safety
+                managerId
+            }
         };
 
-        properties.unshift(newProperty); // Add to beginning of list
-        saveProperties(properties);
+        const { data: inserted, error } = await supabaseAdmin
+            .from('properties')
+            .insert(corePayload)
+            .select()
+            .single();
 
-        return NextResponse.json(newProperty, { status: 201 });
+        if (error) throw error;
+
+        return NextResponse.json(transformProperty(inserted), { status: 201 });
+
     } catch (error) {
+        console.error('Properties POST error:', error);
         return NextResponse.json({ error: 'Failed to create property' }, { status: 500 });
     }
 }
 
+// PUT
 export async function PUT(request: Request) {
     try {
-        const body = await request.json();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
+        const body = await request.json();
 
-        if (!id) {
-            return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+        // 1. Fetch existing to merge JSONB
+        const { data: existing, error: fetchError } = await supabaseAdmin.from('properties').select('*').eq('id', id).single();
+        if (fetchError || !existing) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+
+        // 2. Prepare updates
+        const { companyName, managerId, name, status, operationType, address, isFavorite, ...rest } = body;
+
+        // Resolve refs if changed
+        let updates: any = { updated_at: new Date().toISOString() };
+
+        if (companyName) {
+            const { companyId } = await resolveIds(companyName, '');
+            if (companyId) updates.company_id = companyId;
+            updates.data = { ...existing.data, ...rest, companyName }; // Update data.companyName too
+        } else {
+            updates.data = { ...existing.data, ...rest };
         }
 
-        const properties = getProperties();
-        const index = properties.findIndex((p: any) => String(p.id) === String(id));
-
-        if (index === -1) {
-            return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+        if (managerId) {
+            const { managerId: mgrUuid } = await resolveIds('', managerId);
+            if (mgrUuid) updates.manager_id = mgrUuid;
+            updates.data.managerId = managerId;
         }
 
-        // Update property
-        properties[index] = {
-            ...properties[index],
-            ...body,
-            updatedAt: new Date().toISOString()
-        };
-        saveProperties(properties);
+        if (name !== undefined) updates.name = name;
+        if (status !== undefined) updates.status = status;
+        if (operationType !== undefined) updates.operation_type = operationType;
+        if (address !== undefined) updates.address = address;
+        if (isFavorite !== undefined) updates.is_favorite = isFavorite;
 
-        return NextResponse.json(properties[index]);
+        // 3. Update
+        const { data: updated, error } = await supabaseAdmin
+            .from('properties')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return NextResponse.json(transformProperty(updated));
+
     } catch (error) {
+        console.error('Properties PUT error:', error);
         return NextResponse.json({ error: 'Failed to update property' }, { status: 500 });
     }
 }
 
+// DELETE
 export async function DELETE(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
-        if (!id) {
-            return NextResponse.json({ error: 'ID is required' }, { status: 400 });
-        }
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        const properties = getProperties();
-        const filteredProperties = properties.filter((p: any) => String(p.id) !== String(id));
+        const { error } = await supabaseAdmin.from('properties').delete().eq('id', id);
 
-        if (properties.length === filteredProperties.length) {
-            return NextResponse.json({ error: 'Property not found' }, { status: 404 });
-        }
+        if (error) throw error;
 
-        saveProperties(filteredProperties);
+        return NextResponse.json({ message: 'Deleted successfully' });
 
-        return NextResponse.json({ message: 'Property deleted successfully' });
     } catch (error) {
+        console.error('Properties DELETE error:', error);
         return NextResponse.json({ error: 'Failed to delete property' }, { status: 500 });
     }
 }

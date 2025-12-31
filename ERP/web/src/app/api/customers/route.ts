@@ -1,101 +1,150 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { promises as fs } from 'fs';
 import path from 'path';
 
-const dataFilePath = path.join(process.cwd(), 'src/data/customers.json');
+// Service Role Client
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
+
+const scheduleFilePath = path.join(process.cwd(), 'src/data/schedules.json');
+
+// Helper: Resolve UUIDs
+async function resolveIds(legacyCompany: string, legacyManager: string) {
+    let companyId = null;
+    let managerId = null;
+
+    if (legacyCompany) {
+        const { data: c } = await supabaseAdmin.from('companies').select('id').eq('name', legacyCompany).single();
+        if (c) companyId = c.id;
+    }
+
+    if (legacyManager) {
+        const email = `${legacyManager}@example.com`;
+        const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
+        if (u) managerId = u.id;
+    }
+    return { companyId, managerId };
+}
+
+// Helper: Transform
+function transformCustomer(row: any) {
+    if (!row) return null;
+    const { data, ...core } = row;
+    return {
+        ...data,
+        ...core,
+        companyId: core.company_id,
+        // Ensure legacy fields if needed by frontend
+        createdAt: core.created_at,
+        updatedAt: core.updated_at
+    };
+}
 
 export async function GET(request: Request) {
     try {
-        const data = await fs.readFile(dataFilePath, 'utf8');
-        const customers = JSON.parse(data);
-
-        // Simple search filtering if needed via query params
         const { searchParams } = new URL(request.url);
-
-        // Filter by Company Name (Strict Segregation)
+        const id = searchParams.get('id');
         const company = searchParams.get('company');
-        let filtered = customers;
+        const name = searchParams.get('name'); // search
+
+        if (id) {
+            const { data: cust, error } = await supabaseAdmin.from('customers').select('*').eq('id', id).single();
+            if (error || !cust) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+            return NextResponse.json(transformCustomer(cust));
+        }
+
+        let query = supabaseAdmin.from('customers').select('*').order('created_at', { ascending: false });
 
         if (company) {
-            filtered = filtered.filter((c: any) => c.companyName === company);
+            const { companyId } = await resolveIds(company, '');
+            if (companyId) query = query.eq('company_id', companyId);
+            else return NextResponse.json([]);
         }
 
-        const name = searchParams.get('name');
+        const { data: customers, error } = await query;
+        if (error) throw error;
+
+        let result = customers.map(transformCustomer);
+
         if (name) {
-            filtered = filtered.filter((c: any) => c.name.includes(name));
+            result = result.filter(c => c.name?.includes(name));
         }
 
-        if (searchParams.has('id')) {
-            const id = searchParams.get('id');
-            const customer = customers.find((c: any) => c.id === id);
-            if (!customer) {
-                return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
-            }
-            return NextResponse.json(customer);
-        }
-
-        // Sort by ID descending (newest first) usually, or createdAt
-        // For now, return as is
-        return NextResponse.json(filtered);
+        return NextResponse.json(result);
     } catch (error) {
+        console.error('Customers GET error:', error);
         return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 });
     }
 }
 
-const scheduleFilePath = path.join(process.cwd(), 'src/data/schedules.json');
-
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const data = await fs.readFile(dataFilePath, 'utf8');
-        const customers = JSON.parse(data);
+        const { companyName, managerId, name, grade, mobile, isFavorite, ...rest } = body;
 
-        const newCustomer = {
-            ...body,
-            id: String(Date.now()), // Simple ID generation
-            createdAt: new Date().toISOString().split('T')[0],
-            updatedAt: new Date().toISOString().split('T')[0],
-            // Ensure companyName is saved (should be passed in body)
-            companyName: body.companyName || ''
+        const { companyId, managerId: mgrUuid } = await resolveIds(companyName, managerId);
+        if (!companyId) return NextResponse.json({ error: 'Invalid Company' }, { status: 400 });
+
+        const newId = String(Date.now());
+        const timestamp = new Date().toISOString();
+
+        const corePayload = {
+            id: newId,
+            company_id: companyId,
+            manager_id: mgrUuid,
+            name,
+            grade,
+            mobile,
+            is_favorite: isFavorite || false,
+            created_at: timestamp,
+            updated_at: timestamp,
+            data: { ...rest, companyName, managerId }
         };
 
-        customers.unshift(newCustomer); // Add to top
-        await fs.writeFile(dataFilePath, JSON.stringify(customers, null, 2));
+        const { data: inserted, error } = await supabaseAdmin
+            .from('customers')
+            .insert(corePayload)
+            .select()
+            .single();
 
-        // Create Schedule Entry for New Customer
+        if (error) throw error;
+
+        const newCustomer = transformCustomer(inserted);
+
+        // Legacy Side-effect: Create Schedule (Work History) - Migrated to Supabase (Phase 4)
         try {
-            let schedules = [];
-            try {
-                const scheduleData = await fs.readFile(scheduleFilePath, 'utf8');
-                schedules = JSON.parse(scheduleData);
-            } catch (e) {
-                schedules = [];
-            }
-
-            const newSchedule = {
-                id: String(Date.now() + 1), // Avoid ID collision with customer
-                title: `[고객등록] ${newCustomer.name}`, // Format: [Type] Name
-                date: newCustomer.createdAt,
+            const { error: scheduleError } = await supabaseAdmin.from('schedules').insert({
+                id: String(Date.now() + 1),
+                title: `[고객등록] ${newCustomer.name}`,
+                date: newCustomer.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
                 scope: 'work',
                 status: 'progress',
                 type: 'work',
-                color: '#51cf66', // Green for Customer
+                color: '#51cf66',
                 details: '신규 고객 등록',
-                customerId: newCustomer.id,
-                userId: newCustomer.managerId,
-                companyName: newCustomer.companyName,
-                createdAt: new Date().toISOString()
-            };
+                customer_id: newCustomer.id,
+                user_id: mgrUuid, // Use resolved UUID
+                company_id: companyId, // Use resolved UUID
+                created_at: new Date().toISOString()
+            });
 
-            schedules.push(newSchedule);
-            await fs.writeFile(scheduleFilePath, JSON.stringify(schedules, null, 2));
+            if (scheduleError) console.error('Failed to create schedule entry in DB:', scheduleError);
         } catch (scheduleError) {
             console.error('Failed to create schedule entry:', scheduleError);
-            // Don't fail the customer creation if schedule fails, but maybe log it
         }
 
         return NextResponse.json(newCustomer);
     } catch (error) {
+        console.error('Customers POST error:', error);
         return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
     }
 }
@@ -103,19 +152,49 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const data = await fs.readFile(dataFilePath, 'utf8');
-        let customers = JSON.parse(data);
+        const { id, companyName, managerId, name, grade, mobile, isFavorite, ...rest } = body;
 
-        const index = customers.findIndex((c: any) => c.id === body.id);
-        if (index === -1) {
-            return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+
+        const { data: existing, error: fetchError } = await supabaseAdmin.from('customers').select('*').eq('id', id).single();
+        if (fetchError || !existing) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+
+        let updates: any = { updated_at: new Date().toISOString() };
+
+        let targetData = { ...existing.data, ...rest };
+
+        if (companyName) {
+            const { companyId } = await resolveIds(companyName, '');
+            if (companyId) updates.company_id = companyId;
+            targetData.companyName = companyName;
         }
 
-        customers[index] = { ...customers[index], ...body, updatedAt: new Date().toISOString().split('T')[0] };
-        await fs.writeFile(dataFilePath, JSON.stringify(customers, null, 2));
+        if (managerId) {
+            const { managerId: mgrUuid } = await resolveIds('', managerId);
+            if (mgrUuid) updates.manager_id = mgrUuid;
+            targetData.managerId = managerId;
+        }
 
-        return NextResponse.json(customers[index]);
+        updates.data = targetData;
+
+        if (name !== undefined) updates.name = name;
+        if (grade !== undefined) updates.grade = grade;
+        if (mobile !== undefined) updates.mobile = mobile;
+        if (isFavorite !== undefined) updates.is_favorite = isFavorite;
+
+        const { data: updated, error } = await supabaseAdmin
+            .from('customers')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        return NextResponse.json(transformCustomer(updated));
+
     } catch (error) {
+        console.error('Customers PUT error:', error);
         return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 });
     }
 }
@@ -125,17 +204,15 @@ export async function DELETE(request: Request) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
-        if (!id) {
-            return NextResponse.json({ error: 'ID is required' }, { status: 400 });
-        }
+        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
-        const data = await fs.readFile(dataFilePath, 'utf8');
-        let customers = JSON.parse(data);
-        const newCustomers = customers.filter((c: any) => c.id !== id);
+        const { error } = await supabaseAdmin.from('customers').delete().eq('id', id);
 
-        await fs.writeFile(dataFilePath, JSON.stringify(newCustomers, null, 2));
+        if (error) throw error;
+
         return NextResponse.json({ success: true });
     } catch (error) {
+        console.error('Customers DELETE error:', error);
         return NextResponse.json({ error: 'Failed to delete customer' }, { status: 500 });
     }
 }

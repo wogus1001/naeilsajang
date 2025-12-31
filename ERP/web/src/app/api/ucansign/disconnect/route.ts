@@ -1,35 +1,56 @@
 
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+// Service Role Client
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
+
+// Helper to resolve ID (Simplified duplication)
+async function resolveId(id: string) {
+    if (id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) return id;
+
+    // Legacy -> Email
+    const { data } = await supabaseAdmin.from('profiles').select('id').eq('email', `${id}@example.com`).single();
+    if (data) return data.id;
+
+    if (id === 'admin') {
+        const { data: a } = await supabaseAdmin.from('profiles').select('id').ilike('email', 'admin%').limit(1).single();
+        return a?.id;
+    }
+    return null;
+}
 
 export async function DELETE(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const userId = searchParams.get('userId');
+        const userIdParam = searchParams.get('userId');
 
-        if (!userId) {
+        if (!userIdParam) {
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
         }
 
-        const filePath = path.join(process.cwd(), 'src/data/users.json');
-        if (!fs.existsSync(filePath)) {
-            return NextResponse.json({ error: 'User DB not found' }, { status: 500 });
-        }
-
-        const users = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        const userIndex = users.findIndex((u: any) => u.id === userId);
-
-        if (userIndex === -1) {
+        const userId = await resolveId(userIdParam);
+        if (!userId) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
         // Remove UCanSign data
-        if (users[userIndex].ucansign) {
-            delete users[userIndex].ucansign;
-        }
+        const { error } = await supabaseAdmin.from('profiles').update({
+            ucansign_access_token: null,
+            ucansign_refresh_token: null,
+            ucansign_expires_at: null
+        }).eq('id', userId);
 
-        fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
+        if (error) throw error;
 
         return NextResponse.json({ success: true });
     } catch (error) {

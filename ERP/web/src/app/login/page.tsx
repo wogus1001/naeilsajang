@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
 export default function LoginPage() {
@@ -33,27 +34,52 @@ export default function LoginPage() {
         const password = (document.getElementById('password') as HTMLInputElement).value;
 
         try {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, password }),
+            // Heuristic for migration compatibility: If no @, assume it's a legacy ID and append domain
+            let email = id;
+            if (!id.includes('@')) {
+                email = `${id}@example.com`;
+            }
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
             });
 
-            if (res.ok) {
-                const data = await res.json();
-                // api/login returns { user: ... }, so we unwrap it if present
-                const userInfo = data.user || data;
+            if (error) {
+                console.error('Supabase auth error:', error);
+                if (error.message.includes('Invalid login credentials')) {
+                    setErrorMsg('아이디 또는 비밀번호가 일치하지 않습니다.');
+                } else {
+                    setErrorMsg(error.message);
+                }
+            } else if (data.user) {
+                // Fetch additional profile info from 'profiles' table
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .single();
+
+                const { data: company } = await supabase
+                    .from('companies')
+                    .select('name')
+                    .eq('id', profile?.company_id)
+                    .single();
+
+                // Construct legacy-compatible user object for localStorage
+                const userInfo = {
+                    id: id, // Keep original login ID for display if needed
+                    email: data.user.email,
+                    name: profile?.name || data.user.user_metadata.name || '사용자',
+                    role: profile?.role || 'staff',
+                    companyName: company?.name || '',
+                    companyId: profile?.company_id,
+                    uid: data.user.id, // Supabase UID
+                    status: profile?.status || 'active'
+                };
+
                 localStorage.setItem('user', JSON.stringify(userInfo));
                 router.push('/dashboard');
-            } else {
-                const errorData = await res.json();
-                if (res.status === 401) {
-                    setErrorMsg('비밀번호가 일치하지 않습니다.');
-                } else if (res.status === 404) {
-                    setErrorMsg('존재하지 않는 아이디입니다.');
-                } else {
-                    setErrorMsg(errorData.error || '로그인에 실패했습니다.');
-                }
             }
         } catch (error) {
             console.error('Login error:', error);

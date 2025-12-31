@@ -49,10 +49,15 @@ export async function GET(request: Request) {
         console.log('[Dashboard API] Debug:', { todayStr, userId, totalSchedules: schedules.length });
 
         const userSchedules = schedules.filter((s: any) => {
+            // Exclude work history logs
+            if (s.type === 'work') return false;
+
             // Include personal schedules
             if (s.userId === userId) return true;
             // Include company shared schedules
             if (userCompany && s.companyName === userCompany && (s.scope === 'public' || s.scope === 'work')) {
+                // Legacy: some old shared schedules might be scope='work' but type!='work'. 
+                // However, we just excluded type='work'. So this is safe.
                 return true;
             }
             return false;

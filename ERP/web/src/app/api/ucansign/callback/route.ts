@@ -1,7 +1,18 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+// Service Role Client
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -39,28 +50,17 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: `Token exchange failed: ${JSON.stringify(tokenData)}` }, { status: 500 });
         }
 
-        // Save to users.json
-        const filePath = path.join(process.cwd(), 'src/data/users.json');
+        // Save to Supabase Profiles
+        const { error } = await supabaseAdmin.from('profiles').update({
+            ucansign_access_token: tokenData.result.accessToken,
+            ucansign_refresh_token: tokenData.result.refreshToken,
+            ucansign_expires_at: Date.now() + (29 * 60 * 1000) // 29 minutes safe buffer
+        }).eq('id', userId);
 
-        let users: any[] = [];
-        if (fs.existsSync(filePath)) {
-            users = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (error) {
+            console.error('Failed to update Supabase Profile:', error);
+            return NextResponse.json({ error: 'Failed to save token' }, { status: 500 });
         }
-
-        const userIndex = users.findIndex((u: any) => u.id === userId);
-
-        if (userIndex === -1) {
-            return NextResponse.json({ error: 'User not found in database' }, { status: 404 });
-        }
-
-        users[userIndex].ucansign = {
-            accessToken: tokenData.result.accessToken,
-            refreshToken: tokenData.result.refreshToken,
-            linkedAt: new Date().toISOString(),
-            expiresAt: Date.now() + (29 * 60 * 1000) // 29 minutes safe buffer
-        };
-
-        fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
 
         // Clear cookie
         const cookieStore2 = await cookies(); // Use same store

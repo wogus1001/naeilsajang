@@ -1,60 +1,72 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
-const MEMO_FILE = path.join(process.cwd(), 'src/data', 'memos.json');
-
-const readMemos = () => {
-    if (!fs.existsSync(MEMO_FILE)) return [];
-    try {
-        return JSON.parse(fs.readFileSync(MEMO_FILE, 'utf8'));
-    } catch {
-        return [];
+// Use Service Role for API routes during migration to bypass RLS
+// because the API Request doesn't carry the Supabase Session yet (hybrid mode)
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
     }
-};
+);
 
-const saveMemos = (memos: any[]) => {
-    fs.writeFileSync(MEMO_FILE, JSON.stringify(memos, null, 2), 'utf8');
-};
-
+// GET: Fetch user's memo
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+    if (!userId) {
+        return NextResponse.json({ error: 'userId required' }, { status: 400 });
+    }
 
-    const memos = readMemos();
-    const userMemo = memos.find((m: any) => m.userId === userId);
+    try {
+        const email = `${userId}@example.com`;
+        const { data: user } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
 
-    return NextResponse.json({ content: userMemo ? userMemo.content : '' });
+        if (!user) return NextResponse.json({ content: '' });
+
+        const { data: memo } = await supabaseAdmin
+            .from('memos')
+            .select('content')
+            .eq('user_id', user.id)
+            .single();
+
+        return NextResponse.json({ content: memo ? memo.content : '' });
+    } catch (error) {
+        return NextResponse.json({ error: 'Failed to fetch memo' }, { status: 500 });
+    }
 }
 
+// POST: Save user's memo
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const { userId, content } = body;
+        const { userId, content } = await request.json();
 
-        if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+        const email = `${userId}@example.com`;
+        // Use admin client to lookup profile
+        const { data: user } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
 
-        const memos = readMemos();
-        const existingIndex = memos.findIndex((m: any) => m.userId === userId);
+        if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-        if (existingIndex > -1) {
-            memos[existingIndex].content = content;
-            memos[existingIndex].updatedAt = new Date().toISOString();
+        // Upsert Memo
+        // Check existence
+        const { data: existing } = await supabaseAdmin.from('memos').select('id').eq('user_id', user.id).single();
+
+        if (existing) {
+            const { error } = await supabaseAdmin.from('memos').update({ content, updated_at: new Date() }).eq('id', existing.id);
+            if (error) throw error;
         } else {
-            memos.push({
-                userId,
-                content,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            });
+            const { error } = await supabaseAdmin.from('memos').insert({ user_id: user.id, content });
+            if (error) throw error;
         }
-
-        saveMemos(memos);
 
         return NextResponse.json({ success: true });
     } catch (error) {
+        console.error('Memo save error:', error);
         return NextResponse.json({ error: 'Failed to save memo' }, { status: 500 });
     }
 }

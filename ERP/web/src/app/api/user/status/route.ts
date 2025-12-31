@@ -1,39 +1,63 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+// Service Role Client
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
+
+// Helper to resolve ID (Simplified duplication)
+async function resolveId(id: string) {
+    if (id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) return id;
+
+    // Legacy -> Email
+    const { data } = await supabaseAdmin.from('profiles').select('id').eq('email', `${id}@example.com`).single();
+    if (data) return data.id;
+
+    if (id === 'admin') {
+        const { data: a } = await supabaseAdmin.from('profiles').select('id').ilike('email', 'admin%').limit(1).single();
+        return a?.id;
+    }
+    return null;
+}
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const userIdParam = searchParams.get('userId');
 
-    if (!userId) {
+    if (!userIdParam) {
         return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    const filePath = path.join(process.cwd(), 'src/data/users.json');
-    if (!fs.existsSync(filePath)) {
-        return NextResponse.json({ connected: false });
-    }
-
     try {
-        const users = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        const user = users.find((u: any) => u.id === userId);
+        const userId = await resolveId(userIdParam);
 
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        if (!userId) {
+            // If user not found in DB, return not connected instead of 404 to prevent UI crash
+            return NextResponse.json({ connected: false });
         }
 
-        if (user.ucansign && user.ucansign.accessToken) {
-            return NextResponse.json({
-                connected: true,
-                linkedAt: user.ucansign.linkedAt
-            });
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('ucansign_access_token')
+            .eq('id', userId)
+            .single();
+
+        if (profile && profile.ucansign_access_token) {
+            return NextResponse.json({ connected: true });
         } else {
             return NextResponse.json({ connected: false });
         }
 
     } catch (e) {
-        console.error('Error reading user status:', e);
+        console.error('Error checking user status:', e);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

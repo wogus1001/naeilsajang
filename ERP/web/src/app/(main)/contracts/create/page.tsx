@@ -31,10 +31,19 @@ function ContractCreateContent() {
         }
     }, []);
 
+    const [needAuth, setNeedAuth] = useState(false);
+
     const loadTemplates = async (uid: string) => {
         setIsLoading(true);
+        setNeedAuth(false);
         try {
             const res = await fetch(`/api/contracts/templates?userId=${uid}`);
+
+            if (res.status === 401) {
+                setNeedAuth(true);
+                return;
+            }
+
             if (!res.ok) throw new Error('템플릿을 불러오는데 실패했습니다.');
             const data = await res.json();
             setTemplates(data.templates || []);
@@ -174,7 +183,28 @@ function ContractCreateContent() {
             {step === 'TEMPLATE' && (
                 <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-                        {templates.length === 0 && (
+                        {needAuth ? (
+                            <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+                                <ShieldAlert size={48} style={{ color: '#f59e0b', marginBottom: '16px', margin: '0 auto', display: 'block' }} />
+                                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>서비스 연동이 필요합니다</h3>
+                                <p style={{ color: '#666', marginBottom: '24px' }}>전자 계약 템플릿을 불러오려면 유캔싸인 계정을 연동해주세요.</p>
+                                <button
+                                    onClick={() => window.location.href = `/api/ucansign/auth?userId=${userId}`}
+                                    style={{
+                                        padding: '10px 24px',
+                                        backgroundColor: '#2563eb',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        fontWeight: '600',
+                                        fontSize: '15px'
+                                    }}
+                                >
+                                    계정 연동하기
+                                </button>
+                            </div>
+                        ) : templates.length === 0 && (
                             <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', background: '#f9fafb', borderRadius: '12px' }}>
                                 <p style={{ color: '#666', marginBottom: '10px' }}>등록된 템플릿이 없습니다.</p>
                                 <a
@@ -187,7 +217,7 @@ function ContractCreateContent() {
                                 </a>
                             </div>
                         )}
-                        {templates.map(template => (
+                        {!needAuth && templates.map(template => (
                             <div
                                 key={template.documentId}
                                 onClick={() => handleTemplateSelect(template)}

@@ -1,38 +1,50 @@
 // @ts-nocheck
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
-const DATA_FILE = path.join(process.cwd(), 'src/data/notices.json');
-
-const getNotices = () => {
-    if (!fs.existsSync(DATA_FILE)) return [];
-    const fileContent = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(fileContent);
-};
-
-const saveNotices = (notices: any[]) => {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(notices, null, 2), 'utf8');
-};
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
 
 export async function GET(request: Request, context: any) {
     try {
         const params = await context.params;
         const id = params.id;
-        let notices = getNotices();
-        const noticeIndex = notices.findIndex((n: any) => n.id === id);
 
-        if (noticeIndex === -1) {
+        // Fetch notice with author info
+        const { data: notice, error } = await supabaseAdmin
+            .from('notices')
+            .select(`
+                *,
+                author:profiles!author_id(name, role)
+            `)
+            .eq('id', id)
+            .single();
+
+        if (error || !notice) {
             return NextResponse.json({ error: 'Notice not found' }, { status: 404 });
         }
 
-        const notice = notices[noticeIndex];
+        // Increment views (Non-blocking or simple await)
+        await supabaseAdmin.from('notices').update({ views: (notice.views || 0) + 1 }).eq('id', id);
 
-        // Increment views (simple logic, maybe check cookie in real app to prevent spam)
-        notices[noticeIndex].views = (notices[noticeIndex].views || 0) + 1;
-        saveNotices(notices);
+        // Transform
+        const formatted = {
+            ...notice,
+            createdAt: new Date(notice.created_at).toLocaleDateString().replace(/-/g, '.'),
+            authorName: notice.author?.name || '관리자',
+            authorRole: notice.author?.role || 'admin',
+            isPinned: notice.is_pinned
+        };
 
-        return NextResponse.json(notice);
+        return NextResponse.json(formatted);
     } catch (error) {
         console.error('Fetch notice detail error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -43,18 +55,14 @@ export async function DELETE(request: Request, context: any) {
     try {
         const params = await context.params;
         const id = params.id;
-        let notices = getNotices();
 
-        // In real app, check user permission here via session/token
+        const { error } = await supabaseAdmin.from('notices').delete().eq('id', id);
 
-        const initialLength = notices.length;
-        notices = notices.filter((n: any) => n.id !== id);
-
-        if (notices.length === initialLength) {
-            return NextResponse.json({ error: 'Notice not found' }, { status: 404 });
+        if (error) {
+            console.error('Delete error', error);
+            return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
         }
 
-        saveNotices(notices);
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Delete notice error:', error);
@@ -69,21 +77,28 @@ export async function PUT(request: Request, context: any) {
         const body = await request.json();
         const { title, content, type, isPinned } = body;
 
-        let notices = getNotices();
-        const noticeIndex = notices.findIndex((n: any) => n.id === id);
+        const updates: any = {};
+        if (title !== undefined) updates.title = title;
+        if (content !== undefined) updates.content = content;
+        if (type !== undefined) updates.type = type;
+        if (isPinned !== undefined) updates.is_pinned = isPinned;
 
-        if (noticeIndex === -1) {
-            return NextResponse.json({ error: 'Notice not found' }, { status: 404 });
+        if (Object.keys(updates).length > 0) {
+            const { error } = await supabaseAdmin
+                .from('notices')
+                .update(updates)
+                .eq('id', id);
+
+            if (error) throw error;
         }
 
-        // Update fields - allow partial update
-        if (title !== undefined) notices[noticeIndex].title = title;
-        if (content !== undefined) notices[noticeIndex].content = content;
-        if (type !== undefined) notices[noticeIndex].type = type;
-        if (isPinned !== undefined) notices[noticeIndex].isPinned = isPinned;
+        // Return updated object
+        const { data: updated } = await supabaseAdmin.from('notices').select('*').eq('id', id).single();
 
-        saveNotices(notices);
-        return NextResponse.json(notices[noticeIndex]);
+        return NextResponse.json({
+            ...updated,
+            isPinned: updated?.is_pinned // backward compat
+        });
     } catch (error) {
         console.error('Update notice error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -316,7 +316,9 @@ export default function ProfilePage() {
                                 <div style={{ fontSize: '14px', color: '#868e96', lineHeight: '1.4' }}>
                                     전자계약 서비스를 위해 계정을 연동합니다.<br />
                                     {ucansignStatus.connected
-                                        ? <span style={{ color: '#2b8a3e', fontWeight: '600' }}>연동 일시: {new Date(ucansignStatus.linkedAt!).toLocaleDateString()}</span>
+                                        ? <span style={{ color: '#2b8a3e', fontWeight: '600' }}>
+                                            {ucansignStatus.linkedAt ? `연동 일시: ${new Date(ucansignStatus.linkedAt).toLocaleDateString()}` : '연동됨'}
+                                        </span>
                                         : '현재 연동된 계정이 없습니다.'}
                                 </div>
                             </div>

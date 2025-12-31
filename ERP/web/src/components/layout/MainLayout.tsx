@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Megaphone, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import styles from './MainLayout.module.css';
@@ -17,7 +18,29 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     const [userRole, setUserRole] = React.useState<string>('');
     const [isBannerDismissed, setIsBannerDismissed] = React.useState(false);
 
+    const router = useRouter(); // Import useRouter
+
     React.useEffect(() => {
+        const checkAuth = () => {
+            const userStr = localStorage.getItem('user');
+            if (!userStr) {
+                // No user found, redirect to login
+                router.replace('/login');
+                return false;
+            }
+            try {
+                const user = JSON.parse(userStr);
+                setUserRole(user.role || '');
+                return true;
+            } catch (e) {
+                console.error(e);
+                router.replace('/login'); // Invalid JSON
+                return false;
+            }
+        };
+
+        if (!checkAuth()) return; // Stop if not authenticated
+
         const fetchSettings = async () => {
             try {
                 const res = await fetch('/api/system/settings');
@@ -41,14 +64,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 console.error(e);
             }
         };
-
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            try {
-                const user = JSON.parse(userStr);
-                setUserRole(user.role || '');
-            } catch (e) { console.error(e); }
-        }
 
         fetchSettings();
     }, []);

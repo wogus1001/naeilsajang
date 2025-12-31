@@ -1,9 +1,49 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
 const dataPath = path.join(process.cwd(), 'src/data/business-cards.json');
-const scheduleFilePath = path.join(process.cwd(), 'src/data/schedules.json');
+
+// Service Role Client
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
+
+// Helper to resolve IDs
+async function resolveIds(legacyCompany: string, legacyUser: string) {
+    let companyId = null;
+    let userId = null;
+
+    if (legacyCompany) {
+        const { data: c } = await supabaseAdmin.from('companies').select('id').eq('name', legacyCompany).single();
+        if (c) companyId = c.id;
+    }
+
+    // Quick Fix: specific override for '내일' -> '내일사장' if not found?
+    if (!companyId && legacyCompany === '내일') {
+        const { data: c } = await supabaseAdmin.from('companies').select('id').like('name', '내일%').limit(1).single();
+        if (c) companyId = c.id;
+    }
+
+    if (legacyUser) {
+        const email = `${legacyUser}@example.com`;
+        const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
+        if (u) userId = u.id;
+        else if (legacyUser === 'admin') {
+            const { data: a } = await supabaseAdmin.from('profiles').select('id').ilike('email', 'admin%').limit(1).single();
+            if (a) userId = a.id;
+        }
+    }
+    return { companyId, userId };
+}
 
 function getCards() {
     if (!fs.existsSync(dataPath)) {
@@ -51,27 +91,14 @@ export async function POST(request: Request) {
         const cards = getCards();
         const inputs = Array.isArray(body) ? body : [body];
         const newCards: any[] = [];
-        const newSchedules: any[] = [];
+        const newSchedules: any[] = []; // To be inserted into Supabase
         let updatedCount = 0;
         let skippedCount = 0;
-
-        // Read Schedule Data Once
-        let schedules: any[] = [];
-        try {
-            if (fs.existsSync(scheduleFilePath)) {
-                const scheduleData = fs.readFileSync(scheduleFilePath, 'utf8');
-                schedules = JSON.parse(scheduleData);
-            }
-        } catch (e) {
-            schedules = [];
-        }
 
         const now = new Date(); // Shared timestamp reference
 
         inputs.forEach((input: any, idx: number) => {
             // 1. Check for Duplicate (Upsert Logic)
-            // Keys: name + mobile (if present) OR name + email (if present) OR name + companyName
-            // Strictest: name + mobile (if input has mobile)
             let existingIndex = -1;
 
             if (input.mobile) {
@@ -87,9 +114,6 @@ export async function POST(request: Request) {
             if (existingIndex !== -1) {
                 // Found Existing: Check for Changes
                 const existing = cards[existingIndex];
-
-                // Check if data is effectively different
-                // We compare key fields mapped from Excel
                 const isDifferent =
                     existing.companyName !== input.companyName ||
                     existing.department !== input.department ||
@@ -99,19 +123,18 @@ export async function POST(request: Request) {
                     existing.companyAddress !== input.companyAddress ||
                     existing.memo !== input.memo ||
                     existing.category !== input.category ||
-                    existing.createdAt !== input.createdAt; // Date change triggers update? User asked to use Excel date.
+                    existing.createdAt !== input.createdAt;
 
                 if (isDifferent) {
-                    // Update
                     cards[existingIndex] = {
                         ...existing,
                         ...input,
-                        id: existing.id, // Preserve ID
-                        history: existing.history, // Preserve History
-                        promotedProperties: existing.promotedProperties, // Preserve Promoted
-                        isFavorite: existing.isFavorite, // Preserve Favorite
-                        managerId: existing.managerId, // Preserve Manager (unless we want to overwrite?)
-                        createdAt: input.createdAt || existing.createdAt, // Allow Excel date to overwrite? Yes.
+                        id: existing.id,
+                        history: existing.history,
+                        promotedProperties: existing.promotedProperties,
+                        isFavorite: existing.isFavorite,
+                        managerId: existing.managerId,
+                        createdAt: input.createdAt || existing.createdAt,
                         updatedAt: now.toISOString()
                     };
                     updatedCount++;
@@ -122,21 +145,20 @@ export async function POST(request: Request) {
                 // New Card
                 const newCard = {
                     ...input,
-                    id: input.id || String(now.getTime() + idx), // Unique ID
+                    id: input.id || String(now.getTime() + idx),
                     createdAt: input.createdAt || now.toISOString(),
                     updatedAt: now.toISOString()
                 };
                 newCards.push(newCard);
 
-                // Create Schedule Entry for NEW cards
+                // Queue Schedule Creation
                 newSchedules.push({
-                    id: String(now.getTime() + 1000 + idx),
                     title: `[명함등록] ${newCard.name}`,
                     date: newCard.createdAt.split('T')[0],
                     scope: 'work',
                     status: 'completed',
                     type: 'work',
-                    color: '#fab005', // Yellow/Orange
+                    color: '#fab005',
                     details: '신규 명함 등록 (Excel/Manual)',
                     businessCardId: newCard.id,
                     userId: newCard.managerId,
@@ -146,18 +168,38 @@ export async function POST(request: Request) {
             }
         });
 
-        // Prepend new cards (newest first)
+        // Prepend new cards
         cards.unshift(...newCards);
         saveCards(cards);
 
-        // Append schedules
+        // Async: Insert Schedules to Supabase
         if (newSchedules.length > 0) {
-            try {
-                schedules.push(...newSchedules);
-                fs.writeFileSync(scheduleFilePath, JSON.stringify(schedules, null, 2), 'utf8');
-            } catch (err) {
-                console.error('Schedule sync failed:', err);
-            }
+            // Process individually to resolve IDs
+            (async () => {
+                for (const sched of newSchedules) {
+                    try {
+                        const { companyId, userId } = await resolveIds(sched.companyName, sched.userId);
+                        if (companyId) {
+                            await supabaseAdmin.from('schedules').insert({
+                                id: String(Date.now() + Math.random()), // unique ID
+                                title: sched.title,
+                                date: sched.date,
+                                scope: sched.scope,
+                                status: sched.status,
+                                type: sched.type,
+                                color: sched.color,
+                                details: sched.details,
+                                business_card_id: sched.businessCardId,
+                                user_id: userId,
+                                company_id: companyId,
+                                created_at: sched.createdAt
+                            });
+                        }
+                    } catch (err) {
+                        console.error('Failed to sync schedule for card:', err);
+                    }
+                }
+            })();
         }
 
         return NextResponse.json({
@@ -165,7 +207,7 @@ export async function POST(request: Request) {
             created: newCards.length,
             updated: updatedCount,
             skipped: skippedCount,
-            data: Array.isArray(body) ? newCards : newCards[0] // Return new ones, or just success?
+            data: Array.isArray(body) ? newCards : newCards[0]
         });
     } catch (error) {
         console.error(error);

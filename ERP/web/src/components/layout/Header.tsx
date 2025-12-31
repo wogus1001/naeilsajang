@@ -33,7 +33,15 @@ const Header = () => {
         };
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try {
+            if (user?.id) {
+                // Auto-disconnect uCanSign on logout
+                await fetch(`/api/ucansign/disconnect?userId=${user.id}`, { method: 'DELETE' });
+            }
+        } catch (e) {
+            console.error('Failed to disconnect uCanSign on logout:', e);
+        }
         localStorage.removeItem('user');
         window.location.href = '/login';
     };

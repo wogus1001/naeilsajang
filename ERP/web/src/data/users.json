@@ -19,13 +19,7 @@
     "companyName": "내일",
     "role": "manager",
     "joinedAt": "2025-12-04T05:15:03.044Z",
-    "status": "active",
-    "ucansign": {
-      "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxOTk5MDE4ODUxNjQ4NTI0MjkwIiwidXNlcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MCwidG9rZW5fdHlwZSI6Im9hdXRoIiwiZXhwIjoxNzY3MTU2MjQxLCJpYXQiOjE3NjcxNTQ0NDEsImRldmVsb3Blcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MH0.gKELh8S5X8W4tr91L9zZH7XkxD7c21LXuDoFK-aPiXw",
-      "refreshToken": "5A662FAC79DC00852E80E884968A9034922584798A260F926668F331C9EDB3D7",
-      "linkedAt": "2025-12-31T03:17:29.246Z",
-      "expiresAt": 1767156180928
-    }
+    "status": "active"
   },
   {
     "id": "test2",
