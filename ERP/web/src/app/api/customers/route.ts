@@ -13,6 +13,7 @@ const scheduleFilePath = path.join(process.cwd(), 'src/data/schedules.json');
 async function resolveIds(legacyCompany: string, legacyManager: string) {
     let companyId = null;
     let managerId = null;
+    const supabaseAdmin = await getSupabaseAdmin();
 
     if (legacyCompany) {
         const { data: c } = await supabaseAdmin.from('companies').select('id').eq('name', legacyCompany).single();
