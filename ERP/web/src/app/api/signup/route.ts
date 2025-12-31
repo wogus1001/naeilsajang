@@ -1,95 +1,128 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { id, password, name, companyName, role: requestedRole } = body;
+        const { id, password, name, companyName, role: requestedRole } = body; // id here is treated as email/loginId
 
         if (!id || !password || !name || !companyName) {
             return NextResponse.json({ error: 'ID, password, name, and company name are required' }, { status: 400 });
         }
 
-        const filePath = path.join(process.cwd(), 'src/data/users.json');
+        const supabaseAdmin = await getSupabaseAdmin();
 
-        if (!fs.existsSync(filePath)) {
-            return NextResponse.json({ error: 'User database not found' }, { status: 500 });
-        }
+        // 1. Check if email already exists
+        const { data: { users }, error: searchError } = await supabaseAdmin.auth.admin.listUsers();
 
-        const fileContent = fs.readFileSync(filePath, 'utf8');
-        const users = JSON.parse(fileContent);
+        const email = id.includes('@') ? id : `${id}@example.com`; // Fallback if id is not email
 
-        // Check if ID already exists
-        if (users.find((u: any) => u.id === id)) {
-            return NextResponse.json({ error: 'User ID already exists' }, { status: 409 });
-        }
-
-        // Logic for Role and Status
-        const companyUsers = users.filter((u: any) => u.companyName === companyName);
-        const existingManager = companyUsers.find((u: any) => u.role === 'manager');
-
+        // 2. Company Logic
+        let companyId: string | null = null;
         let finalRole = requestedRole || 'staff';
         let finalStatus = 'active';
         let message = '회원가입이 완료되었습니다.';
 
-        if (companyUsers.length === 0) {
-            // Case 1: New Company -> Force Manager
+        // Check if company exists
+        const { data: existingCompany } = await supabaseAdmin
+            .from('companies')
+            .select('id, manager_id')
+            .eq('name', companyName)
+            .single();
+
+        if (!existingCompany) {
+            // New Company -> Create it
+            const { data: newCompany, error: createCompanyError } = await supabaseAdmin
+                .from('companies')
+                .insert({ name: companyName, status: 'active' })
+                .select()
+                .single();
+
+            if (createCompanyError || !newCompany) {
+                console.error('Company creation failed:', createCompanyError);
+                return NextResponse.json({ error: 'Company creation failed' }, { status: 500 });
+            }
+            companyId = newCompany.id;
+
+            // First user is always manager
             finalRole = 'manager';
             finalStatus = 'active';
             if (requestedRole === 'staff') {
                 message = '처음 등록되는 회사의 경우 가입자가 팀장이 됩니다.';
             }
+
         } else {
-            // Case 2: Existing Company
+            // Existing Company
+            companyId = existingCompany.id;
+
             if (finalRole === 'manager') {
-                if (existingManager) {
+                if (existingCompany.manager_id) {
                     return NextResponse.json({ error: '이미 팀장이 존재하는 회사입니다. 직원으로 가입해주세요.' }, { status: 400 });
                 }
-                // If no manager exists (e.g. left), allow new manager
+                // No manager -> Allow becoming manager
                 finalStatus = 'active';
             } else {
                 // Staff joining
                 finalRole = 'staff';
-                if (existingManager) {
+                if (existingCompany.manager_id) {
                     finalStatus = 'pending_approval';
                     message = '가입 요청이 완료되었습니다. 팀장의 승인 후 로그인이 가능합니다.';
                 } else {
-                    // Edge case: Staff joining but no manager? Maybe allow active or force manager.
-                    // Spec says "If joining as staff, wait for manager approval".
-                    // But if no manager, they can't be approved.
-                    // For safety, warn them or force manager.
-                    // Let's stick to "User asked for Staff", but warn no manager?
-                    // Or maybe just let them in as pending and wait for a manager to join later?
-                    // Actually spec rule 1 says "First user is ALWAYS manager".
-                    // But here companyUsers > 0, so it's not first user relative to company name, 
-                    // but maybe previous users were deleted?
-                    // Let's assume standard path: Manager exists -> Staff pending.
-
-                    // Explicit requirement 2: "If manager exists -> join as staff. If they chose manager -> alert."
-                    // Implies if manager does NOT exist, maybe they should be manager?
-                    // Let's keep it simple: Staff always pending if not manager.
                     finalStatus = 'pending_approval';
                     message = '가입 요청이 완료되었습니다. 팀장의 승인 후 로그인이 가능합니다.';
                 }
             }
         }
 
-        // Add new user
-        const newUser = {
-            id,
-            password,
-            name,
-            companyName,
-            role: finalRole,
-            status: finalStatus,
-            joinedAt: new Date().toISOString()
-        };
+        // 3. Create Auth User
+        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: email,
+            password: password,
+            email_confirm: true, // Auto confirm since we are using admin
+            user_metadata: { name: name }
+        });
 
-        users.push(newUser);
-        fs.writeFileSync(filePath, JSON.stringify(users, null, 2), 'utf8');
+        if (authError) {
+            console.error('Auth create error:', authError);
+            if (authError.message.includes('unique constraint') || authError.message.includes('already registered')) {
+                return NextResponse.json({ error: '이미 존재하는 ID(이메일)입니다.' }, { status: 409 });
+            }
+            return NextResponse.json({ error: authError.message }, { status: 500 });
+        }
 
-        return NextResponse.json({ success: true, user: { id, name, role: finalRole, status: finalStatus }, message });
+        if (!authUser.user) {
+            return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+        }
+
+        const userId = authUser.user.id;
+
+        // 4. Update Profile (created by trigger) with correct Role/Company/Status
+        const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .update({
+                company_id: companyId,
+                role: finalRole,
+                status: finalStatus,
+                name: name
+            })
+            .eq('id', userId);
+
+        if (profileError) {
+            console.error('Profile update error:', profileError);
+            // Cleanup auth user?
+            await supabaseAdmin.auth.admin.deleteUser(userId);
+            return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
+        }
+
+        // 5. If Manager, update Company manager_id
+        if (finalRole === 'manager' && companyId) {
+            await supabaseAdmin
+                .from('companies')
+                .update({ manager_id: userId })
+                .eq('id', companyId);
+        }
+
+        return NextResponse.json({ success: true, user: { id: userId, name, role: finalRole, status: finalStatus }, message });
 
     } catch (error) {
         console.error('Signup error:', error);
