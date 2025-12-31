@@ -216,9 +216,7 @@ create policy "Company members can delete contracts" on public.contracts
 
 
 -- 15. UCANSIGN INTEGRATION
-    alter table public.profiles add column ucansign_expires_at bigint; -- Store as timestamp ms
-  end if;
-end $$;
+alter table public.profiles add column if not exists ucansign_expires_at bigint; -- Store as timestamp ms
 
 
 -- 16. SCHEDULES Table (Work History)

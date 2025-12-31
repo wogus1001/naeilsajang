@@ -102,7 +102,7 @@ const Sidebar = ({ isOpen, onToggle }: SidebarProps) => {
                     <div className={styles.logoIcon}>
                         <div className={styles.gridIcon} />
                     </div>
-                    <span className={styles.logoText}>내일사장</span>
+                    <span className={styles.logoText}>내일사장 (DEV)</span>
                 </Link>
 
                 {isOpen && (
