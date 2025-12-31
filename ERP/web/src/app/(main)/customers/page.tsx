@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Star, UserPlus, X, Trash2 } from 'lucide-react';
 import styles from './page.module.css';
@@ -40,7 +40,7 @@ const STATUS_OPTIONS = [
     { value: 'complete', label: '완료', class: styles.badgeComplete },
 ];
 
-export default function CustomerListPage() {
+function CustomerListPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [customers, setCustomers] = useState<Customer[]>([]);
@@ -528,5 +528,13 @@ export default function CustomerListPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function CustomerListPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <CustomerListPageContent />
+        </Suspense>
     );
 }

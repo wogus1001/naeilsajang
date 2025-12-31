@@ -3,6 +3,21 @@ import fs from 'fs';
 import path from 'path';
 
 const dataFilePath = path.join(process.cwd(), 'src/data/schedules.json');
+const usersFilePath = path.join(process.cwd(), 'src/data/users.json');
+
+// Helper to get users mapping
+function getUserMap() {
+    if (!fs.existsSync(usersFilePath)) return {};
+    try {
+        const users = JSON.parse(fs.readFileSync(usersFilePath, 'utf8'));
+        return users.reduce((acc: any, user: any) => {
+            acc[user.id] = user.name;
+            return acc;
+        }, {});
+    } catch {
+        return {};
+    }
+}
 
 // Helper to read data
 function getSchedules() {
@@ -40,6 +55,13 @@ export async function GET(request: Request) {
             return event.userId === userId;
         });
     }
+
+    // Inject User Names
+    const userMap = getUserMap();
+    schedules = schedules.map((s: any) => ({
+        ...s,
+        userName: userMap[s.userId] || s.userId || 'Unknown'
+    }));
 
     return NextResponse.json(schedules);
 }

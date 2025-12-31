@@ -1,0 +1,108 @@
+[
+  {
+    "id": "notice_1767155698527",
+    "title": "매물",
+    "content": "123매물",
+    "type": "system",
+    "authorName": "관리자",
+    "authorRole": "admin",
+    "authorId": "admin",
+    "isPinned": false,
+    "createdAt": "2025.12.31",
+    "views": 2
+  },
+  {
+    "id": "notice_1767155660283",
+    "title": "312",
+    "content": "312",
+    "type": "system",
+    "authorName": "관리자",
+    "authorRole": "admin",
+    "authorId": "admin",
+    "isPinned": false,
+    "createdAt": "2025.12.31",
+    "views": 0
+  },
+  {
+    "id": "notice_1767149054168",
+    "title": "3",
+    "content": "4",
+    "type": "team",
+    "authorName": "김내일",
+    "authorRole": "manager",
+    "authorId": "test1",
+    "companyName": "내일",
+    "isPinned": false,
+    "createdAt": "2025.12.31",
+    "views": 2
+  },
+  {
+    "id": "notice_1767149045993",
+    "title": "1",
+    "content": "12",
+    "type": "team",
+    "authorName": "김내일",
+    "authorRole": "manager",
+    "authorId": "test1",
+    "companyName": "내일",
+    "isPinned": false,
+    "createdAt": "2025.12.31",
+    "views": 0
+  },
+  {
+    "id": "notice_1767149035546",
+    "title": "고정공지",
+    "content": "확인",
+    "type": "team",
+    "authorName": "김내일",
+    "authorRole": "manager",
+    "authorId": "test1",
+    "companyName": "내일",
+    "isPinned": true,
+    "createdAt": "2025.12.31",
+    "views": 28
+  },
+  {
+    "id": "notice_1767148422592",
+    "title": "내일공지",
+    "content": "1",
+    "type": "team",
+    "authorName": "김내일",
+    "authorRole": "manager",
+    "authorId": "test1",
+    "companyName": "내일",
+    "createdAt": "2025.12.31",
+    "views": 22
+  },
+  {
+    "id": "notice_1",
+    "title": "📢 5월 시스템 정기 점검 안내",
+    "content": "안녕하세요, 내일사장 운영팀입니다.\n\n안정적인 서비스 제공을 위해 5월 정기 시스템 점검이 진행될 예정입니다.\n\n일시: 2024년 5월 20일(월) 새벽 02:00 ~ 04:00 (2시간)\n내용: 서버 안정화 및 보안 패치 적용\n\n점검 시간 동안 서비스 이용이 일시 중단되오니 양해 부탁드립니다.\n감사합니다.",
+    "type": "system",
+    "authorName": "관리자",
+    "authorRole": "admin",
+    "createdAt": "2024-05-20",
+    "views": 124
+  },
+  {
+    "id": "notice_2",
+    "title": "표준 임대차 계약서 양식 업데이트 안내",
+    "content": "부동산 거래 신고 등에 관한 법률 개정에 따라 표준 임대차 계약서 양식이 업데이트되었습니다.\n\n주요 변경 사항:\n1. 특약 사항 문구 수정\n2. 중개대상물 확인 설명서 연동 강화\n\n새로운 양식은 계약 관리 메뉴에서 확인하실 수 있습니다.",
+    "type": "system",
+    "authorName": "관리자",
+    "authorRole": "admin",
+    "createdAt": "2024-05-15",
+    "views": 89
+  },
+  {
+    "id": "notice_3",
+    "title": "새로운 팀원 환영 회식 공지",
+    "content": "안녕하세요, 김내일입니다.\n\n이번 주 새로 오신 박직원님 환영 회식을 진행하고자 합니다.\n\n일시: 5월 24일(금) 오후 6시\n장소: 회사 근처 삼겹살집\n\n모두 참석 부탁드립니다!",
+    "type": "team",
+    "companyName": "내일부동산",
+    "authorName": "김내일",
+    "authorRole": "manager",
+    "createdAt": "2024-05-21",
+    "views": 12
+  }
+]

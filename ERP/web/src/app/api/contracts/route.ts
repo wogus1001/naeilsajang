@@ -84,7 +84,7 @@ export async function GET(request: Request) {
 
         // Check for auth-related errors to trigger re-login UI
         const errMsg = error.message?.toLowerCase() || '';
-        if (errMsg.includes('unauthorized') || errMsg.includes('reconnect') || errMsg.includes('token')) {
+        if (errMsg.includes('unauthorized') || errMsg.includes('reconnect') || errMsg.includes('token') || errMsg.includes('not connected')) {
             return NextResponse.json({ code: 'NEED_AUTH', error: 'Authentication required' }, { status: 401 });
         }
 

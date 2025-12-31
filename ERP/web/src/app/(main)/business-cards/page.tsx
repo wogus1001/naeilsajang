@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Star, Plus, UserPlus, X, Trash2, Contact, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -29,7 +29,7 @@ interface BusinessCardData {
     history?: any[];
 }
 
-export default function BusinessCardListPage() {
+function BusinessCardListContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [cards, setCards] = useState<BusinessCardData[]>([]);
@@ -659,5 +659,13 @@ export default function BusinessCardListPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function BusinessCardListPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <BusinessCardListContent />
+        </Suspense>
     );
 }

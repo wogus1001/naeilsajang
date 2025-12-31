@@ -317,6 +317,7 @@ const styles = {
     grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' },
     card: { border: '1px solid #dee2e6', borderRadius: '8px', padding: '10px', cursor: 'pointer', textAlign: 'center' as const, fontSize: '13px', backgroundColor: 'white' },
     cardActive: { border: '1px solid #228be6', backgroundColor: '#e7f5ff', color: '#1864ab', fontWeight: 600 },
+    cardLabel: { fontSize: '14px', fontWeight: 600 },
 
     searchRow: { position: 'relative' as const, marginTop: '10px' },
     searchInput: { width: '100%', padding: '8px', fontSize: '12px', border: '1px dashed #adb5bd', borderRadius: '4px' },

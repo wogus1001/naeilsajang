@@ -30,6 +30,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
         }
 
+        // Check status
+        if (user.status === 'pending_approval') {
+            return NextResponse.json({ error: '팀장의 승인 대기 중입니다. 승인 후 로그인이 가능합니다.' }, { status: 403 });
+        }
+
         // Return user info without password
         const { password: _, ...userInfo } = user;
         return NextResponse.json({ user: userInfo });

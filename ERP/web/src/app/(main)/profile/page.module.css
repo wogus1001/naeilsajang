@@ -1,118 +1,217 @@
 .container {
-    padding: 40px;
-    max-width: 800px;
+    padding: 60px 40px;
+    max-width: 900px;
     margin: 0 auto;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
 }
 
 .card {
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e9ecef;
-    padding: 32px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 48px;
+    overflow: hidden;
 }
 
 .header {
-    margin-bottom: 30px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 20px;
+    margin-bottom: 48px;
+    text-align: left;
 }
 
 .header h2 {
-    font-size: 24px;
-    font-weight: 700;
-    color: #343a40;
-    margin-bottom: 8px;
+    font-size: 28px;
+    font-weight: 800;
+    color: #1a1b1e;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
 }
 
 .header p {
     color: #868e96;
-    font-size: 14px;
+    font-size: 16px;
+    font-weight: 400;
 }
 
+/* Sections */
 .section {
-    margin-bottom: 30px;
+    margin-bottom: 48px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid #f1f3f5;
+}
+
+.section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
 }
 
 .section h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #495057;
-    margin-bottom: 16px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #212529;
+    margin-bottom: 24px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .sectionDesc {
-    font-size: 13px;
+    font-size: 14px;
     color: #868e96;
-    margin-bottom: 16px;
-    margin-top: -10px;
+    margin-bottom: 24px;
+    margin-top: -16px;
+    line-height: 1.5;
 }
 
+/* Form Grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* minmax ensures inputs don't overflow */
+    gap: 24px;
+    width: 100%;
+}
+
+.fullWidth {
+    grid-column: span 2;
+}
+
+/* Input Groups */
 .inputGroup {
-    margin-bottom: 16px;
+    margin-bottom: 0;
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 .inputGroup label {
     display: block;
     font-size: 14px;
-    font-weight: 500;
-    color: #343a40;
+    font-weight: 600;
+    color: #495057;
     margin-bottom: 8px;
 }
 
 .inputGroup input {
     width: 100%;
-    padding: 10px 14px;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    font-size: 14px;
-    transition: all 0.2s;
+    padding: 14px 16px;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    font-size: 15px;
+    color: #212529;
+    background-color: #f8f9fa;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    /* Ensure padding doesn't affect width */
 }
 
 .inputGroup input:focus {
     outline: none;
-    border-color: #7950f2;
-    box-shadow: 0 0 0 3px rgba(121, 80, 242, 0.1);
+    border-color: #339af0;
+    background-color: white;
+    box-shadow: 0 0 0 4px rgba(51, 154, 240, 0.1);
+}
+
+.inputWrapper {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+}
+
+.checkBtn {
+    padding: 0 20px;
+    height: 48px;
+    /* Match input height roughly */
+    border-radius: 10px;
+    border: 1px solid #ced4da;
+    background-color: white;
+    color: #495057;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.checkBtn:hover:not(:disabled) {
+    background-color: #f8f9fa;
+    border-color: #adb5bd;
+}
+
+.checkBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .helperText {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: #fa5252;
-    margin-top: 6px;
+    gap: 6px;
+    font-size: 13px;
+    margin-top: 8px;
 }
 
+.successText {
+    color: #2b8a3e;
+}
+
+.errorText {
+    color: #fa5252;
+}
+
+/* Integration Card */
+.integrationCard {
+    padding: 24px;
+    background-color: #f8f9fa;
+    border-radius: 16px;
+    border: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform 0.2s;
+}
+
+.integrationCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Actions */
 .actions {
     margin-top: 40px;
+    padding-top: 32px;
+    border-top: 1px solid #f1f3f5;
     display: flex;
     justify-content: flex-end;
 }
 
 .saveBtn {
-    background-color: #228be6;
+    background: linear-gradient(135deg, #339af0 0%, #228be6 100%);
     color: white;
     border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 15px;
+    padding: 14px 32px;
+    border-radius: 12px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
-    transition: background 0.2s;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(34, 139, 230, 0.3);
+    transition: all 0.2s;
 }
 
-.saveBtn:hover {
-    background-color: #1c7ed6;
+.saveBtn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(34, 139, 230, 0.4);
 }
 
 .saveBtn:disabled {
-    background-color: #adb5bd;
+    background: #adb5bd;
+    box-shadow: none;
     cursor: not-allowed;
+    transform: none;
 }

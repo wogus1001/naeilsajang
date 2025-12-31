@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FileText, Check, ShieldAlert, ArrowRight, ArrowLeft, Users } from 'lucide-react';
 import { Template } from '@/lib/ucansign/client';
 
-export default function ContractCreatePage() {
+function ContractCreateContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const propertyId = searchParams.get('propertyId');
@@ -54,7 +54,7 @@ export default function ContractCreatePage() {
         setIsLoading(true);
         try {
             const res = await fetch(`/api/contracts/templates/${selectedTemplate.documentId}?userId=${userId}`);
-            if (!res.ok) throw new Error('템플릿 상세 정보를 불러오는데 실패했습니다.');
+            if (!res.ok) throw new Error('유캔싸인 연동이 만료되었거나 정보를 불러올 수 없습니다. 다시 연동해주세요. \n우측상단 아이디 클릭 -> 개인정보수정에서 확인해주세요');
             const data = await res.json();
             setTemplateDetails(data);
 
@@ -328,5 +328,13 @@ export default function ContractCreatePage() {
                 </div>
             )}
         </div>
+    );
+}
+
+export default function ContractCreatePage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ContractCreateContent />
+        </Suspense>
     );
 }

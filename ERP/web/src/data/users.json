@@ -6,32 +6,25 @@
     "role": "admin",
     "companyName": "내일",
     "ucansign": {
-      "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxOTk5MDE4ODUxNjQ4NTI0MjkwIiwidXNlcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MCwidG9rZW5fdHlwZSI6Im9hdXRoIiwiZXhwIjoxNzY1NzY3MzY4LCJpYXQiOjE3NjU3NjU1NjgsImRldmVsb3Blcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MH0.RZz1pOArYNMfszf_4-Db5AkKB6xWLh4UzwJT1MwWv7M",
-      "refreshToken": "BF613219C83A0F4C8131CC18A9F88DA91F1F7AF51AEEA2250DD93F5FF4AC9EE8",
-      "linkedAt": "2025-12-15T01:52:02.532Z",
-      "expiresAt": 1765767308243
+      "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxOTk5MDE4ODUxNjQ4NTI0MjkwIiwidXNlcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MCwidG9rZW5fdHlwZSI6Im9hdXRoIiwiZXhwIjoxNzY3MTU2NzIzLCJpYXQiOjE3NjcxNTQ5MjMsImRldmVsb3Blcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MH0.Ih5EXH2N-0z1D1X9NtpLOFN_zLH94Q7qBPSupWLM_Yw",
+      "refreshToken": "097B5A8727E2371D8F0741742CF8F3C8CE68722068FCEFF09E3055B2CB2E32DA",
+      "linkedAt": "2025-12-31T00:09:40.722Z",
+      "expiresAt": 1767156663747
     }
-  },
-  {
-    "id": "testrew",
-    "password": "1234",
-    "name": "김재현",
-    "companyName": "내일",
-    "role": "user",
-    "joinedAt": "2025-12-04T04:57:22.050Z"
   },
   {
     "id": "test1",
     "password": "1234",
     "name": "김내일",
     "companyName": "내일",
-    "role": "user",
+    "role": "manager",
     "joinedAt": "2025-12-04T05:15:03.044Z",
+    "status": "active",
     "ucansign": {
-      "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxOTk5MDE4ODUxNjQ4NTI0MjkwIiwidXNlcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MCwidG9rZW5fdHlwZSI6Im9hdXRoIiwiZXhwIjoxNzY2MzY1Mjc0LCJpYXQiOjE3NjYzNjM0NzQsImRldmVsb3Blcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MH0.0jF9zAGQuFxXoEl8yfbZC5RUiwemOo34oQiWeAythUo",
-      "refreshToken": "103D7CC35EA745FFD2CE2B6CD2E7E05E17C437BA9E7D9BEA6B3635430FCE574B",
-      "linkedAt": "2025-12-15T00:57:59.409Z",
-      "expiresAt": 1766365214669
+      "accessToken": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxOTk5MDE4ODUxNjQ4NTI0MjkwIiwidXNlcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MCwidG9rZW5fdHlwZSI6Im9hdXRoIiwiZXhwIjoxNzY3MTU2MjQxLCJpYXQiOjE3NjcxNTQ0NDEsImRldmVsb3Blcl9pZCI6MTk5OTAxODg1MTY0ODUyNDI5MH0.gKELh8S5X8W4tr91L9zZH7XkxD7c21LXuDoFK-aPiXw",
+      "refreshToken": "5A662FAC79DC00852E80E884968A9034922584798A260F926668F331C9EDB3D7",
+      "linkedAt": "2025-12-31T03:17:29.246Z",
+      "expiresAt": 1767156180928
     }
   },
   {
@@ -39,7 +32,25 @@
     "password": "1234",
     "name": "김오일",
     "companyName": "내일",
+    "role": "manager",
+    "joinedAt": "2025-12-04T05:24:58.890Z",
+    "status": "active"
+  },
+  {
+    "id": "test",
+    "password": "1234",
+    "name": "김사자",
+    "companyName": "사장",
     "role": "user",
-    "joinedAt": "2025-12-04T05:24:58.890Z"
+    "joinedAt": "2025-12-30T08:27:20.161Z"
+  },
+  {
+    "id": "test3",
+    "password": "1234",
+    "name": "김이름",
+    "companyName": "내일",
+    "role": "staff",
+    "status": "active",
+    "joinedAt": "2025-12-31T02:16:14.991Z"
   }
 ]

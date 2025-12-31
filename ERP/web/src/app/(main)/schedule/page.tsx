@@ -535,6 +535,7 @@ export default function SchedulePage() {
                                                     [일정]
                                                 </span>
                                             )}
+                                            <span style={{ fontSize: 11, color: '#495057', marginRight: 8, fontWeight: 600 }}>{event.userName}</span>
                                             <span style={{ fontSize: 11, color: '#868e96', marginLeft: 'auto' }}>{event.date}</span>
                                         </div>
                                         <div className={styles.taskTitle} style={{ fontWeight: 500 }}>{content}</div>
@@ -603,7 +604,10 @@ export default function SchedulePage() {
                                             </span>
                                             {event.title}
                                         </div>
-                                        <div style={{ fontSize: 11, color: '#868e96' }}>{event.date}</div>
+                                        <div style={{ fontSize: 11, color: '#868e96', display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                                            <span>{event.userName}</span>
+                                            <span>{event.date}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
     X, FileText, Calendar, User, Clock, Download, Trash2,
-    Ban, Send, ShieldCheck, MoreVertical, CheckCircle2, History
+    Ban, Send, ShieldCheck, MoreVertical, CheckCircle2, History, RefreshCcw
 } from 'lucide-react';
 
 interface ContractDetailPanelProps {
@@ -18,7 +18,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
     'COMPLETED': { label: '서명 완료', color: '#166534', bg: '#dcfce7' },
     'progress': { label: '서명 진행중', color: '#1c7ed6', bg: '#e7f5ff' },
     'WAITING': { label: '서명 대기', color: '#d97706', bg: '#fef3c7' },
-    'draft': { label: '임시 저장', color: '#495057', bg: '#f8f9fa' },
+    'draft': { label: '진행예정', color: '#495057', bg: '#f8f9fa' },
     'canceled': { label: '취소됨', color: '#c92a2a', bg: '#ffe3e3' },
     'trash': { label: '휴지통', color: '#fa5252', bg: '#ffe3e3' },
     'deleted': { label: '삭제됨', color: '#868e96', bg: '#f1f3f5' },
@@ -320,7 +320,7 @@ export default function ContractDetailPanel({ contract, onClose, onAction, loadi
 
 const styles: Record<string, React.CSSProperties> = {
     overlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' },
-    panel: { width: '450px', backgroundColor: 'white', height: '100%', boxShadow: '-4px 0 15px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', animation: 'slideIn 0.3s ease-out' },
+    panel: { width: '50vw', minWidth: '450px', backgroundColor: 'white', height: '100%', boxShadow: '-4px 0 15px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', animation: 'slideIn 0.3s ease-out' },
     header: { padding: '24px', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'flex-start' },
     closeBtn: { background: 'none', border: 'none', cursor: 'pointer', color: '#adb5bd' },
     statusBadgeWrapper: { display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' },

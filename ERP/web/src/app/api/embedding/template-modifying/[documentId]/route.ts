@@ -1,11 +1,13 @@
+// @ts-nocheck
 import { NextResponse } from 'next/server';
 import { modifyTemplateEmbedding } from '@/lib/ucansign/client';
 
 export async function POST(
     request: Request,
-    { params }: { params: { documentId: string } }
+    context: any
 ) {
     try {
+        const { documentId: paramDocumentId } = await context.params;
         const body = await request.json();
         const { userId, documentId, ...data } = body;
 

@@ -625,7 +625,8 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
             content: item.content,
             details: item.details,
             targetType: item.targetType,
-            targetKeyword: item.targetKeyword
+            targetKeyword: item.targetKeyword,
+            targetId: item.targetId || ''
         });
         setIsWorkHistoryOpen(true);
     };

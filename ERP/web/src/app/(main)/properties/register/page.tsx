@@ -629,8 +629,8 @@ export default function RegisterPropertyPage() {
                                 </div>
                             </div>
 
-                            <div className={styles.row3}>
-                                <div className={styles.field}>
+                            <div className={styles.row}>
+                                <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
                                     <label className={styles.label}>운영형태 (중복선택 가능)</label>
                                     <div className={styles.inputGroup} style={{ flexWrap: 'wrap', gap: '8px' }}>
                                         {['직영', '풀오토', '반오토', '위탁', '본사'].map(type => {
@@ -665,6 +665,9 @@ export default function RegisterPropertyPage() {
                                     </div>
                                     <input type="hidden" name="operationType" value={operationTypes.join(',')} />
                                 </div>
+                            </div>
+
+                            <div className={styles.row3}>
                                 <div className={styles.field}>
                                     <label className={styles.label}>업태 (대분류)</label>
                                     <select value={category} onChange={handleCategoryChange} className={styles.select}>
@@ -683,9 +686,6 @@ export default function RegisterPropertyPage() {
                                         ))}
                                     </select>
                                 </div>
-                            </div>
-
-                            <div className={styles.row3}>
                                 <div className={styles.field}>
                                     <label className={styles.label}>업종 (소분류)</label>
                                     <select
@@ -706,9 +706,12 @@ export default function RegisterPropertyPage() {
                                         )}
                                     </select>
                                 </div>
+                            </div>
+
+                            <div className={styles.row}>
                                 <div className={styles.field}>
                                     <label className={styles.label}>프랜차이즈 브랜드</label>
-                                    <div className={styles.inputGroup}>
+                                    <div className={styles.addressSearch}>
                                         <input
                                             type="text"
                                             className={styles.input}

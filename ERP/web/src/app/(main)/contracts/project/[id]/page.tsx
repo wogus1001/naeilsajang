@@ -14,7 +14,7 @@ import jsPDF from 'jspdf';
 import EditProjectModal from '../../_components/EditProjectModal';
 
 const STATUS_OPTIONS = [
-    { value: 'draft', label: '작성중', color: '#868e96', bg: '#f8f9fa' },
+    { value: 'draft', label: '진행예정', color: '#868e96', bg: '#f8f9fa' },
     { value: 'active', label: '진행중', color: '#1c7ed6', bg: '#e7f5ff' },
     { value: 'completed', label: '완료', color: '#166534', bg: '#dcfce7' },
 ];
@@ -68,6 +68,7 @@ function ProjectEditor() {
     // LOAD TEMPLATES DYNAMICALLY
     const [allTemplates, setAllTemplates] = useState<ContractTemplate[]>(CONTRACT_TEMPLATES);
     const [categories, setCategories] = useState<string[]>(['사업체 양도양수', '부동산 계약']);
+    const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
         // 1. Load Templates
@@ -95,6 +96,8 @@ function ProjectEditor() {
             }
         } catch (e) {
             console.error("Failed to load project", e);
+        } finally {
+            setIsLoaded(true);
         }
     }, [params.id]);
 
@@ -116,11 +119,12 @@ function ProjectEditor() {
 
     // AUTO-SAVE PROJECT (Persistence)
     useEffect(() => {
-        if (project.id) {
+        if (isLoaded && project.id) {
             const storageKey = `project_data_${project.id}`;
+            console.log('Auto-saving project:', storageKey); // Debug log
             localStorage.setItem(storageKey, JSON.stringify(project));
         }
-    }, [project]);
+    }, [project, isLoaded]);
 
     // DERIVED STATE
     const activeDoc = useMemo(() => project.documents.find(d => d.id === activeDocId), [project, activeDocId]);
@@ -193,6 +197,13 @@ function ProjectEditor() {
 
     const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
         e.stopPropagation();
+
+        // Guard: Prevent deleting system templates
+        if (CONTRACT_TEMPLATES.find(t => t.id === templateId)) {
+            alert('기본 제공 템플릿은 삭제할 수 없습니다.');
+            return;
+        }
+
         if (!confirm('정말 삭제하시겠습니까?\n삭제된 템플릿은 복구할 수 없으며, 저장된 양식 목록에서도 완전히 사라집니다.')) return;
 
         // 1. Remove from LocalStorage
@@ -262,6 +273,7 @@ function ProjectEditor() {
         // Save to LocalStorage
         try {
             const storageKey = `project_data_${project.id}`;
+            console.log('Saving project to:', storageKey, project); // DEBUG
             localStorage.setItem(storageKey, JSON.stringify(project));
             alert('프로젝트가 저장되었습니다.');
         } catch (e) {
@@ -733,7 +745,8 @@ function ProjectEditor() {
                                                 <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '2px' }}>{t.name}</div>
                                                 <div style={{ fontSize: '12px', color: '#868e96' }}>{t.description}</div>
                                             </div>
-                                            {t.id.startsWith('usr-') ? (
+                                            {/* Show edit/delete controls for custom templates (not in system registry) */}
+                                            {!CONTRACT_TEMPLATES.find(ct => ct.id === t.id) ? (
                                                 <div style={{ display: 'flex', gap: '2px' }}>
                                                     <div
                                                         onClick={(e) => {
@@ -801,7 +814,8 @@ function ProjectEditor() {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* 2. MAIN WORKSPACE (Task 2 & 3) */}
             <div className="layout-main" style={styles.main}>
@@ -887,7 +901,7 @@ function ProjectEditor() {
                 onUpdate={handleUpdateProject}
                 onDelete={handleDeleteProject}
             />
-        </div>
+        </div >
     );
 }
 

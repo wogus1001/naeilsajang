@@ -65,7 +65,7 @@ export interface ContractTemplate {
     updatedAt?: string;
 }
 
-export type FieldType = 'text' | 'number' | 'money' | 'date' | 'textarea' | 'section' | 'info';
+export type FieldType = 'text' | 'number' | 'money' | 'currency' | 'date' | 'textarea' | 'section' | 'info';
 
 export interface FormField {
     key: string;            // Variable name e.g. "downPayment"

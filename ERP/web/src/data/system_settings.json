@@ -1,0 +1,19 @@
+{
+  "announcement": {
+    "message": "123",
+    "level": "warning",
+    "active": true
+  },
+  "features": {
+    "electronicContracts": true,
+    "mapService": true
+  },
+  "maintenance": {
+    "active": false,
+    "message": "현재 서비스 정기 점검 중입니다. 잠시 후 다시 이용해주세요."
+  },
+  "systemInfo": {
+    "version": "1.2.0",
+    "lastUpdated": "2024-12-31"
+  }
+}

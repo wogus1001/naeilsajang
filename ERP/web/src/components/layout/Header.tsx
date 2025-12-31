@@ -40,27 +40,58 @@ const Header = () => {
 
     const pathname = usePathname();
 
-    const getPageTitle = (path: string) => {
-        if (path === '/properties') return '점포 목록';
-        if (path === '/properties/register') return '점포 신규등록';
-        if (path === '/schedule') return '일정관리';
-        if (path.startsWith('/properties/')) return '점포 상세'; // Fallback for detail page
-        return '대시보드';
+    const getBreadcrumbInfo = (path: string) => {
+        // Dashboard
+        if (path === '/dashboard') return { category: '메인', title: '대시보드' };
+
+        // Consulting
+        if (path === '/properties') return { category: '컨설팅 업무', title: '점포 목록' };
+        if (path === '/properties/register') return { category: '컨설팅 업무', title: '점포 신규등록' };
+        if (path === '/properties/map') return { category: '컨설팅 업무', title: '물건지도' };
+        if (path === '/schedule') return { category: '컨설팅 업무', title: '일정관리' };
+        if (path.startsWith('/properties/')) return { category: '컨설팅 업무', title: '점포 상세' };
+
+        // Customers
+        if (path === '/customers') return { category: '고객관리', title: '고객목록' };
+        if (path === '/customers/register') return { category: '고객관리', title: '신규입력' };
+        if (path.startsWith('/customers/')) return { category: '고객관리', title: '고객 상세' };
+
+        // Business Cards
+        if (path === '/business-cards') return { category: '명함관리', title: '명함목록' };
+        if (path === '/business-cards/register') return { category: '명함관리', title: '신규입력' };
+
+        // Contracts
+        if (path === '/contracts') return { category: '계약', title: '계약관리' };
+        if (path === '/contracts/create') return { category: '계약', title: '간편 서명 시작(전자)' };
+        if (path === '/contracts/builder') return { category: '계약', title: '새 계약 양식 만들기' };
+        if (path.startsWith('/contracts/')) return { category: '계약', title: '계약 상세' };
+
+        // Admin
+        if (path.startsWith('/admin')) return { category: '관리자', title: '회원 관리' };
+
+        // Staff Management
+        if (path === '/company/staff') return { category: '메인', title: '직원 관리' };
+
+        // Board
+        if (path === '/board/notices') return { category: '게시판', title: '공지사항' };
+        if (path === '/board/notices/write') return { category: '게시판', title: '공지사항 작성' };
+        if (path.startsWith('/board/notices/') && path.endsWith('/edit')) return { category: '게시판', title: '공지사항 수정' };
+        if (path.startsWith('/board/notices/')) return { category: '게시판', title: '공지사항 상세' };
+
+        return { category: '메인', title: '대시보드' };
     };
+
+    const breadcrumb = getBreadcrumbInfo(pathname);
 
     return (
         <header className={`${styles.header} global-header`}>
             <div className={styles.breadcrumbs}>
-                <span className={styles.crumbRoot}>컨설팅 업무</span>
+                <span className={styles.crumbRoot}>{breadcrumb.category}</span>
                 <span className={styles.crumbSeparator}>&gt;</span>
-                <span className={styles.crumbCurrent}>{getPageTitle(pathname)}</span>
+                <span className={styles.crumbCurrent}>{breadcrumb.title}</span>
             </div>
 
             <div className={styles.actions}>
-                <button className={styles.notificationBtn}>
-                    <Bell size={20} />
-                    <span className={styles.badge}>2</span>
-                </button>
 
                 <div
                     className={styles.profile}
@@ -119,6 +150,31 @@ const Header = () => {
                                 <User size={16} />
                                 <span>개인정보수정</span>
                             </button>
+                            {user?.role === 'admin' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        window.location.href = '/admin';
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        width: '100%',
+                                        padding: '12px 16px',
+                                        border: 'none',
+                                        background: 'none',
+                                        cursor: 'pointer',
+                                        fontSize: '14px',
+                                        color: '#333',
+                                        textAlign: 'left',
+                                        borderTop: '1px solid #f5f5f5'
+                                    }}
+                                >
+                                    <div style={{ width: 16, height: 16, borderRadius: 3, backgroundColor: '#fa5252', color: 'white', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>A</div>
+                                    <span>관리자 페이지</span>
+                                </button>
+                            )}
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();

@@ -44,7 +44,7 @@ export default function LoginPage() {
                 // api/login returns { user: ... }, so we unwrap it if present
                 const userInfo = data.user || data;
                 localStorage.setItem('user', JSON.stringify(userInfo));
-                router.push('/properties');
+                router.push('/dashboard');
             } else {
                 const errorData = await res.json();
                 if (res.status === 401) {
@@ -87,7 +87,7 @@ export default function LoginPage() {
                             로그아웃
                         </button>
                         <button
-                            onClick={() => router.push('/properties')}
+                            onClick={() => router.push('/dashboard')}
                             className={styles.loginButton}
                             style={{ marginTop: '12px', backgroundColor: '#2196f3' }}
                         >

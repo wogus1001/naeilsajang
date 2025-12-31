@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { Contract } from '@/lib/ucansign/client';
 import {
     FileText, Plus, RefreshCw, AlertCircle, Search,
@@ -8,10 +8,10 @@ import {
     Trash2
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import CreateProjectModal from './_components/CreateProjectModal';
 import PointsModal from './_components/PointsModal';
-import MoveToFolderModal from './_components/MoveToFolderModal';
+
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -53,9 +53,19 @@ import {
     Download as DownloadIcon, Trash2 as TrashIcon, RefreshCcw, CreditCard
 } from 'lucide-react';
 
-export default function ContractsPage() {
+function ContractsPageContent() {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<'drafts' | 'signatures'>('drafts');
+    const searchParams = useSearchParams();
+    const initialTab = searchParams.get('tab') === 'signatures' ? 'signatures' : 'drafts';
+    const [activeTab, setActiveTab] = useState<'drafts' | 'signatures'>(initialTab);
+
+    // Update tab state when URL params change
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab === 'signatures') setActiveTab('signatures');
+        else if (tab === 'drafts') setActiveTab('drafts');
+    }, [searchParams]);
+
 
     // --- OLD LOGIC STATE (Signatures) ---
     const [contracts, setContracts] = useState<Contract[]>([]);
@@ -69,10 +79,9 @@ export default function ContractsPage() {
     const [detailPanelData, setDetailPanelData] = useState<any | null>(null);
     const [isPanelLoading, setIsPanelLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [signatureSearchTerm, setSignatureSearchTerm] = useState('');
 
-    // --- FOLDER STATE ---
-    const [folders, setFolders] = useState<any[]>([]);
-    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
 
     // --- POINTS STATE ---
     const [showPointsModal, setShowPointsModal] = useState(false);
@@ -111,153 +120,7 @@ export default function ContractsPage() {
         }
     }, [activeTab]);
 
-    const fetchFolders = async () => {
-        try {
-            const storedUser = localStorage.getItem('user');
-            if (!storedUser) return;
-            const uid = JSON.parse(storedUser).id;
-            const res = await fetch(`/api/folders?userId=${uid}`);
-            const data = await res.json();
-            if (Array.isArray(data)) setFolders(data);
-        } catch (e) {
-            console.error('Failed to fetch folders', e);
-        }
-    };
 
-    const handleCreateFolder = async () => {
-        const name = prompt('새 폴더 이름을 입력하세요:');
-        if (!name) return;
-
-        try {
-            const storedUser = localStorage.getItem('user');
-            if (!storedUser) return;
-            const uid = JSON.parse(storedUser).id;
-
-            const res = await fetch('/api/folders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: uid, name })
-            });
-
-            if (res.ok) {
-                fetchFolders();
-            } else {
-                alert('폴더 생성 실패');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('오류가 발생했습니다.');
-        }
-    };
-
-    const handleRenameFolder = async (folderId: string, currentName: string) => {
-        const name = prompt('변경할 폴더 이름을 입력하세요:', currentName);
-        if (!name || name === currentName) return;
-
-        try {
-            const storedUser = localStorage.getItem('user');
-            if (!storedUser) return;
-            const uid = JSON.parse(storedUser).id;
-
-            const res = await fetch(`/api/folders/${folderId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: uid, name })
-            });
-
-            if (res.ok) fetchFolders();
-            else alert('이름 변경 실패');
-        } catch (e) {
-            console.error(e);
-            alert('오류가 발생했습니다.');
-        }
-    };
-
-    const handleDeleteFolder = async (folderId: string) => {
-        if (!confirm('정말 이 폴더를 삭제하시겠습니까?')) return;
-
-        try {
-            const storedUser = localStorage.getItem('user');
-            if (!storedUser) return;
-            const uid = JSON.parse(storedUser).id;
-
-            console.log(`[Frontend] Deleting folder: ${folderId}`);
-            const res = await fetch(`/api/folders/${folderId}?userId=${uid}`, {
-                method: 'DELETE'
-            });
-
-            if (res.ok) {
-                alert('폴더가 삭제되었습니다.');
-                if (selectedFolderId === folderId) setSelectedFolderId(null);
-                fetchFolders();
-            } else {
-                const err = await res.json();
-                console.error('[Frontend] Delete failed:', err);
-                alert('폴더 삭제 실패: ' + (err.error || 'Unknown error'));
-            }
-        } catch (e) {
-            console.error(e);
-            alert('오류가 발생했습니다.');
-        }
-    };
-
-    const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
-    const [moveTargetIds, setMoveTargetIds] = useState<string[]>([]);
-
-    // Updated handleMoveToFolder (triggers modal)
-    const handleMoveToFolder = (targetIds?: string[]) => {
-        const idsToMove = targetIds || selectedIds;
-        if (idsToMove.length === 0) {
-            alert('이동할 문서를 선택해주세요.');
-            return;
-        }
-
-        // Check if any selected ID is a draft (local mock)
-        const hasDrafts = idsToMove.some(id => savedProjects.some(p => p.id === id));
-        if (hasDrafts && activeTab === 'drafts') {
-            alert('작성 중인(Draft) 문서는 서버 폴더로 이동할 수 없습니다.');
-            return;
-        }
-
-        setMoveTargetIds(idsToMove);
-        setIsMoveModalOpen(true);
-    };
-
-    // Actual API call executed by Modal
-    const executeMoveToFolder = async (folderId: string) => {
-        console.log('[Frontend] executeMoveToFolder:', { folderId, moveTargetIds });
-        try {
-            const storedUser = localStorage.getItem('user');
-            if (!storedUser) return;
-            const uid = JSON.parse(storedUser).id;
-
-            const payload = { userId: uid, documentIds: moveTargetIds };
-            console.log('[Frontend] Sending payload:', payload);
-
-            const res = await fetch(`/api/folders/${folderId}/documents`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload) // Ensure userId is passed and body matches API
-            });
-
-            console.log('[Frontend] Response status:', res.status);
-
-            if (res.ok) {
-                alert('이동되었습니다.');
-                setIsMoveModalOpen(false);
-                setMoveTargetIds([]);
-                setSelectedIds([]); // Clear selection
-                fetchData(); // Refresh
-            } else {
-                const errData = await res.json();
-                console.error('[Frontend] Move failed:', errData);
-                alert('이동 실패: ' + (errData.error || 'Unknown error'));
-            }
-        } catch (e) {
-            console.error(e);
-            alert('오류가 발생했습니다.');
-        }
-    };
 
     // --- EMBEDDING HANDLERS ---
     const handleEmbedCreate = async () => {
@@ -279,7 +142,12 @@ export default function ContractsPage() {
             if (data.url) {
                 window.open(data.url, '_blank');
             } else {
-                alert('임베딩 URL 생성 실패: ' + (data.error || 'Unknown'));
+                const errMsg = data.error || 'Unknown';
+                if (errMsg.includes('not connected')) {
+                    alert('유캔싸인을 연동해주세요');
+                } else {
+                    alert('전자계약 생성 실패: ' + errMsg);
+                }
             }
         } catch (e) {
             console.error(e);
@@ -354,9 +222,8 @@ export default function ContractsPage() {
             let loadedContracts = data.contracts || [];
 
             // Client-side filtering
-            if (selectedFolderId) {
-                loadedContracts = loadedContracts.filter((c: any) => String(c.folderId) === String(selectedFolderId));
-            } else if (statusFilter !== 'all') {
+
+            if (statusFilter !== 'all') {
                 loadedContracts = loadedContracts.filter((c: any) => {
                     if (statusFilter === 'completed') return (c.status === 'completed' || c.status === 'COMPLETED');
                     if (statusFilter === 'trash') return (c.status === 'trash' || c.status === 'deleted' || c.status === 'archived');
@@ -390,10 +257,9 @@ export default function ContractsPage() {
     useEffect(() => {
         if (activeTab === 'signatures') {
             fetchData();
-            fetchFolders();
             fetchPointsBalance();
         }
-    }, [activeTab, statusFilter, selectedFolderId]);
+    }, [activeTab, statusFilter]);
 
     // --- DETAIL PANEL HANDLERS (RESTORED) ---
     const openDetailPanel = async (contractId: string) => {
@@ -418,12 +284,12 @@ export default function ContractsPage() {
             if (res.ok) {
                 setDetailPanelData(data);
             } else {
-                alert('상세 정보를 불러오는데 실패했습니다.');
+                alert('유캔싸인 연동이 만료되었거나 정보를 불러올 수 없습니다. 다시 연동해주세요. \n우측상단 아이디 클릭 -> 개인정보수정에서 확인해주세요');
                 setSelectedContractId(null);
             }
         } catch (e) {
             console.error(e);
-            alert('상세 정보를 불러오는데 실패했습니다.');
+            alert('상세 정보를 불러오는데 실패했습니다. 유캔싸인 연동 상태를 확인해주세요. \n우측상단 아이디 클릭 -> 개인정보수정');
             setSelectedContractId(null);
         } finally {
             setIsPanelLoading(false);
@@ -581,7 +447,7 @@ export default function ContractsPage() {
             case 'active': return { bg: '#e7f5ff', color: '#1c7ed6', label: '진행중' };
             case 'completed': return { bg: '#dcfce7', color: '#166534', label: '완료' };
             case 'COMPLETED': return { bg: '#dcfce7', color: '#166534', label: '완료' };
-            case 'draft': return { bg: '#f8f9fa', color: '#868e96', label: '작성중' };
+            case 'draft': return { bg: '#f8f9fa', color: '#868e96', label: '진행예정' };
             case 'trash': return { bg: '#ffe3e3', color: '#fa5252', label: '휴지통' };
             case 'deleted': return { bg: '#ffe3e3', color: '#fa5252', label: '휴지통' };
             case 'archived': return { bg: '#ffe3e3', color: '#fa5252', label: '휴지통' };
@@ -590,6 +456,10 @@ export default function ContractsPage() {
             default: return { bg: '#f1f3f5', color: '#495057', label: status };
         }
     };
+
+    const filteredSignatures = contracts.filter(c =>
+        !signatureSearchTerm || (c.documentName && c.documentName.toLowerCase().includes(signatureSearchTerm.toLowerCase()))
+    );
 
     return (
         <div style={styles.container}>
@@ -600,9 +470,7 @@ export default function ContractsPage() {
                     <div style={styles.batchActions}>
                         <span style={styles.selectedCount}>{selectedIds.length}개 선택됨</span>
                         <div style={styles.batchBtnGroup}>
-                            <button style={styles.batchBtn} onClick={() => handleMoveToFolder()}>
-                                <Folder size={14} /> 폴더 이동
-                            </button>
+
                             <button style={styles.batchBtn} onClick={handleBulkDownload}>
                                 <DownloadIcon size={14} /> 선택 다운로드
                             </button>
@@ -618,24 +486,31 @@ export default function ContractsPage() {
                     <p style={styles.subtitle}>프로젝트 및 전자계약 통합 관리</p>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                        style={{ ...styles.createBtn, backgroundColor: 'white', color: '#1c7ed6', border: '1px solid #d0ebff' }}
-                        onClick={() => setShowPointsModal(true)}
-                    >
-                        <CreditCard size={16} />
-                        {pointsBalance !== null ? `${pointsBalance.toLocaleString()} P` : '포인트'}
-                    </button>
-                    {/* EMBED CREATE BUTTON */}
-                    <button
-                        style={{ ...styles.createBtn, backgroundColor: '#fcc419', color: '#fff', border: 'none' }}
-                        onClick={handleEmbedCreate}
-                        title="임베딩 모드로 생성 테스트"
-                    >
-                        <Layout size={16} /> 임베딩 생성
-                    </button>
-                    <button style={styles.createBtn} onClick={() => setShowCreateModal(true)}>
-                        <Plus size={16} /> 새 프로젝트 생성
-                    </button>
+                    {activeTab === 'signatures' && (
+                        <>
+                            <button
+                                style={{ ...styles.createBtn, backgroundColor: 'white', color: '#1c7ed6', border: '1px solid #d0ebff' }}
+                                onClick={() => setShowPointsModal(true)}
+                            >
+                                <CreditCard size={16} />
+                                {pointsBalance !== null ? `${pointsBalance.toLocaleString()} P` : '포인트'}
+                            </button>
+                            {/* EMBED CREATE BUTTON */}
+                            <button
+                                style={{ ...styles.createBtn, backgroundColor: '#fcc419', color: '#fff', border: 'none' }}
+                                onClick={handleEmbedCreate}
+                                title="임베딩 모드로 생성 테스트"
+                            >
+                                <Layout size={16} /> 전자계약 생성
+                            </button>
+                        </>
+                    )}
+
+                    {activeTab === 'drafts' && (
+                        <button style={styles.createBtn} onClick={() => setShowCreateModal(true)}>
+                            <Plus size={16} /> 새 프로젝트 생성
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -718,13 +593,7 @@ export default function ContractsPage() {
                                                 <td style={{ ...styles.td, color: '#868e96' }}>{new Date(project.updatedAt).toLocaleDateString()}</td>
                                                 <td style={styles.td}>
                                                     <div style={{ display: 'flex', gap: '4px' }}>
-                                                        <button
-                                                            style={{ ...styles.actionBtn, padding: '4px' }}
-                                                            onClick={(e) => { e.stopPropagation(); handleMoveToFolder([project.id]); }}
-                                                            title="폴더 이동"
-                                                        >
-                                                            <Folder size={14} color="#868e96" />
-                                                        </button>
+
                                                         <button style={styles.actionBtn}><ChevronRight size={16} color="#adb5bd" /></button>
                                                     </div>
                                                 </td>
@@ -748,84 +617,32 @@ export default function ContractsPage() {
                         <div style={styles.filterGroup}>
                             <h3 style={styles.filterTitle}><Filter size={14} /> 상태 필터</h3>
                             <button
-                                onClick={() => { setStatusFilter('all'); setSelectedFolderId(null); }}
-                                style={(statusFilter === 'all' && !selectedFolderId) ? styles.filterBtnActive : styles.filterBtn}
+                                onClick={() => { setStatusFilter('all'); }}
+                                style={(statusFilter === 'all') ? styles.filterBtnActive : styles.filterBtn}
                             >
                                 전체 보기
                             </button>
                             <button
-                                onClick={() => { setStatusFilter('progress'); setSelectedFolderId(null); }}
+                                onClick={() => { setStatusFilter('progress'); }}
                                 style={statusFilter === 'progress' ? styles.filterBtnActive : styles.filterBtn}
                             >
                                 진행 중
                             </button>
                             <button
-                                onClick={() => { setStatusFilter('completed'); setSelectedFolderId(null); }}
+                                onClick={() => { setStatusFilter('completed'); }}
                                 style={statusFilter === 'completed' ? styles.filterBtnActive : styles.filterBtn}
                             >
                                 완료됨
                             </button>
                             <button
-                                onClick={() => { setStatusFilter('trash'); setSelectedFolderId(null); }}
+                                onClick={() => { setStatusFilter('trash'); }}
                                 style={statusFilter === 'trash' ? styles.filterBtnActive : styles.filterBtn}
                             >
                                 휴지통
                             </button>
                         </div>
 
-                        {/* FOLDER SECTION */}
-                        <div style={styles.filterGroup}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                                <h3 style={{ ...styles.filterTitle, margin: 0 }}><Folder size={14} /> 폴더</h3>
-                                <button
-                                    onClick={handleCreateFolder}
-                                    style={{
-                                        background: 'none', border: 'none', cursor: 'pointer', color: '#228be6',
-                                        padding: '4px', display: 'flex', alignItems: 'center'
-                                    }}
-                                    title="새 폴더 만들기"
-                                >
-                                    <Plus size={14} />
-                                </button>
-                            </div>
 
-                            {folders.length === 0 ? (
-                                <div style={{ fontSize: '13px', color: '#adb5bd', padding: '8px 0' }}>폴더가 없습니다.</div>
-                            ) : (
-                                folders.map(folder => (
-                                    <div
-                                        key={folder.folderId}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}
-                                    >
-                                        <button
-                                            onClick={() => { setSelectedFolderId(folder.folderId); setStatusFilter('all'); }}
-                                            style={selectedFolderId === folder.folderId ? styles.filterBtnActive : styles.filterBtn}
-                                        >
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <Folder size={14} fill={selectedFolderId === folder.folderId ? "#a5d8ff" : "none"} />
-                                                {folder.name}
-                                            </span>
-                                        </button>
-                                        <div style={{ display: 'flex', gap: '2px' }}>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleRenameFolder(folder.folderId, folder.name); }}
-                                                style={{ ...styles.iconBtn, opacity: 0.6 }}
-                                                title="이름 변경"
-                                            >
-                                                <PenTool size={10} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteFolder(folder.folderId); }}
-                                                style={{ ...styles.iconBtn, color: '#fa5252', opacity: 0.6 }}
-                                                title="삭제"
-                                            >
-                                                <Trash2 size={10} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
                     </div>
 
                     {/* RIGHT MAIN LIST */}
@@ -833,7 +650,13 @@ export default function ContractsPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                             <div style={styles.searchBox}>
                                 <Search size={16} color="#adb5bd" />
-                                <input type="text" placeholder="문서명 검색..." style={styles.input} />
+                                <input
+                                    type="text"
+                                    placeholder="문서명 검색..."
+                                    style={styles.input}
+                                    value={signatureSearchTerm}
+                                    onChange={(e) => setSignatureSearchTerm(e.target.value)}
+                                />
                             </div>
                             <button
                                 onClick={fetchData}
@@ -863,10 +686,10 @@ export default function ContractsPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {contracts.length === 0 ? (
+                                        {filteredSignatures.length === 0 ? (
                                             <tr><td colSpan={4} style={{ padding: '60px', textAlign: 'center', color: '#868e96' }}>데이터가 없습니다.</td></tr>
                                         ) : (
-                                            contracts.map((contract) => (
+                                            filteredSignatures.map((contract) => (
                                                 <tr key={contract.id} style={styles.tr} onClick={() => openDetailPanel(contract.id!)}>
                                                     <td style={styles.td}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -890,23 +713,28 @@ export default function ContractsPage() {
                                                     </td>
                                                     <td style={{ ...styles.td, textAlign: 'right' }}>
                                                         <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+
                                                             <button
-                                                                style={{ ...styles.iconBtn, color: '#495057' }}
-                                                                onClick={(e) => { e.stopPropagation(); handleMoveToFolder([contract.id!]); }}
-                                                                title="폴더 이동"
-                                                            >
-                                                                <Folder size={16} />
-                                                            </button>
-                                                            <button
-                                                                style={{ ...styles.iconBtn, color: '#fcc419' }}
+                                                                style={{
+                                                                    ...styles.iconBtn,
+                                                                    color: '#fcc419',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px',
+                                                                    width: 'auto',
+                                                                    fontSize: '12px',
+                                                                    fontWeight: 600,
+                                                                    padding: '4px 8px',
+                                                                    border: '1px solid #fcc419',
+                                                                    borderRadius: '4px',
+                                                                    backgroundColor: '#fff9db'
+                                                                }}
                                                                 onClick={(e) => { e.stopPropagation(); handleEmbedView(contract.id!); }}
                                                                 title="임베딩 뷰어로 보기"
                                                             >
-                                                                <Layout size={16} />
+                                                                <Layout size={14} /> 문서확인
                                                             </button>
-                                                            <button style={styles.iconBtn} onClick={(e) => { e.stopPropagation(); /* Menu */ }}>
-                                                                <MoreHorizontal size={16} />
-                                                            </button>
+
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -930,14 +758,7 @@ export default function ContractsPage() {
                 />
             )}
 
-            {/* Render Modal */}
-            <MoveToFolderModal
-                isOpen={isMoveModalOpen}
-                onClose={() => setIsMoveModalOpen(false)}
-                onMove={executeMoveToFolder}
-                folders={folders}
-                selectedCount={moveTargetIds.length}
-            />
+
 
             {/* Other Modals */}
             {showPointsModal && (
@@ -996,3 +817,11 @@ const styles = {
     batchBtnGroup: { display: 'flex', gap: '8px' },
     batchBtn: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '4px', border: '1px solid #a5d8ff', backgroundColor: 'white', fontSize: '12px', cursor: 'pointer', color: '#1971c2' },
 };
+
+export default function ContractsPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ContractsPageContent />
+        </Suspense>
+    );
+}

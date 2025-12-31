@@ -17,22 +17,37 @@ export default function SignupPage() {
         const name = (document.getElementById('name') as HTMLInputElement).value;
         const companyName = (document.getElementById('companyName') as HTMLInputElement).value;
 
+        // Get selected role
+        const roleInputs = document.getElementsByName('role') as NodeListOf<HTMLInputElement>;
+        let role = 'staff';
+        for (const input of Array.from(roleInputs)) {
+            if (input.checked) {
+                role = input.value;
+                break;
+            }
+        }
+
         try {
             const res = await fetch('/api/signup', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, password, name, companyName }),
+                body: JSON.stringify({ id, password, name, companyName, role }),
             });
 
+            const data = await res.json();
+
             if (res.ok) {
-                alert('회원가입이 완료되었습니다. 로그인해주세요.');
+                if (data.message) {
+                    alert(data.message); // Show message from server (e.g. "팀장으로 가입됨")
+                } else {
+                    alert('회원가입이 완료되었습니다. 로그인해주세요.');
+                }
                 router.push('/login');
             } else {
-                const errorData = await res.json();
                 if (res.status === 409) {
-                    alert('이미 존재하는 아이디입니다.');
+                    alert(data.error || '이미 존재하는 아이디입니다.');
                 } else {
-                    alert(errorData.error || '회원가입에 실패했습니다.');
+                    alert(data.error || '회원가입에 실패했습니다.');
                 }
             }
         } catch (error) {
@@ -97,6 +112,34 @@ export default function SignupPage() {
                             className={styles.input}
                             required
                         />
+                    </div>
+
+                    <div className={styles.inputGroup} style={{ marginBottom: '20px' }}>
+                        <label className={styles.label}>가입 유형</label>
+                        <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                                <input
+                                    type="radio"
+                                    name="role"
+                                    value="manager"
+                                    defaultChecked
+                                    style={{ accentColor: '#339af0' }}
+                                />
+                                팀장
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+                                <input
+                                    type="radio"
+                                    name="role"
+                                    value="staff"
+                                    style={{ accentColor: '#339af0' }}
+                                />
+                                직원
+                            </label>
+                        </div>
+                        <p style={{ fontSize: '12px', color: '#868e96', marginTop: '4px' }}>
+                            * 처음 등록하는 회사의 경우 자동으로 팀장 권한이 부여됩니다.
+                        </p>
                     </div>
 
                     <button type="submit" className={styles.loginButton} disabled={isLoading}>

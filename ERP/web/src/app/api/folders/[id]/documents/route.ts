@@ -1,13 +1,15 @@
+// @ts-nocheck
 import { NextResponse } from 'next/server';
 import { moveDocumentsToFolder } from '@/lib/ucansign/client';
 
 export async function PUT(
     request: Request,
-    { params }: { params: { id: string } }
+    context: any
 ) {
     try {
+        const { id } = await context.params;
         const { userId, documentIds } = await request.json();
-        console.log(`[API] Move to Folder request. FolderId: ${params.id}, UserId: ${userId}, DocIds:`, documentIds);
+        console.log(`[API] Move to Folder request. FolderId: ${id}, UserId: ${userId}, DocIds:`, documentIds);
 
         if (!userId || !Array.isArray(documentIds)) {
             console.error('[API] Invalid payload:', { userId, documentIds });

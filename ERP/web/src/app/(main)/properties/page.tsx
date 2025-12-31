@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { Search, Filter, Plus, MoreHorizontal, Printer, Save, Trash2, X, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Settings, Layout, Check, MapPin, Users, Banknote, Maximize, TrendingUp, Star, Eye, EyeOff, Type, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import Script from 'next/script';
@@ -104,7 +104,7 @@ type SortRule = { key: SortKey; direction: SortDirection; };
 // Kakao Map SDK URL (Same as Register Page)
 const KAKAO_SDK_URL = `//dapi.kakao.com/v2/maps/sdk.js?appkey=26c1197bae99e17f8c1f3e688e22914d&libraries=services,drawing&autoload=false`;
 
-export default function PropertiesPage() {
+function PropertiesPageContent() {
     const router = useRouter();
     const [properties, setProperties] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -2284,5 +2284,13 @@ export default function PropertiesPage() {
                 )
             }
         </div >
+    );
+}
+
+export default function PropertiesPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <PropertiesPageContent />
+        </Suspense>
     );
 }
