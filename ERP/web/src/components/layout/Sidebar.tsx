@@ -102,7 +102,9 @@ const Sidebar = ({ isOpen, onToggle }: SidebarProps) => {
                     <div className={styles.logoIcon}>
                         <div className={styles.gridIcon} />
                     </div>
-                    <span className={styles.logoText}>내일사장 (DEV)</span>
+                    <span className={styles.logoText}>
+                        내일사장 {process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production' && '(DEV)'}
+                    </span>
                 </Link>
 
                 {isOpen && (
