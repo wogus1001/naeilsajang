@@ -1,24 +1,14 @@
+
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 const dataPath = path.join(process.cwd(), 'src/data/business-cards.json');
 
-// Service Role Client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
-
 // Helper to resolve IDs
 async function resolveIds(legacyCompany: string, legacyUser: string) {
+    const supabaseAdmin = getSupabaseAdmin();
     let companyId = null;
     let userId = null;
 
@@ -176,6 +166,7 @@ export async function POST(request: Request) {
         if (newSchedules.length > 0) {
             // Process individually to resolve IDs
             (async () => {
+                const supabaseAdmin = getSupabaseAdmin();
                 for (const sched of newSchedules) {
                     try {
                         const { companyId, userId } = await resolveIds(sched.companyName, sched.userId);

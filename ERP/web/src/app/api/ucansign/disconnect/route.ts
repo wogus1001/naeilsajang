@@ -1,22 +1,15 @@
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 // Service Role Client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+// Service Role Client
+// Removed top level
 
 // Helper to resolve ID (Simplified duplication)
 async function resolveId(id: string) {
     if (id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) return id;
+    const supabaseAdmin = getSupabaseAdmin();
 
     // Legacy -> Email
     const { data } = await supabaseAdmin.from('profiles').select('id').eq('email', `${id}@example.com`).single();
@@ -44,6 +37,8 @@ export async function DELETE(request: Request) {
         }
 
         // Remove UCanSign data
+        // Remove UCanSign data
+        const supabaseAdmin = getSupabaseAdmin();
         const { error } = await supabaseAdmin.from('profiles').update({
             ucansign_access_token: null,
             ucansign_refresh_token: null,

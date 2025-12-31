@@ -1,20 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 // Helper: Resolve IDs
 async function resolveIds(legacyCompany: string, legacyUser: string) {
+    const supabaseAdmin = getSupabaseAdmin();
     let companyId = null;
     let userId = null;
 
@@ -36,6 +25,10 @@ async function resolveIds(legacyCompany: string, legacyUser: string) {
         }
     }
     return { companyId, userId };
+}
+
+async function getSupabaseForResolve() {
+    return getSupabaseAdmin();
 }
 
 // Transform for Frontend
@@ -63,6 +56,7 @@ function transformSchedule(row: any) {
 
 export async function GET(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { searchParams } = new URL(request.url);
         const company = searchParams.get('company');
         const userId = searchParams.get('userId');
@@ -120,6 +114,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { companyName, userId, customerId, propertyId, businessCardId, ...rest } = body;
 
@@ -152,6 +147,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { id, companyName, userId, customerId, propertyId, businessCardId, ...rest } = body;
 
@@ -179,6 +175,7 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });

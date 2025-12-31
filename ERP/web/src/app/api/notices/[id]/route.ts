@@ -1,19 +1,11 @@
-// @ts-nocheck
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+// Service Role Client
+// Removed top level
 
 export async function GET(request: Request, context: any) {
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const params = await context.params;
         const id = params.id;
@@ -52,6 +44,7 @@ export async function GET(request: Request, context: any) {
 }
 
 export async function DELETE(request: Request, context: any) {
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const params = await context.params;
         const id = params.id;
@@ -71,6 +64,7 @@ export async function DELETE(request: Request, context: any) {
 }
 
 export async function PUT(request: Request, context: any) {
+    const supabaseAdmin = getSupabaseAdmin();
     try {
         const params = await context.params;
         const id = params.id;

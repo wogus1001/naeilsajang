@@ -1,20 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-// Service Role Client for Hybrid Migration
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+// Service Role Client moved to handlers
 
 // Helper Query: Resolve Company/User UUIDs
 async function resolveIds(legacyCompany: string, legacyManager: string) {
+    const supabaseAdmin = getSupabaseAdmin();
     let companyId = null;
     let managerId = null;
 
@@ -65,6 +56,7 @@ function transformProperty(row: any) {
 
 // GET
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const company = searchParams.get('company');
@@ -102,6 +94,7 @@ export async function GET(request: Request) {
 // POST
 export async function POST(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { companyName, managerId, name, status, operationType, address, isFavorite, ...rest } = body;
 
@@ -148,6 +141,7 @@ export async function POST(request: Request) {
 // PUT
 export async function PUT(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         const body = await request.json();
@@ -205,6 +199,7 @@ export async function PUT(request: Request) {
 // DELETE
 export async function DELETE(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import styles from './page.module.css';
 
 export default function LoginPage() {
@@ -40,6 +40,7 @@ export default function LoginPage() {
                 email = `${id}@example.com`;
             }
 
+            const supabase = getSupabase();
             const { data, error } = await supabase.auth.signInWithPassword({
                 email,
                 password,

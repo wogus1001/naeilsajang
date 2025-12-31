@@ -1,21 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getContracts, uCanSignClient } from '@/lib/ucansign/client';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-// Service Role Client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+// Service Role Client removed from top-level
 
 async function resolveUserId(legacyId: string) {
     if (!legacyId) return null;
+    const supabaseAdmin = getSupabaseAdmin();
     const email = `${legacyId}@example.com`;
     const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
     if (u) return u.id;
@@ -47,6 +38,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId'); // Legacy 'admin'
+        const supabaseAdmin = getSupabaseAdmin();
 
         if (!userId) {
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });

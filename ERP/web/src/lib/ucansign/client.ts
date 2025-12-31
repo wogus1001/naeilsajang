@@ -1,19 +1,11 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export const UCANSIGN_BASE_URL = process.env.UCANSIGN_BASE_URL || 'https://app.ucansign.com/openapi';
 
 // Service Role Client (for backend token management)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+// Service Role Client (for backend token management)
+// Removed top level
 
 interface RequestOptions extends RequestInit {
     headers?: Record<string, string>;
@@ -22,6 +14,7 @@ interface RequestOptions extends RequestInit {
 // Helper to update token in DB
 const updateTokenInDB = async (userId: string, authResult: any) => {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { error } = await supabaseAdmin.from('profiles').update({
             ucansign_access_token: authResult.accessToken,
             ucansign_refresh_token: authResult.refreshToken, // Maintain if new one not provided? uCanSign usually rotates.
@@ -37,6 +30,7 @@ const updateTokenInDB = async (userId: string, authResult: any) => {
 // Helper to disconnect user (clear tokens)
 const disconnectUserInDB = async (userId: string) => {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { error } = await supabaseAdmin.from('profiles').update({
             ucansign_access_token: null,
             ucansign_refresh_token: null,
@@ -50,6 +44,7 @@ const disconnectUserInDB = async (userId: string) => {
 
 const getUserToken = async (userId: string, forceRefresh = false): Promise<string> => {
     // 1. Read User Data from Supabase
+    const supabaseAdmin = getSupabaseAdmin();
     const { data: profile, error } = await supabaseAdmin
         .from('profiles')
         .select('ucansign_access_token, ucansign_refresh_token, ucansign_expires_at')

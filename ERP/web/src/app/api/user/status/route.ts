@@ -1,22 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-// Service Role Client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 // Helper to resolve ID (Simplified duplication)
 async function resolveId(id: string) {
     if (id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) return id;
 
+    const supabaseAdmin = getSupabaseAdmin();
     // Legacy -> Email
     const { data } = await supabaseAdmin.from('profiles').select('id').eq('email', `${id}@example.com`).single();
     if (data) return data.id;
@@ -29,6 +18,7 @@ async function resolveId(id: string) {
 }
 
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const userIdParam = searchParams.get('userId');
 

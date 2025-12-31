@@ -1,19 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 // Service Role Client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+// Service Role Client
+// Removed top level
 
 const scheduleFilePath = path.join(process.cwd(), 'src/data/schedules.json');
 
@@ -51,6 +43,7 @@ function transformCustomer(row: any) {
 
 export async function GET(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         const company = searchParams.get('company');
@@ -88,6 +81,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { companyName, managerId, name, grade, mobile, isFavorite, ...rest } = body;
 
@@ -151,6 +145,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { id, companyName, managerId, name, grade, mobile, isFavorite, ...rest } = body;
 
@@ -201,6 +196,7 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 

@@ -1,21 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-// Use Service Role to bypass RLS during hybrid migration
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+// Service Role Client moved to handlers
 
 // GET: Fetch notices (System + Team)
 export async function GET(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { searchParams } = new URL(request.url);
         const companyName = searchParams.get('companyName');
         const limit = searchParams.get('limit');
@@ -75,6 +66,7 @@ export async function GET(request: Request) {
 // POST: Create Notice
 export async function POST(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { title, content, type, authorId, companyName, isPinned } = body;
 

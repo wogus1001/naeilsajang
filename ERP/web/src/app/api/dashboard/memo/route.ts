@@ -1,21 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-// Use Service Role for API routes during migration to bypass RLS
+// Service Role Client (Bypasses RLS for migration/support)
 // because the API Request doesn't carry the Supabase Session yet (hybrid mode)
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
+// Service Role Client (Bypasses RLS for migration/support)
+// because the API Request doesn't carry the Supabase Session yet (hybrid mode)
+// Removed top level
 
 // GET: Fetch user's memo
 export async function GET(request: Request) {
+    const supabaseAdmin = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
@@ -44,6 +38,7 @@ export async function GET(request: Request) {
 // POST: Save user's memo
 export async function POST(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const { userId, content } = await request.json();
 
         const email = `${userId}@example.com`;

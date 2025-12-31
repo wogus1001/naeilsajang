@@ -14,7 +14,7 @@ export async function PUT(
             return NextResponse.json({ error: 'User ID and Name are required' }, { status: 400 });
         }
 
-        await renameFolder(userId, params.id, name);
+        await renameFolder(userId, id, name);
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error('Folder Rename Error:', error);
@@ -35,7 +35,7 @@ export async function DELETE(
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
         }
 
-        await deleteFolder(userId, params.id);
+        await deleteFolder(userId, id);
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error('Folder Delete Error:', error);
