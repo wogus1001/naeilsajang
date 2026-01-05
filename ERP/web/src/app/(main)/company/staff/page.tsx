@@ -61,33 +61,34 @@ export default function StaffManagementPage() {
 
             if (res.ok) {
                 alert('처리되었습니다.');
-// ... (omitted) ...
-                                    </div >
-    {
-        managers.length < 2 && staff.id !== user.uid && staff.id !== user.id && (
-            <button
-                onClick={() => handleAction(staff.id, 'promote')}
-                title="팀장 권한 부여"
-                style={{ padding: '6px 12px', fontSize: '12px', background: 'white', border: '1px solid #ced4da', borderRadius: '4px', cursor: 'pointer' }}
-            >
-                팀장 승격
-            </button>
-        )
-    }
-                                </div >
-                            ))
-                        )
-}
-// If I demoted myself, I am no longer a manager. Reload to trigger redirects or UI updates.
-if (action === 'demote' && targetUserId === user.id) {
-    // Update local storage user
-    const updatedUser = { ...user, role: 'staff' };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    window.location.href = '/dashboard'; // Redirect out as I lost access to this page
-} else {
-    fetchStaff(user.companyName);
-}
+                // If I demoted myself, I am no longer a manager. Reload to trigger redirects or UI updates.
+                if (action === 'demote' && targetUserId === user.id) {
+                    // Update local storage user
+                    const updatedUser = { ...user, role: 'staff' };
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    window.location.href = '/dashboard'; // Redirect out as I lost access to this page
+                } else {
+                    fetchStaff(user.companyName);
+                }
             } else {
+                const data = await res.json();
+                alert(data.error || '오류가 발생했습니다.');
+            }
+        } catch (error) {
+            console.error('Action error:', error);
+            alert('처리 중 오류가 발생했습니다.');
+        }
+    };
+    // If I demoted myself, I am no longer a manager. Reload to trigger redirects or UI updates.
+    if (action === 'demote' && targetUserId === user.id) {
+        // Update local storage user
+        const updatedUser = { ...user, role: 'staff' };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        window.location.href = '/dashboard'; // Redirect out as I lost access to this page
+    } else {
+        fetchStaff(user.companyName);
+    }
+} else {
     const data = await res.json();
     alert(data.error || '오류가 발생했습니다.');
 }
