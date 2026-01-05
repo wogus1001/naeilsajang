@@ -33,15 +33,22 @@ export async function GET(request: Request) {
 
         if (error) throw error;
 
-        const safeUsers = profiles.map(p => ({
-            id: p.email, // Use email as the display ID for compatibility
-            uuid: p.id,  // Keep real UUID handy if needed later
-            name: p.name,
-            companyName: p.company?.name || '-',
-            role: p.role,
-            status: p.status,
-            joinedAt: p.created_at
-        }));
+        const safeUsers = profiles.map(p => {
+            // Restore legacy ID format by stripping default domain
+            const displayId = p.email?.endsWith('@example.com')
+                ? p.email.split('@')[0]
+                : p.email;
+
+            return {
+                id: displayId,
+                uuid: p.id,
+                name: p.name,
+                companyName: p.company?.name || '-',
+                role: p.role,
+                status: p.status,
+                joinedAt: p.created_at
+            };
+        });
 
         return NextResponse.json(safeUsers);
 
