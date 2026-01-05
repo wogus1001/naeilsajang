@@ -55,7 +55,7 @@ export default function StaffManagementPage() {
                 body: JSON.stringify({
                     targetUserId,
                     action,
-                    requesterId: user.id
+                    requesterId: user.uid || user.id
                 })
             });
 
@@ -136,12 +136,12 @@ export default function StaffManagementPage() {
                                     <div>
                                         <div style={{ fontWeight: 'bold' }}>
                                             {mgr.name}
-                                            {mgr.id === user.id && <span style={{ fontSize: '11px', color: '#7950f2', marginLeft: '6px' }}>(나)</span>}
+                                            {(mgr.id === user.uid || mgr.id === user.id) && <span style={{ fontSize: '11px', color: '#7950f2', marginLeft: '6px' }}>(나)</span>}
                                         </div>
                                         <div style={{ fontSize: '12px', color: '#868e96' }}>{mgr.email || mgr.id}</div>
                                     </div>
                                 </div>
-                                {mgr.id === user.id && managers.length > 1 && (
+                                {(mgr.id === user.uid || mgr.id === user.id) && managers.length > 1 && (
                                     <button
                                         onClick={() => handleAction(mgr.id, 'demote')}
                                         style={{
