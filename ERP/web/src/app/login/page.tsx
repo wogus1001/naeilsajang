@@ -61,15 +61,24 @@ export default function LoginPage() {
                     .eq('id', data.user.id)
                     .single();
 
+                if (!profile) {
+                    await supabase.auth.signOut();
+                    setErrorMsg('사용자 정보를 찾을 수 없습니다. 관리자에게 문의하세요.');
+                    setIsLoading(false);
+                    return;
+                }
+
                 // Security Check: Enforce Status
-                console.log('[Login] Profile Status:', profile?.status);
-                if (profile?.status === 'pending_approval') {
+                console.log('[Login] Profile Status:', profile.status);
+
+                if (profile.status === 'pending_approval') {
                     await supabase.auth.signOut();
                     setErrorMsg('승인 대기 중입니다. 팀장의 승인 후 이용 가능합니다.');
                     setIsLoading(false);
                     return;
                 }
-                if (profile?.status !== 'active') {
+
+                if (profile.status !== 'active') { // Explicit check, no fallback
                     await supabase.auth.signOut();
                     setErrorMsg('사용이 정지된 계정입니다. 관리자에게 문의하세요.');
                     setIsLoading(false);
@@ -79,19 +88,19 @@ export default function LoginPage() {
                 const { data: company } = await supabase
                     .from('companies')
                     .select('name')
-                    .eq('id', profile?.company_id)
+                    .eq('id', profile.company_id)
                     .single();
 
-                // Construct legacy-compatible user object for localStorage
+                // Construct user object
                 const userInfo = {
-                    id: id, // Keep original login ID for display if needed
+                    id: id,
                     email: data.user.email,
-                    name: profile?.name || data.user.user_metadata.name || '사용자',
-                    role: profile?.role || 'staff',
+                    name: profile.name || data.user.user_metadata.name || '사용자',
+                    role: profile.role || 'staff',
                     companyName: company?.name || '',
-                    companyId: profile?.company_id,
-                    uid: data.user.id, // Supabase UID
-                    status: profile?.status || 'active'
+                    companyId: profile.company_id,
+                    uid: data.user.id,
+                    status: profile.status // No default 'active'
                 };
 
                 localStorage.setItem('user', JSON.stringify(userInfo));
