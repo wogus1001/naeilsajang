@@ -54,8 +54,11 @@ export async function PUT(request: Request) {
             }, { status: 404 });
         }
 
-        const userId = profile.id;
         const actualEmail = profile.email;
+        // userId is already declared above, just assign it if not targetUuid case
+        if (!targetUuid) {
+            userId = profile.id;
+        }
 
         // 2. Handle ID (Email) Change
         if (newId && newId !== currentId) {
@@ -136,7 +139,9 @@ export async function PUT(request: Request) {
         });
 
     } catch (error: any) {
-        console.error('Update user error:', error);
-        return NextResponse.json({ error: `Internal server error: ${error.message || error}` }, { status: 500 });
+        console.error('Update user/profile route error:', error);
+        return NextResponse.json({
+            error: `[DEBUG-CRITICAL] 서버 오류가 발생했습니다: ${error.message || JSON.stringify(error)}`
+        }, { status: 500 });
     }
 }

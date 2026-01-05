@@ -52,9 +52,9 @@ export async function GET(request: Request) {
 
         return NextResponse.json(safeUsers);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Get users error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: `[DEBUG-GET] 서버 오류: ${error.message || error}` }, { status: 500 });
     }
 }
 
@@ -157,7 +157,7 @@ export async function DELETE(request: Request) {
 
     } catch (error: any) {
         console.error('Delete user error:', error);
-        return NextResponse.json({ error: `Internal server error: ${error.message || error}` }, { status: 500 });
+        return NextResponse.json({ error: `[DEBUG-DELETE] 서버 오류: ${error.message || error}` }, { status: 500 });
     }
 }
 
@@ -204,8 +204,8 @@ export async function PUT(request: Request) {
 
         return NextResponse.json({ success: true });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Update user error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: `[DEBUG-UPDATE] 서버 오류: ${error.message || error}` }, { status: 500 });
     }
 }
