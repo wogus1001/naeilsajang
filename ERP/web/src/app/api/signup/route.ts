@@ -29,12 +29,15 @@ export async function POST(request: Request) {
         let finalStatus = 'active';
         let message = '회원가입이 완료되었습니다.';
 
-        // Check if company exists
-        const { data: existingCompany } = await supabaseAdmin
+        // Check if company exists (Pick the oldest one if duplicates exist)
+        const { data: companyResults } = await supabaseAdmin
             .from('companies')
             .select('id, manager_id')
             .eq('name', trimmedCompanyName)
-            .single();
+            .order('created_at', { ascending: true })
+            .limit(1);
+
+        const existingCompany = companyResults && companyResults.length > 0 ? companyResults[0] : null;
 
         if (!existingCompany) {
             // New Company -> Create it
