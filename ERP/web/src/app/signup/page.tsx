@@ -92,7 +92,7 @@ export default function SignupPage() {
                         <input
                             type="password"
                             id="password"
-                            placeholder="비밀번호를 입력하세요"
+                            placeholder="비밀번호 (6자 이상)"
                             className={styles.input}
                             required
                         />

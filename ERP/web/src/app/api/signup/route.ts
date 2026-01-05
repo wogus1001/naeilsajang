@@ -16,12 +16,8 @@ export async function POST(request: Request) {
 
         const trimmedCompanyName = companyName.trim();
 
+        const email = id.includes('@') ? id : `${id}@example.com`;
         const supabaseAdmin = await getSupabaseAdmin();
-
-        // 1. Check if email already exists
-        const { data: { users }, error: searchError } = await supabaseAdmin.auth.admin.listUsers();
-
-        const email = id.includes('@') ? id : `${id}@example.com`; // Fallback if id is not email
 
         // 2. Company Logic
         let companyId: string | null = null;
@@ -29,15 +25,18 @@ export async function POST(request: Request) {
         let finalStatus = 'active';
         let message = '회원가입이 완료되었습니다.';
 
-        // Check if company exists (Pick the oldest one if duplicates exist)
-        const { data: companyResults } = await supabaseAdmin
+        // Check if company exists
+        const { data: companyResults, error: findError } = await supabaseAdmin
             .from('companies')
             .select('id, manager_id')
             .eq('name', trimmedCompanyName)
-            .order('created_at', { ascending: true })
-            .limit(1);
+            .order('created_at', { ascending: true });
 
-        const existingCompany = companyResults && companyResults.length > 0 ? companyResults[0] : null;
+        if (findError) {
+            console.error('Find company error:', findError);
+        }
+
+        let existingCompany = companyResults && companyResults.length > 0 ? companyResults[0] : null;
 
         if (!existingCompany) {
             // New Company -> Create it
@@ -47,41 +46,52 @@ export async function POST(request: Request) {
                 .select()
                 .single();
 
-            if (createCompanyError || !newCompany) {
-                console.error('Company creation failed:', createCompanyError);
-                return NextResponse.json({
-                    error: `Company creation failed: ${createCompanyError?.message || 'Unknown error'}`
-                }, { status: 500 });
-            }
-            companyId = newCompany.id;
+            if (createCompanyError) {
+                // RACE CONDITION: If it failed because another request created it simultaneously
+                if (createCompanyError.code === '23505') {
+                    const { data: retryFetch } = await supabaseAdmin
+                        .from('companies')
+                        .select('id, manager_id')
+                        .eq('name', trimmedCompanyName)
+                        .single();
 
-            // First user is always manager
-            finalRole = 'manager';
-            finalStatus = 'active';
-            if (requestedRole === 'staff') {
-                message = '처음 등록되는 회사의 경우 가입자가 팀장이 됩니다.';
+                    if (retryFetch) {
+                        existingCompany = retryFetch;
+                        companyId = existingCompany.id;
+                        // Proceed as existing company
+                    } else {
+                        return NextResponse.json({ error: `회사를 찾는 데 실패했습니다: ${createCompanyError.message}` }, { status: 500 });
+                    }
+                } else {
+                    console.error('Company creation failed:', createCompanyError);
+                    return NextResponse.json({
+                        error: `회사 등록 실패: ${createCompanyError.message}`
+                    }, { status: 500 });
+                }
+            } else {
+                companyId = newCompany.id;
+                finalRole = 'manager';
+                finalStatus = 'active';
+                if (requestedRole === 'staff') {
+                    message = '처음 등록되는 회사의 경우 가입자가 팀장이 됩니다.';
+                }
             }
+        }
 
-        } else {
-            // Existing Company
+        // If we found an existing company (either first time or after retry)
+        if (existingCompany && !companyId) {
             companyId = existingCompany.id;
 
-            if (finalRole === 'manager') {
+            if (requestedRole === 'manager') {
                 if (existingCompany.manager_id) {
                     return NextResponse.json({ error: '이미 팀장이 존재하는 회사입니다. 직원으로 가입해주세요.' }, { status: 400 });
                 }
-                // No manager -> Allow becoming manager
+                finalRole = 'manager';
                 finalStatus = 'active';
             } else {
-                // Staff joining
                 finalRole = 'staff';
-                if (existingCompany.manager_id) {
-                    finalStatus = 'pending_approval';
-                    message = '가입 요청이 완료되었습니다. 팀장의 승인 후 로그인이 가능합니다.';
-                } else {
-                    finalStatus = 'pending_approval';
-                    message = '가입 요청이 완료되었습니다. 팀장의 승인 후 로그인이 가능합니다.';
-                }
+                finalStatus = 'pending_approval';
+                message = '가입 요청이 완료되었습니다. 팀장의 승인 후 로그인이 가능합니다.';
             }
         }
 

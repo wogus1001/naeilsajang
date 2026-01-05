@@ -135,6 +135,15 @@ export async function DELETE(request: Request) {
             supabaseAdmin.from('notices').update({ author_id: null }).eq('author_id', targetUuid),
         ]);
 
+        // Pre-fetch company_id for cleanup check
+        const { data: profileForCleanup } = await supabaseAdmin
+            .from('profiles')
+            .select('company_id')
+            .eq('id', targetUuid)
+            .single();
+
+        const companyIdToClean = profileForCleanup?.company_id;
+
         // 2. Delete User (Auth) -> Trigger cascades to Profile
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUuid);
 
@@ -152,8 +161,21 @@ export async function DELETE(request: Request) {
         }
 
         // [CRITICAL FIX] Explicitly delete from profiles to ensure no "ghost" users remain
-        // This handles cases where auth.user was deleted but profile remained, or cascade failed.
         await supabaseAdmin.from('profiles').delete().eq('id', targetUuid);
+
+        // 3. Automatic Company Cleanup: Delete company if no members left
+        if (companyIdToClean) {
+            const { count } = await supabaseAdmin
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .eq('company_id', companyIdToClean);
+
+            if (count === 0) {
+                console.log(`[CLEANUP] Deleting empty company: ${companyIdToClean}`);
+                // Delete company (cascades to other tables should be handled by DB or manual cleanup if needed)
+                await supabaseAdmin.from('companies').delete().eq('id', companyIdToClean);
+            }
+        }
 
         return NextResponse.json({ success: true });
 
