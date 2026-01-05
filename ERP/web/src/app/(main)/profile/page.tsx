@@ -25,6 +25,15 @@ export default function ProfilePage() {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             const parsed = JSON.parse(storedUser);
+
+            // [CRITICAL FIX] If session is old and missing UID, force re-login to ensure UUID availability
+            if (!parsed.uid) {
+                alert('시스템 업데이트로 인해 보안 정보 갱신이 필요합니다.\n다시 로그인해주세요.');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+                return;
+            }
+
             setUser(parsed);
             setFormData(prev => ({
                 ...prev,
@@ -35,7 +44,7 @@ export default function ProfilePage() {
             setIsIdChecked(true); // Initial ID is valid
 
             // Fetch UCanSign status
-            fetch(`/api/user/status?userId=${parsed.id}`)
+            fetch(`/api/user/status?userId=${parsed.uid}`) // Use UID here for safety too
                 .then(res => res.json())
                 .then(data => {
                     if (data.connected) {

@@ -48,8 +48,10 @@ export async function PUT(request: Request) {
         }
 
         if (!profile) {
-            console.error(`User extraction failed for id: ${currentId} / uuid: ${targetUuid}`);
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            console.error(`User extraction failed. currentId: ${currentId}, targetUuid: ${targetUuid}`);
+            return NextResponse.json({
+                error: `User not found. (Input: id=${currentId}, uuid=${targetUuid}). The system could not resolve this user. Please try re-logging in.`
+            }, { status: 404 });
         }
 
         const userId = profile.id;
