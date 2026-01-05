@@ -40,7 +40,9 @@ export async function POST(request: Request) {
 
             if (createCompanyError || !newCompany) {
                 console.error('Company creation failed:', createCompanyError);
-                return NextResponse.json({ error: 'Company creation failed' }, { status: 500 });
+                return NextResponse.json({
+                    error: `Company creation failed: ${createCompanyError?.message || 'Unknown error'}`
+                }, { status: 500 });
             }
             companyId = newCompany.id;
 

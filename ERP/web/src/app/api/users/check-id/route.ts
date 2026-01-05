@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
     try {
@@ -11,14 +10,17 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'ID is required' }, { status: 400 });
         }
 
-        const filePath = path.join(process.cwd(), 'src/data/users.json');
-        if (!fs.existsSync(filePath)) {
-            // No users file means no users, so ID is available
-            return NextResponse.json({ available: true });
-        }
+        const supabaseAdmin = await getSupabaseAdmin();
+        const email = id.includes('@') ? id : `${id}@example.com`;
 
-        const users = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-        const exists = users.some((u: any) => u.id === id);
+        // Check auth users
+        const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+
+        // This is inefficient for large user base but fine for now. Better to try-catch createUser? NO, that's invasive.
+        // Actually, searching by email in profiles is better if triggers work reliably.
+
+        // Let's use listUsers for Auth check (definitive).
+        const exists = users.some(u => u.email === email);
 
         if (exists) {
             return NextResponse.json({ available: false, message: '이미 사용 중인 아이디입니다.' });

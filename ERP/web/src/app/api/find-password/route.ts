@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: Request) {
     try {
@@ -11,22 +10,24 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'ID, name, and company name are required' }, { status: 400 });
         }
 
-        const filePath = path.join(process.cwd(), 'src/data/users.json');
+        const supabaseAdmin = await getSupabaseAdmin();
+        const email = id.includes('@') ? id : `${id}@example.com`;
 
-        if (!fs.existsSync(filePath)) {
-            return NextResponse.json({ error: 'User database not found' }, { status: 500 });
-        }
+        // Check if user exists with matching details
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select(`
+                *,
+                company:companies(name)
+            `)
+            .eq('email', email)
+            .single();
 
-        const fileContent = fs.readFileSync(filePath, 'utf8');
-        const users = JSON.parse(fileContent);
-
-        const user = users.find((u: any) => u.id === id && u.name === name && u.companyName === companyName);
-
-        if (user) {
-            // MVP: Return password directly (In production, send email/SMS)
-            return NextResponse.json({ password: user.password });
+        if (profile && profile.name === name && profile.company?.name === companyName) {
+            // Cannot return password.
+            return NextResponse.json({ error: '비밀번호는 암호화되어 저장됩니다. 관리자에게 비밀번호 초기화를 요청해주세요.' }, { status: 400 });
         } else {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            return NextResponse.json({ error: 'User not found or details do not match' }, { status: 404 });
         }
     } catch (error) {
         console.error('Find password error:', error);
