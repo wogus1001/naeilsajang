@@ -82,9 +82,18 @@ export async function POST(request: Request) {
         if (existingCompany && !companyId) {
             companyId = existingCompany.id;
 
+            // Check how many managers already exist
+            const { count: managerCount } = await supabaseAdmin
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .eq('company_id', companyId)
+                .eq('role', 'manager');
+
+            const currentManagers = managerCount || 0;
+
             if (requestedRole === 'manager') {
-                if (existingCompany.manager_id) {
-                    return NextResponse.json({ error: '이미 팀장이 존재하는 회사입니다. 직원으로 가입해주세요.' }, { status: 400 });
+                if (currentManagers >= 2) {
+                    return NextResponse.json({ error: '이미 팀장이 2명 존재합니다. 직원으로 가입해주세요.' }, { status: 400 });
                 }
                 finalRole = 'manager';
                 finalStatus = 'active';
@@ -141,12 +150,15 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
         }
 
-        // 5. If Manager, update Company manager_id
+        // 5. If Manager, update Company manager_id (Only if currently null)
         if (finalRole === 'manager' && companyId) {
-            await supabaseAdmin
-                .from('companies')
-                .update({ manager_id: userId })
-                .eq('id', companyId);
+            const { data: comp } = await supabaseAdmin.from('companies').select('manager_id').eq('id', companyId).single();
+            if (comp && !comp.manager_id) {
+                await supabaseAdmin
+                    .from('companies')
+                    .update({ manager_id: userId })
+                    .eq('id', companyId);
+            }
         }
 
         return NextResponse.json({

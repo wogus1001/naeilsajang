@@ -111,15 +111,29 @@ export async function DELETE(request: Request) {
 
                 // Logic Check: Manager Leaving
                 if (profile.role === 'manager') {
-                    const { count } = await supabaseAdmin
+                    // Count other managers
+                    const { count: otherManagersCount } = await supabaseAdmin
+                        .from('profiles')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('company_id', profile.company_id)
+                        .eq('role', 'manager')
+                        .neq('id', targetUuid);
+
+                    // Count total other members (including staff)
+                    const { count: otherMembersCount } = await supabaseAdmin
                         .from('profiles')
                         .select('*', { count: 'exact', head: true })
                         .eq('company_id', profile.company_id)
                         .neq('id', targetUuid);
 
-                    if (count && count > 0) {
+                    const otherManagers = otherManagersCount || 0;
+                    const otherMembers = otherMembersCount || 0;
+
+                    // Block if: I am the ONLY manager, but there are other staff members left.
+                    // (The company cannot be left without a manager if staff exist)
+                    if (otherManagers === 0 && otherMembers > 0) {
                         return NextResponse.json({
-                            error: '팀장 권한을 보유한 상태에서는 탈퇴할 수 없습니다. 직원 관리 페이지에서 권한을 변경(직원으로 강등)하거나, 다른 팀장에게 모든 권한을 위임한 후 다시 시도해주세요.'
+                            error: '남은 직원이 있는 경우, 팀장은 최소 1명 이상 유지되어야 합니다. 다른 직원에게 팀장 권한을 위임하거나, 모든 직원을 정리한 후 다시 시도해주세요.'
                         }, { status: 400 });
                     }
                 }
