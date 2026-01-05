@@ -53,10 +53,13 @@ export async function POST(request: Request) {
                 // RACE CONDITION: If it failed because another request created it simultaneously (or hidden char issue)
                 if (createCompanyError.code === '23505') {
                     console.log(`[Signup] Duplicate detected (23505). Retrying search for "${trimmedCompanyName}"...`);
+
+                    // Use ilike and limit(1) to be more robust against casing/duplicates
                     const { data: retryFetch } = await supabaseAdmin
                         .from('companies')
                         .select('id, manager_id')
-                        .eq('name', trimmedCompanyName)
+                        .ilike('name', trimmedCompanyName)
+                        .limit(1)
                         .maybeSingle();
 
                     if (retryFetch) {
