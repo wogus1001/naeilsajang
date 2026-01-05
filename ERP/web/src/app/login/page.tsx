@@ -62,6 +62,7 @@ export default function LoginPage() {
                     .single();
 
                 // Security Check: Enforce Status
+                console.log('[Login] Profile Status:', profile?.status);
                 if (profile?.status === 'pending_approval') {
                     await supabase.auth.signOut();
                     setErrorMsg('승인 대기 중입니다. 팀장의 승인 후 이용 가능합니다.');
