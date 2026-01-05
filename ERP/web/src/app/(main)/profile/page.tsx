@@ -115,6 +115,7 @@ export default function ProfilePage() {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    targetUuid: user.uid, // Explicitly target by UUID
                     currentId: user.id,
                     newId: formData.id !== user.id ? formData.id : undefined,
                     name: formData.name,
