@@ -61,6 +61,20 @@ export default function LoginPage() {
                     .eq('id', data.user.id)
                     .single();
 
+                // Security Check: Enforce Status
+                if (profile?.status === 'pending_approval') {
+                    await supabase.auth.signOut();
+                    setErrorMsg('승인 대기 중입니다. 팀장의 승인 후 이용 가능합니다.');
+                    setIsLoading(false);
+                    return;
+                }
+                if (profile?.status !== 'active') {
+                    await supabase.auth.signOut();
+                    setErrorMsg('사용이 정지된 계정입니다. 관리자에게 문의하세요.');
+                    setIsLoading(false);
+                    return;
+                }
+
                 const { data: company } = await supabase
                     .from('companies')
                     .select('name')
