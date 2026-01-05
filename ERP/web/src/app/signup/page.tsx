@@ -325,7 +325,34 @@ export default function SignupPage() {
                                 </ul>
                             ) : (
                                 <div style={{ textAlign: 'center', padding: '20px', color: '#868e96', fontSize: '14px' }}>
-                                    {searchQuery ? '검색 결과가 없습니다.' : '회사명을 검색해보세요.'}
+                                    {searchQuery ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                            <span>검색 결과가 없습니다.</span>
+                                            <button
+                                                onClick={() => {
+                                                    const companyNameInput = document.getElementById('companyName') as HTMLInputElement;
+                                                    if (companyNameInput) {
+                                                        companyNameInput.value = searchQuery;
+                                                    }
+                                                    setSelectedCompany(null);
+                                                    setShowSearchModal(false);
+                                                }}
+                                                style={{
+                                                    padding: '8px 16px',
+                                                    borderRadius: '6px',
+                                                    backgroundColor: '#339af0',
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    fontSize: '14px'
+                                                }}
+                                            >
+                                                '{searchQuery}'(으)로 신규 등록하기
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        '회사명을 검색해보세요.'
+                                    )}
                                 </div>
                             )}
                         </div>
