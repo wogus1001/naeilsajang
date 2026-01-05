@@ -93,7 +93,7 @@ export async function DELETE(request: Request) {
                 .single();
 
             if (!profile) {
-                // Try searching by exact match just in case (legacy data?)
+                // Try searching by exact match just in case
                 const { data: profileFallback } = await supabaseAdmin
                     .from('profiles')
                     .select('id, role, company_id')
@@ -124,9 +124,7 @@ export async function DELETE(request: Request) {
             }
         }
 
-
         // 1. Unlink references (Foreign Key Cleanup) to prevent constraint violations
-        // We set manager_id/user_id to NULL for records managed by this user.
         await Promise.all([
             supabaseAdmin.from('properties').update({ manager_id: null }).eq('manager_id', targetUuid),
             supabaseAdmin.from('customers').update({ manager_id: null }).eq('manager_id', targetUuid),
@@ -140,7 +138,6 @@ export async function DELETE(request: Request) {
 
         if (deleteError) {
             console.error('Supabase delete error:', deleteError);
-            // Better error message for FK violations if they still persist
             if (deleteError.message.includes('foreign key constraint')) {
                 return NextResponse.json({
                     error: '이 사용자와 연결된 데이터(계약서, 공지사항 등)가 있어 삭제할 수 없습니다. 데이터 연결을 먼저 해제해주세요.'
