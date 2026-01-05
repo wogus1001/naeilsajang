@@ -195,11 +195,14 @@ return (
                                         S
                                     </div>
                                     <div>
-                                        <div style={{ fontWeight: 'bold' }}>{staff.name}</div>
+                                        <div style={{ fontWeight: 'bold' }}>
+                                            {staff.name}
+                                            {(staff.id === user.uid || staff.id === user.id || staff.email === user.email) && <span style={{ fontSize: '11px', color: '#228be6', marginLeft: '6px' }}>(나)</span>}
+                                        </div>
                                         <div style={{ fontSize: '12px', color: '#868e96' }}>{staff.email || staff.id}</div>
                                     </div>
                                 </div>
-                                {managers.length < 2 && (
+                                {managers.length < 2 && staff.id !== user.uid && staff.id !== user.id && staff.email !== user.email && (
                                     <button
                                         onClick={() => handleAction(staff.id, 'promote')}
                                         title="팀장 권한 부여"
