@@ -150,7 +150,8 @@ export default function ProfilePage() {
                 }
 
             } else {
-                alert(data.error || '수정에 실패했습니다.');
+                console.error('Update failed response:', data);
+                alert(`수정 실패: ${data.error || JSON.stringify(data)}`);
             }
 
         } catch (error) {
@@ -414,7 +415,8 @@ export default function ProfilePage() {
                                                 localStorage.removeItem('user');
                                                 window.location.href = '/login';
                                             } else {
-                                                alert(data.error || '탈퇴 처리에 실패했습니다.');
+                                                console.error('Withdraw failed response:', data);
+                                                alert(`탈퇴 실패: ${data.error || JSON.stringify(data)}`);
                                             }
                                         } catch (e) {
                                             console.error(e);

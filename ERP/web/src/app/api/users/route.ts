@@ -140,7 +140,7 @@ export async function DELETE(request: Request) {
             console.error('Supabase delete error:', deleteError);
             if (deleteError.message.includes('foreign key constraint')) {
                 return NextResponse.json({
-                    error: '이 사용자와 연결된 데이터(계약서, 공지사항 등)가 있어 삭제할 수 없습니다. 데이터 연결을 먼저 해제해주세요.'
+                    error: `[DEBUG-FINAL] 이 사용자와 연결된 데이터(계약서, 공지사항 등)가 있어 삭제할 수 없습니다. 데이터 연결을 먼저 해제해주세요. (${deleteError.message})`
                 }, { status: 409 });
             }
             throw deleteError;

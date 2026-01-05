@@ -115,7 +115,8 @@ export default function AdminUsersPage() {
                 fetchUsers();
             } else {
                 const data = await res.json();
-                alert(data.error || '삭제 실패');
+                console.error('Delete failed response:', data);
+                alert(`삭제 실패: ${data.error || JSON.stringify(data)}`);
             }
         } catch (error) {
             console.error(error);

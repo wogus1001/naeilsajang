@@ -50,7 +50,7 @@ export async function PUT(request: Request) {
             // Check duplicate
             const { data: { users: existingUsers } } = await supabaseAdmin.auth.admin.listUsers();
             if (existingUsers.some(u => u.email === newEmail)) {
-                return NextResponse.json({ error: '이미 사용 중인 아이디입니다.' }, { status: 409 });
+                return NextResponse.json({ error: '[DEBUG-FINAL] 이미 사용 중인 아이디입니다.' }, { status: 409 });
             }
 
             const { error: updateEmailError } = await supabaseAdmin.auth.admin.updateUserById(userId, { email: newEmail });
