@@ -40,6 +40,7 @@ export async function POST(request: Request) {
         let existingCompany = companyResults && companyResults.length > 0 ? companyResults[0] : null;
 
         if (!existingCompany) {
+            console.log(`[Signup] Company "${trimmedCompanyName}" not found. Attempting to create...`);
             // New Company -> Create it
             const { data: newCompany, error: createCompanyError } = await supabaseAdmin
                 .from('companies')
@@ -48,28 +49,32 @@ export async function POST(request: Request) {
                 .single();
 
             if (createCompanyError) {
-                // RACE CONDITION: If it failed because another request created it simultaneously
+                console.error('[Signup] Create company error:', createCompanyError);
+                // RACE CONDITION: If it failed because another request created it simultaneously (or hidden char issue)
                 if (createCompanyError.code === '23505') {
+                    console.log(`[Signup] Duplicate detected (23505). Retrying search for "${trimmedCompanyName}"...`);
                     const { data: retryFetch } = await supabaseAdmin
                         .from('companies')
                         .select('id, manager_id')
                         .eq('name', trimmedCompanyName)
-                        .single();
+                        .maybeSingle();
 
                     if (retryFetch) {
+                        console.log(`[Signup] Retry successful. Found: ${retryFetch.id}`);
                         existingCompany = retryFetch;
                         companyId = existingCompany.id;
                         // Proceed as existing company
                     } else {
-                        return NextResponse.json({ error: `회사를 찾는 데 실패했습니다: ${createCompanyError.message}` }, { status: 500 });
+                        console.error(`[Signup] Critical: Insert failed with duplicate, but Select returned null. Name: ${trimmedCompanyName}`);
+                        return NextResponse.json({ error: `회사를 찾는 데 실패했습니다. (DB 충돌: ${createCompanyError.message})` }, { status: 500 });
                     }
                 } else {
-                    console.error('Company creation failed:', createCompanyError);
                     return NextResponse.json({
                         error: `회사 등록 실패: ${createCompanyError.message}`
                     }, { status: 500 });
                 }
             } else {
+                console.log(`[Signup] Company created: ${newCompany.id}`);
                 companyId = newCompany.id;
                 finalRole = 'manager';
                 finalStatus = 'active';
@@ -77,6 +82,8 @@ export async function POST(request: Request) {
                     message = '처음 등록되는 회사의 경우 가입자가 팀장이 됩니다.';
                 }
             }
+        } else {
+            console.log(`[Signup] Found existing company: ${existingCompany.id}`);
         }
 
         // If we found an existing company (either first time or after retry)
