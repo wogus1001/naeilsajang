@@ -40,7 +40,7 @@ export async function GET(request: Request) {
                 .ilike('name', `%${nfc}%`);
 
             // Test 2: Manager Hydration Simulation
-            let hydrationTest = [];
+            let hydrationTest: any[] = [];
             if (foundSimple) {
                 hydrationTest = await Promise.all(foundSimple.map(async (c) => {
                     let mName = 'None';
