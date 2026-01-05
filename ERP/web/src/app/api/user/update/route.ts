@@ -121,8 +121,8 @@ export async function PUT(request: Request) {
             }
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Update user error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: `Internal server error: ${error.message || error}` }, { status: 500 });
     }
 }

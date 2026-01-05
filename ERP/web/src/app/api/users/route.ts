@@ -148,9 +148,9 @@ export async function DELETE(request: Request) {
 
         return NextResponse.json({ success: true });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Delete user error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: `Internal server error: ${error.message || error}` }, { status: 500 });
     }
 }
 
