@@ -14,10 +14,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, { status: 400 });
         }
 
-        const trimmedCompanyName = companyName.trim();
-
+        const trimmedCompanyName = companyName.trim().normalize('NFC');
         const email = id.includes('@') ? id : `${id}@example.com`;
         const supabaseAdmin = await getSupabaseAdmin();
+
+        console.log(`[Signup] Attempting to join/create company: "${trimmedCompanyName}"`);
 
         // 2. Company Logic
         let companyId: string | null = null;
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
             .order('created_at', { ascending: true });
 
         if (findError) {
-            console.error('Find company error:', findError);
+            console.error('[Signup] Find company error:', findError);
         }
 
         let existingCompany = companyResults && companyResults.length > 0 ? companyResults[0] : null;
