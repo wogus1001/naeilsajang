@@ -143,8 +143,15 @@ export async function DELETE(request: Request) {
                     error: `[DEBUG-FINAL] 이 사용자와 연결된 데이터(계약서, 공지사항 등)가 있어 삭제할 수 없습니다. 데이터 연결을 먼저 해제해주세요. (${deleteError.message})`
                 }, { status: 409 });
             }
-            throw deleteError;
+            // Check if user not found (already deleted from Auth but maybe profile exists?)
+            if (!deleteError.message.includes('User not found')) {
+                throw deleteError;
+            }
         }
+
+        // [CRITICAL FIX] Explicitly delete from profiles to ensure no "ghost" users remain
+        // This handles cases where auth.user was deleted but profile remained, or cascade failed.
+        await supabaseAdmin.from('profiles').delete().eq('id', targetUuid);
 
         return NextResponse.json({ success: true });
 
