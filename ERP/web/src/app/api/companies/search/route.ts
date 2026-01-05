@@ -6,11 +6,14 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const query = searchParams.get('query');
+        const rawQuery = searchParams.get('query');
 
-        if (!query || query.length < 1) {
+        if (!rawQuery || rawQuery.length < 1) {
             return NextResponse.json({ data: [] });
         }
+
+        const query = rawQuery.trim().normalize('NFC');
+        console.log(`[Search] Query: "${rawQuery}" -> Normalized: "${query}"`);
 
         const supabaseAdmin = await getSupabaseAdmin();
 
