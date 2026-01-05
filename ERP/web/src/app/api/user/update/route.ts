@@ -41,7 +41,7 @@ export async function PUT(request: Request) {
         }
 
         const userId = profile.id;
-        const email = profile.email;
+        const actualEmail = profile.email;
 
         // 2. Handle ID (Email) Change
         if (newId && newId !== currentId) {
@@ -76,7 +76,7 @@ export async function PUT(request: Request) {
             const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
             const { error: signInError } = await supabase.auth.signInWithPassword({
-                email: email, // use current email
+                email: actualEmail, // use current email
                 password: oldPassword
             });
 

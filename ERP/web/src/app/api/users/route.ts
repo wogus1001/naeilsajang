@@ -123,38 +123,38 @@ export async function DELETE(request: Request) {
                 }
             }
         }
-    }
+
 
         // 1. Unlink references (Foreign Key Cleanup) to prevent constraint violations
         // We set manager_id/user_id to NULL for records managed by this user.
         await Promise.all([
-        supabaseAdmin.from('properties').update({ manager_id: null }).eq('manager_id', targetUuid),
-        supabaseAdmin.from('customers').update({ manager_id: null }).eq('manager_id', targetUuid),
-        supabaseAdmin.from('contracts').update({ user_id: null }).eq('user_id', targetUuid),
-        supabaseAdmin.from('schedules').update({ user_id: null }).eq('user_id', targetUuid),
-        supabaseAdmin.from('notices').update({ author_id: null }).eq('author_id', targetUuid),
-    ]);
+            supabaseAdmin.from('properties').update({ manager_id: null }).eq('manager_id', targetUuid),
+            supabaseAdmin.from('customers').update({ manager_id: null }).eq('manager_id', targetUuid),
+            supabaseAdmin.from('contracts').update({ user_id: null }).eq('user_id', targetUuid),
+            supabaseAdmin.from('schedules').update({ user_id: null }).eq('user_id', targetUuid),
+            supabaseAdmin.from('notices').update({ author_id: null }).eq('author_id', targetUuid),
+        ]);
 
-    // 2. Delete User (Auth) -> Trigger cascades to Profile
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUuid);
+        // 2. Delete User (Auth) -> Trigger cascades to Profile
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUuid);
 
-    if (deleteError) {
-        console.error('Supabase delete error:', deleteError);
-        // Better error message for FK violations if they still persist
-        if (deleteError.message.includes('foreign key constraint')) {
-            return NextResponse.json({
-                error: '이 사용자와 연결된 데이터(계약서, 공지사항 등)가 있어 삭제할 수 없습니다. 데이터 연결을 먼저 해제해주세요.'
-            }, { status: 409 });
+        if (deleteError) {
+            console.error('Supabase delete error:', deleteError);
+            // Better error message for FK violations if they still persist
+            if (deleteError.message.includes('foreign key constraint')) {
+                return NextResponse.json({
+                    error: '이 사용자와 연결된 데이터(계약서, 공지사항 등)가 있어 삭제할 수 없습니다. 데이터 연결을 먼저 해제해주세요.'
+                }, { status: 409 });
+            }
+            throw deleteError;
         }
-        throw deleteError;
+
+        return NextResponse.json({ success: true });
+
+    } catch (error) {
+        console.error('Delete user error:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-
-    return NextResponse.json({ success: true });
-
-} catch (error) {
-    console.error('Delete user error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-}
 }
 
 export async function PUT(request: Request) {
