@@ -68,35 +68,58 @@ export async function DELETE(request: Request) {
         }
 
         if (idToDelete === 'admin' || idToDelete.startsWith('admin@')) {
-            // Basic protection for testing account
-            // Ideally check role 'admin' in DB
             return NextResponse.json({ error: 'Cannot delete admin account' }, { status: 403 });
         }
 
         const supabaseAdmin = await getSupabaseAdmin();
 
-        // Resolve ID (likely email) to UUID
+        // Resolve ID to UUID
         let targetUuid = idToDelete;
 
-        // If it looks like an email, lookup UUID
-        if (idToDelete.includes('@')) {
-            const { data: profile } = await supabaseAdmin.from('profiles').select('id, role, company_id').eq('email', idToDelete).single();
-            if (!profile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-            targetUuid = profile.id;
+        // Check if it's already a UUID
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idToDelete);
 
-            // Logic Check: Manager Leaving
-            if (profile.role === 'manager') {
-                // Check if other members exist in same company
-                const { count } = await supabaseAdmin
+        if (!isUuid) {
+            // It's a short ID or Email
+            let emailToSearch = idToDelete;
+            if (!idToDelete.includes('@')) {
+                emailToSearch = `${idToDelete}@example.com`;
+            }
+
+            const { data: profile } = await supabaseAdmin
+                .from('profiles')
+                .select('id, role, company_id')
+                .eq('email', emailToSearch)
+                .single();
+
+            if (!profile) {
+                // Try searching by exact match just in case (legacy data?)
+                const { data: profileFallback } = await supabaseAdmin
                     .from('profiles')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('company_id', profile.company_id)
-                    .neq('id', targetUuid);
+                    .select('id, role, company_id')
+                    .eq('email', idToDelete)
+                    .single();
 
-                if (count && count > 0) {
-                    return NextResponse.json({
-                        error: '팀장 권한을 보유한 상태에서는 탈퇴할 수 없습니다. 직원 관리 페이지에서 권한을 변경(직원으로 강등)하거나, 다른 팀장에게 모든 권한을 위임한 후 다시 시도해주세요.'
-                    }, { status: 400 });
+                if (!profileFallback) {
+                    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+                }
+                targetUuid = profileFallback.id;
+            } else {
+                targetUuid = profile.id;
+
+                // Logic Check: Manager Leaving
+                if (profile.role === 'manager') {
+                    const { count } = await supabaseAdmin
+                        .from('profiles')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('company_id', profile.company_id)
+                        .neq('id', targetUuid);
+
+                    if (count && count > 0) {
+                        return NextResponse.json({
+                            error: '팀장 권한을 보유한 상태에서는 탈퇴할 수 없습니다. 직원 관리 페이지에서 권한을 변경(직원으로 강등)하거나, 다른 팀장에게 모든 권한을 위임한 후 다시 시도해주세요.'
+                        }, { status: 400 });
+                    }
                 }
             }
         }
@@ -125,12 +148,25 @@ export async function PUT(request: Request) {
 
         const supabaseAdmin = await getSupabaseAdmin();
 
-        // Resolve ID -> UUID
+        // Resolve ID to UUID
         let targetUuid = id;
-        if (id.includes('@')) {
-            const { data: profile } = await supabaseAdmin.from('profiles').select('id').eq('email', id).single();
-            if (!profile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-            targetUuid = profile.id;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+        if (!isUuid) {
+            let emailToSearch = id;
+            if (!id.includes('@')) {
+                emailToSearch = `${id}@example.com`;
+            }
+
+            const { data: profile } = await supabaseAdmin.from('profiles').select('id').eq('email', emailToSearch).single();
+            if (!profile) {
+                // Try exact match
+                const { data: exactProfile } = await supabaseAdmin.from('profiles').select('id').eq('email', id).single();
+                if (!exactProfile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+                targetUuid = exactProfile.id;
+            } else {
+                targetUuid = profile.id;
+            }
         }
 
         const updates: any = {};

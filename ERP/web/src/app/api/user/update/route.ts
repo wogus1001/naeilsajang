@@ -15,24 +15,33 @@ export async function PUT(request: Request) {
         const email = currentId.includes('@') ? currentId : `${currentId}@example.com`;
 
         // 1. Get User by Email (to find UID)
-        // Since input is ID/Email, we need to resolve to UUID.
-        // We can search profiles or auth via admin listUsers (filtered).
-        // Let's assume currentId is the email or we can construct it.
-        // Actually, efficiently we should query `profiles` by email if possible or just use listUsers.
+        // Robust Resolution of currentId (which could be UUID, short ID, or email)
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentId);
 
-        // Let's try to query profiles first.
-        // Profiles has email column? Yes.
-        const { data: profile, error: findError } = await supabaseAdmin
-            .from('profiles')
-            .select('id, email, password_hash') // password_hash not available? Auth manages password.
-            .eq('email', email)
-            .single();
+        let profile = null;
 
-        if (findError || !profile) {
+        if (isUuid) {
+            const { data } = await supabaseAdmin.from('profiles').select('id, email, password_hash').eq('id', currentId).single();
+            profile = data;
+        } else {
+            // Try assuming it's a short ID -> email
+            const emailAttempt1 = currentId.includes('@') ? currentId : `${currentId}@example.com`;
+            const { data: p1 } = await supabaseAdmin.from('profiles').select('id, email, password_hash').eq('email', emailAttempt1).single();
+            if (p1) profile = p1;
+            else if (currentId.includes('@')) {
+                // Try exact match in case regex failed or format oddity
+                const { data: p2 } = await supabaseAdmin.from('profiles').select('id, email, password_hash').eq('email', currentId).single();
+                profile = p2;
+            }
+        }
+
+        if (!profile) {
+            console.error(`User extraction failed for id: ${currentId}`);
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
         const userId = profile.id;
+        const email = profile.email;
 
         // 2. Handle ID (Email) Change
         if (newId && newId !== currentId) {
