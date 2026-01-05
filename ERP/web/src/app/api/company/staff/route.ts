@@ -71,10 +71,18 @@ export async function PUT(request: Request) {
             .eq('id', requesterId) // Try UUID
             .single();
 
-        // If not found, maybe it's email?
+        // If not found, maybe it's email or legacy ID?
         let realRequester = requester;
-        if (!realRequester && requesterId.includes('@')) {
-            const { data: reqEmail } = await supabaseAdmin.from('profiles').select('*, company:companies(*)').eq('email', requesterId).single();
+        if (!realRequester) {
+            let emailToSearch = requesterId;
+            if (!requesterId.includes('@')) {
+                emailToSearch = `${requesterId}@example.com`;
+            }
+            const { data: reqEmail } = await supabaseAdmin
+                .from('profiles')
+                .select('*, company:companies(*)')
+                .eq('email', emailToSearch)
+                .single();
             realRequester = reqEmail;
         }
 

@@ -166,10 +166,12 @@ export default function SignupPage() {
                             <input
                                 type="text"
                                 id="companyName"
-                                placeholder="회사명을 입력하세요"
+                                placeholder="회사 찾기 버튼을 이용해주세요"
                                 className={styles.input}
                                 required
-                                style={{ flex: 1 }}
+                                readOnly
+                                onClick={() => setShowSearchModal(true)}
+                                style={{ flex: 1, backgroundColor: '#f8f9fa', cursor: 'pointer' }}
                             />
                             <button
                                 type="button"
