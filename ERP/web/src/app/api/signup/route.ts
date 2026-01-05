@@ -86,7 +86,10 @@ export async function POST(request: Request) {
 
         if (authError) {
             console.error('Auth create error:', authError);
-            if (authError.message.includes('unique constraint') || authError.message.includes('already registered')) {
+            const msg = authError.message.toLowerCase();
+            if (msg.includes('unique constraint') ||
+                msg.includes('already registered') ||
+                msg.includes('a user with this email address has already been registered')) {
                 return NextResponse.json({ error: '이미 존재하는 ID(이메일)입니다.' }, { status: 409 });
             }
             return NextResponse.json({ error: authError.message }, { status: 500 });
@@ -124,7 +127,19 @@ export async function POST(request: Request) {
                 .eq('id', companyId);
         }
 
-        return NextResponse.json({ success: true, user: { id: userId, name, role: finalRole, status: finalStatus }, message });
+        return NextResponse.json({
+            success: true,
+            user: {
+                id: userId,
+                name,
+                email, // useful for display
+                role: finalRole,
+                status: finalStatus,
+                companyName: companyName, // Ensure frontend has this!
+                companyId: companyId
+            },
+            message
+        });
 
     } catch (error) {
         console.error('Signup error:', error);

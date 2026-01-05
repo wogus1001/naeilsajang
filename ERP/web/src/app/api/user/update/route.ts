@@ -94,14 +94,21 @@ export async function PUT(request: Request) {
         }
 
         // Return updated object
-        // Re-fetch to return clean state
-        const { data: updatedProfile } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).single();
+        const { data: finalProfile } = await supabaseAdmin
+            .from('profiles')
+            .select(`*, company:companies(name)`)
+            .eq('id', userId)
+            .single();
 
         return NextResponse.json({
             user: {
-                id: newId || currentId,
-                name: updatedProfile.name,
-                // ... other fields
+                id: newId || currentId, // Keep display ID
+                name: finalProfile.name,
+                email: finalProfile.email,
+                role: finalProfile.role,
+                status: finalProfile.status,
+                companyName: finalProfile.company?.name || '',
+                companyId: finalProfile.company_id
             }
         });
 
