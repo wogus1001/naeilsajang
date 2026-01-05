@@ -70,15 +70,21 @@ function ProjectEditor() {
     const [categories, setCategories] = useState<string[]>(['사업체 양도양수', '부동산 계약']);
     const [isLoaded, setIsLoaded] = useState(false);
 
-    useEffect(() => {
-        // 1. Load Templates
-        const loadedTemplates = getAllTemplates();
+    const loadTemplatesAsync = async () => {
+        const { fetchCombinedTemplates } = await import('@/lib/templates/registry');
+        const loadedTemplates = await fetchCombinedTemplates();
         setAllTemplates(loadedTemplates);
 
         const cats = Array.from(new Set(loadedTemplates.map(t => t.category)));
         if (cats.length === 0) cats.push('사업체 양도양수');
         setCategories(cats);
-        if (cats.length > 0) setModalCategory(cats[0]);
+        // Don't auto-reset category if already set, unless invalid?
+        // setModalCategory(cats[0]); // Initial set
+    };
+
+    useEffect(() => {
+        // 1. Load Templates
+        loadTemplatesAsync();
 
         // 2. Load Project Data from LocalStorage
         const storageKey = `project_data_${params.id}`;
@@ -104,16 +110,20 @@ function ProjectEditor() {
     // AUTO-ADD NEWLY CREATED TEMPLATE Logic
     useEffect(() => {
         if (newDocTemplateId) {
-            // Force refresh templates from storage to get the latest version (including newly edited ones)
-            const loadedTemplates = getAllTemplates();
-            setAllTemplates(loadedTemplates);
+            // Force refresh templates
+            const run = async () => {
+                const { fetchCombinedTemplates } = await import('@/lib/templates/registry');
+                const loadedTemplates = await fetchCombinedTemplates();
+                setAllTemplates(loadedTemplates);
 
-            const template = loadedTemplates.find(t => t.id === newDocTemplateId);
-            if (template) {
-                handleAddDocument(template);
-                // Clear the query param
-                router.replace(`/contracts/project/${params.id}`);
-            }
+                const template = loadedTemplates.find(t => t.id === newDocTemplateId);
+                if (template) {
+                    handleAddDocument(template);
+                    // Clear the query param
+                    router.replace(`/contracts/project/${params.id}`);
+                }
+            };
+            run();
         }
     }, [newDocTemplateId, params.id, router]);
 
@@ -172,9 +182,6 @@ function ProjectEditor() {
         }
 
         const filtered = activeTemplate.formSchema.filter(f => cleanVars.has(f.key) || cleanVars.has(f.label)); // label fallback just in case
-
-        // If filtered is empty (e.g. text only page), maybe show nothing or all?
-        // Let's show filtered.
 
         return { pagesRaw: rawPages, currentSchema: filtered };
     }, [activeTemplate, currentPage]);
@@ -847,8 +854,7 @@ function ProjectEditor() {
                     {/* LEFT: Dynamic Form Engine (Task 3) */}
                     <div className="layout-form-panel" style={styles.formPanel}>
                         {activeTemplate ? (
-                            (currentSchema && currentSchema.length > 0 ? currentSchema : activeTemplate.formSchema)
-                                .map(renderFormInput)
+                            (currentSchema || []).map(renderFormInput)
                         ) : (
                             <div>템플릿 로딩 실패</div>
                         )}

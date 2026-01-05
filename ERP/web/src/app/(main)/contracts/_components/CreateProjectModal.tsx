@@ -92,16 +92,27 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
     }, [isOpen]);
 
     useEffect(() => {
-        if (preset) {
-            const all = getAllTemplates();
-            const found = preset.defaultTemplateIds
-                .map(id => all.find(t => t.id === id))
-                .filter(Boolean) as ContractTemplate[];
-            setPreviewTemplates(found);
-        } else {
-            setPreviewTemplates([]);
-        }
-    }, [selectedCategory, preset]);
+        // Fetch templates from API and LocalStorage
+        const loadTemplates = async () => {
+            try {
+                const { fetchCombinedTemplates } = await import('@/lib/templates/registry');
+                const all = await fetchCombinedTemplates();
+
+                if (preset) {
+                    const found = preset.defaultTemplateIds
+                        .map(id => all.find(t => t.id === id))
+                        .filter(Boolean) as ContractTemplate[];
+                    setPreviewTemplates(found);
+                } else {
+                    setPreviewTemplates([]);
+                }
+            } catch (e) {
+                console.error("Failed to load templates", e);
+            }
+        };
+
+        loadTemplates();
+    }, [selectedCategory, preset, isOpen]); // Re-run when category changes or modal opens
 
     const handleCreate = async () => {
         setIsLoading(true);
