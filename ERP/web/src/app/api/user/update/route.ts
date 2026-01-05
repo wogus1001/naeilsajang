@@ -101,9 +101,18 @@ export async function PUT(request: Request) {
                 return NextResponse.json({ error: '기존 비밀번호가 일치하지 않습니다.' }, { status: 401 });
             }
 
+            if (newPassword.length < 6) {
+                return NextResponse.json({ error: '새 비밀번호는 최소 6자 이상이어야 합니다.' }, { status: 400 });
+            }
+
             // Update password
             const { error: updatePwdError } = await supabaseAdmin.auth.admin.updateUserById(userId, { password: newPassword });
-            if (updatePwdError) throw updatePwdError;
+            if (updatePwdError) {
+                if (updatePwdError.message.includes('Password should be at least')) {
+                    return NextResponse.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, { status: 400 });
+                }
+                throw updatePwdError;
+            }
         }
 
         // 4. Update Profile Info

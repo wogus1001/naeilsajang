@@ -287,7 +287,7 @@ export default function ProfilePage() {
                                     name="newPassword"
                                     value={formData.newPassword}
                                     onChange={handleChange}
-                                    placeholder="새 비밀번호 (8자 이상)"
+                                    placeholder="새 비밀번호 (6자 이상)"
                                 />
                             </div>
 

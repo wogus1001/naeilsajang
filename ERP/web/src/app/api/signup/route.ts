@@ -7,8 +7,14 @@ export async function POST(request: Request) {
         const { id, password, name, companyName, role: requestedRole } = body; // id here is treated as email/loginId
 
         if (!id || !password || !name || !companyName) {
-            return NextResponse.json({ error: 'ID, password, name, and company name are required' }, { status: 400 });
+            return NextResponse.json({ error: '필수 정보를 모두 입력해주세요.' }, { status: 400 });
         }
+
+        if (password.length < 6) {
+            return NextResponse.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, { status: 400 });
+        }
+
+        const trimmedCompanyName = companyName.trim();
 
         const supabaseAdmin = await getSupabaseAdmin();
 
@@ -27,14 +33,14 @@ export async function POST(request: Request) {
         const { data: existingCompany } = await supabaseAdmin
             .from('companies')
             .select('id, manager_id')
-            .eq('name', companyName)
+            .eq('name', trimmedCompanyName)
             .single();
 
         if (!existingCompany) {
             // New Company -> Create it
             const { data: newCompany, error: createCompanyError } = await supabaseAdmin
                 .from('companies')
-                .insert({ name: companyName, status: 'active' })
+                .insert({ name: trimmedCompanyName, status: 'active' })
                 .select()
                 .single();
 
@@ -91,6 +97,9 @@ export async function POST(request: Request) {
                 msg.includes('already registered') ||
                 msg.includes('a user with this email address has already been registered')) {
                 return NextResponse.json({ error: '이미 존재하는 ID(이메일)입니다.' }, { status: 409 });
+            }
+            if (msg.includes('password should be at least')) {
+                return NextResponse.json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' }, { status: 400 });
             }
             return NextResponse.json({ error: authError.message }, { status: 500 });
         }
