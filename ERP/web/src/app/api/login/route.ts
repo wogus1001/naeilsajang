@@ -61,7 +61,8 @@ export async function POST(request: Request) {
             companyName: profile.company?.name || 'Unknown',
             status: profile.status,
             email: authUser.email,
-            uid: authUser.id // Helpful for frontend to have the UUID
+            uid: authUser.id, // Helpful for frontend to have the UUID
+            companyId: profile.company_id
         };
 
         // Note: We are NOT returning the session/token here because the app seems to use its own session management 

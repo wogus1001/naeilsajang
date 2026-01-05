@@ -5,21 +5,29 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const companyName = searchParams.get('companyName');
+        const companyId = searchParams.get('companyId');
 
-        if (!companyName) {
-            return NextResponse.json({ error: 'Company name is required' }, { status: 400 });
+        if (!companyName && !companyId) {
+            return NextResponse.json({ error: 'Company ID or name is required' }, { status: 400 });
         }
 
         const supabaseAdmin = await getSupabaseAdmin();
+        let targetCompanyId = companyId;
 
-        // Find Company ID
-        const { data: company } = await supabaseAdmin
-            .from('companies')
-            .select('id')
-            .eq('name', companyName)
-            .single();
+        if (!targetCompanyId && companyName) {
+            // Find Company ID by name
+            const { data: company } = await supabaseAdmin
+                .from('companies')
+                .select('id')
+                .eq('name', companyName)
+                .single();
 
-        if (!company) {
+            if (company) {
+                targetCompanyId = company.id;
+            }
+        }
+
+        if (!targetCompanyId) {
             return NextResponse.json([], { status: 200 });
         }
 
@@ -27,7 +35,7 @@ export async function GET(request: Request) {
         const { data: profiles } = await supabaseAdmin
             .from('profiles')
             .select('*')
-            .eq('company_id', company.id);
+            .eq('company_id', targetCompanyId);
 
         const safeStaff = profiles?.map(u => ({
             id: u.id,

@@ -23,12 +23,12 @@ export default function StaffManagementPage() {
             return;
         }
         setUser(parsedUser);
-        fetchStaff(parsedUser.companyName);
+        fetchStaff(parsedUser.companyName, parsedUser.companyId);
     }, [router]);
 
-    const fetchStaff = async (companyName: string) => {
+    const fetchStaff = async (companyName: string, companyId?: string) => {
         try {
-            const res = await fetch(`/api/company/staff?companyName=${encodeURIComponent(companyName)}`);
+            const res = await fetch(`/api/company/staff?companyName=${encodeURIComponent(companyName)}&companyId=${companyId || ''}`);
             if (res.ok) {
                 const data = await res.json();
                 setStaffList(data);
