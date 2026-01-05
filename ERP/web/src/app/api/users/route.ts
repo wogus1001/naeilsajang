@@ -1,41 +1,50 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
-const DATA_FILE = path.join(process.cwd(), 'src/data/users.json');
-
-// Helper to read users
-const getUsers = () => {
-    if (!fs.existsSync(DATA_FILE)) return [];
-    const fileContent = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(fileContent);
-};
-
-// Helper to write users
-const saveUsers = (users: any[]) => {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(users, null, 2), 'utf8');
-};
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(request: Request) {
     try {
-        // In a real app, we would verify the session/token here.
-        // For MVP, we'll trust the client-side check or add a basic header check if needed.
-        // But since we are using localStorage, we can't easily verify on server without a cookie.
-        // We will return the list and let the client handle display protection.
-
         const { searchParams } = new URL(request.url);
         const companyFilter = searchParams.get('company');
 
-        const users = getUsers();
-        let filteredUsers = users;
+        const supabaseAdmin = await getSupabaseAdmin();
+
+        // Build query
+        let query = supabaseAdmin
+            .from('profiles')
+            .select(`
+                *,
+                company:companies(name)
+            `)
+            .order('created_at', { ascending: false });
 
         if (companyFilter) {
-            filteredUsers = users.filter((u: any) => u.companyName === companyFilter);
+            // This is tricky because companyFilter is a NAME, but we have company_id.
+            // We need to filter by the joined table... Supabase postgrest supports inner join filtering?
+            // simpler: Fetch all and filter in memory (not efficient for big data, but OK for now)
+            // or: !inner join
+            query = supabaseAdmin
+                .from('profiles')
+                .select(`*, company:companies!inner(name)`)
+                .eq('company.name', companyFilter)
+                .order('created_at', { ascending: false });
         }
 
-        // Don't return passwords
-        const safeUsers = filteredUsers.map(({ password, ...user }: any) => user);
+        const { data: profiles, error } = await query;
+
+        if (error) throw error;
+
+        const safeUsers = profiles.map(p => ({
+            id: p.email, // Use email as the display ID for compatibility
+            uuid: p.id,  // Keep real UUID handy if needed later
+            name: p.name,
+            companyName: p.company?.name || '-',
+            role: p.role,
+            status: p.status,
+            joinedAt: p.created_at
+        }));
+
         return NextResponse.json(safeUsers);
+
     } catch (error) {
         console.error('Get users error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -47,43 +56,48 @@ export async function DELETE(request: Request) {
         const { searchParams } = new URL(request.url);
         const idToDelete = searchParams.get('id');
 
-        console.log(`[API] DELETE request for user ID: ${idToDelete}`);
-
         if (!idToDelete) {
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
         }
 
-        if (idToDelete === 'admin') {
+        if (idToDelete === 'admin' || idToDelete.startsWith('admin@')) {
+            // Basic protection for testing account
+            // Ideally check role 'admin' in DB
             return NextResponse.json({ error: 'Cannot delete admin account' }, { status: 403 });
         }
 
-        let users = getUsers();
-        const initialLength = users.length;
-        const userToDelete = users.find((u: any) => u.id === idToDelete);
+        const supabaseAdmin = await getSupabaseAdmin();
 
-        if (!userToDelete) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
+        // Resolve ID (likely email) to UUID
+        let targetUuid = idToDelete;
 
-        if (userToDelete.role === 'manager') {
-            const companyUsers = users.filter((u: any) => u.companyName === userToDelete.companyName && u.id !== idToDelete);
+        // If it looks like an email, lookup UUID
+        if (idToDelete.includes('@')) {
+            const { data: profile } = await supabaseAdmin.from('profiles').select('id, role, company_id').eq('email', idToDelete).single();
+            if (!profile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            targetUuid = profile.id;
 
-            // If there are ANY other users (managers or staff) in the company, a manager cannot just leave.
-            // They must downgrade to staff first (unless they are the ONLY user left in the company).
-            if (companyUsers.length > 0) {
-                return NextResponse.json({
-                    error: '팀장 권한을 보유한 상태에서는 탈퇴할 수 없습니다. 직원 관리 페이지에서 권한을 변경(직원으로 강등)하거나, 다른 팀장에게 모든 권한을 위임한 후 다시 시도해주세요.'
-                }, { status: 400 });
+            // Logic Check: Manager Leaving
+            if (profile.role === 'manager') {
+                // Check if other members exist in same company
+                const { count } = await supabaseAdmin
+                    .from('profiles')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('company_id', profile.company_id)
+                    .neq('id', targetUuid);
+
+                if (count && count > 0) {
+                    return NextResponse.json({
+                        error: '팀장 권한을 보유한 상태에서는 탈퇴할 수 없습니다. 직원 관리 페이지에서 권한을 변경(직원으로 강등)하거나, 다른 팀장에게 모든 권한을 위임한 후 다시 시도해주세요.'
+                    }, { status: 400 });
+                }
             }
         }
 
-        users = users.filter((u: any) => u.id !== idToDelete);
+        // Delete User (Auth) -> Trigger cascades to Profile
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUuid);
+        if (deleteError) throw deleteError;
 
-        if (users.length === initialLength) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        saveUsers(users);
         return NextResponse.json({ success: true });
 
     } catch (error) {
@@ -96,28 +110,31 @@ export async function PUT(request: Request) {
     try {
         const body = await request.json();
         const { id, status, role, companyName } = body;
+        // id is likely email from the frontend list
 
         if (!id) {
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
         }
 
-        let users = getUsers();
-        const userIndex = users.findIndex((u: any) => u.id === id);
+        const supabaseAdmin = await getSupabaseAdmin();
 
-        if (userIndex === -1) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        // Resolve ID -> UUID
+        let targetUuid = id;
+        if (id.includes('@')) {
+            const { data: profile } = await supabaseAdmin.from('profiles').select('id').eq('email', id).single();
+            if (!profile) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+            targetUuid = profile.id;
         }
 
-        // Update fields
-        if (status) users[userIndex].status = status;
-        if (role) users[userIndex].role = role;
-        if (companyName) users[userIndex].companyName = companyName;
+        const updates: any = {};
+        if (status) updates.status = status;
+        if (role) updates.role = role;
+        // companyName update is complex (needs company ID resolution), skipping for now as usually admin updates status/role.
 
-        // If upgrading to manager, double check if another manager exists (optional, but good for consistency)
-        // For now, admin has override power, so we allow it.
+        const { error } = await supabaseAdmin.from('profiles').update(updates).eq('id', targetUuid);
+        if (error) throw error;
 
-        saveUsers(users);
-        return NextResponse.json({ success: true, user: users[userIndex] });
+        return NextResponse.json({ success: true });
 
     } catch (error) {
         console.error('Update user error:', error);
