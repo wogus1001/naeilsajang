@@ -20,7 +20,7 @@ export async function PUT(request: Request) {
 
         // 1. Resolve User ID (Priority: targetUuid > currentId)
         if (targetUuid) {
-            const { data } = await supabaseAdmin.from('profiles').select('id, email, password_hash').eq('id', targetUuid).single();
+            const { data } = await supabaseAdmin.from('profiles').select('id, email').eq('id', targetUuid).single();
             if (data) {
                 profile = data;
                 userId = data.id;
@@ -32,16 +32,16 @@ export async function PUT(request: Request) {
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentId);
 
             if (isUuid) {
-                const { data } = await supabaseAdmin.from('profiles').select('id, email, password_hash').eq('id', currentId).single();
+                const { data } = await supabaseAdmin.from('profiles').select('id, email').eq('id', currentId).single();
                 profile = data;
             } else {
                 // Try assuming it's a short ID -> email
                 const emailAttempt1 = currentId.includes('@') ? currentId : `${currentId}@example.com`;
-                const { data: p1 } = await supabaseAdmin.from('profiles').select('id, email, password_hash').eq('email', emailAttempt1).single();
+                const { data: p1 } = await supabaseAdmin.from('profiles').select('id, email').eq('email', emailAttempt1).single();
                 if (p1) profile = p1;
                 else if (currentId.includes('@')) {
                     // Try exact match in case regex failed or format oddity
-                    const { data: p2 } = await supabaseAdmin.from('profiles').select('id, email, password_hash').eq('email', currentId).single();
+                    const { data: p2 } = await supabaseAdmin.from('profiles').select('id, email').eq('email', currentId).single();
                     profile = p2;
                 }
             }
