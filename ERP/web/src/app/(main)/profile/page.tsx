@@ -129,8 +129,9 @@ export default function ProfilePage() {
             if (res.ok) {
                 alert('회원정보가 수정되었습니다.');
 
-                localStorage.setItem('user', JSON.stringify(data.user));
-                setUser(data.user);
+                const updatedUser = { ...data.user, uid: user.uid }; // Preserve UUID
+                localStorage.setItem('user', JSON.stringify(updatedUser));
+                setUser(updatedUser);
 
                 // Reset password fields
                 setFormData(prev => ({
@@ -407,7 +408,7 @@ export default function ProfilePage() {
                                         if (!confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
 
                                         try {
-                                            const res = await fetch(`/api/users?id=${user.id}`, { method: 'DELETE' });
+                                            const res = await fetch(`/api/users?id=${user.uid || user.id}`, { method: 'DELETE' });
                                             const data = await res.json();
 
                                             if (res.ok) {

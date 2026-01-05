@@ -88,7 +88,7 @@ export default function AdminUsersPage() {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    id: user.id,
+                    id: user.uuid,
                     status: 'active'
                 })
             });
@@ -214,7 +214,7 @@ export default function AdminUsersPage() {
                                             {user.role !== 'admin' && (
                                                 <button
                                                     style={{ ...styles.actionBtn, color: '#fa5252', backgroundColor: 'transparent' }}
-                                                    onClick={() => setDeleteTargetId(user.id)}
+                                                    onClick={() => setDeleteTargetId(user.uuid)}
                                                     title="삭제"
                                                 >
                                                     <Trash2 size={16} />
