@@ -12,37 +12,69 @@ export async function GET(request: Request) {
             return NextResponse.json({ data: [] });
         }
 
-        const query = rawQuery.trim().normalize('NFC');
-        console.log(`[Search] Query: "${rawQuery}" -> Normalized: "${query}"`);
-
         const supabaseAdmin = await getSupabaseAdmin();
 
-        // Search for companies containing the query string (case-insensitive)
-        // using 'ilike' filter
-        const { data: companies, error } = await supabaseAdmin
-            .from('companies')
-            .select(`
-                id,
-                name,
-                created_at,
-                manager_id
-            `)
-            .ilike('name', `%${query}%`)
-            .order('created_at', { ascending: false })
-            .limit(10); // Limit results for performance
+        // Prepare search terms
+        const nfcQuery = rawQuery.trim().normalize('NFC');
+        const nfdQuery = rawQuery.trim().normalize('NFD');
 
-        if (error) {
-            console.error('Search company error:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+        console.log(`[Search] Raw: "${rawQuery}", NFC: "${nfcQuery}", NFD: "${nfdQuery}"`);
+
+        // We will perform parallel searches to be sure we catch everything
+        // 1. NFC Search
+        const searchNFC = supabaseAdmin
+            .from('companies')
+            .select('id, name, created_at, manager_id')
+            .ilike('name', `%${nfcQuery}%`)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        // 2. NFD Search (Only if different)
+        let searchNFD = Promise.resolve({ data: [], error: null });
+        if (nfcQuery !== nfdQuery) {
+            searchNFD = supabaseAdmin
+                .from('companies')
+                .select('id, name, created_at, manager_id')
+                .ilike('name', `%${nfdQuery}%`)
+                .order('created_at', { ascending: false })
+                .limit(10) as any;
         }
 
-        // Fetch manager names for these companies
-        // We do this manually or via join if relation exists. 
-        // For simplicity and safety against RLS/relations, let's just return the company info first.
-        // If we want manager name, we can fetch profiles.
+        // 3. Raw Search (Only if different from both)
+        let searchRaw = Promise.resolve({ data: [], error: null });
+        if (rawQuery !== nfcQuery && rawQuery !== nfdQuery) {
+            searchRaw = supabaseAdmin
+                .from('companies')
+                .select('id, name, created_at, manager_id')
+                .ilike('name', `%${rawQuery}%`)
+                .order('created_at', { ascending: false })
+                .limit(10) as any;
+        }
 
-        // Let's enhance the data with manager name if needed.
-        const enhancedCompanies = await Promise.all(companies.map(async (company) => {
+        const [resNFC, resNFD, resRaw] = await Promise.all([searchNFC, searchNFD, searchRaw]);
+
+        if (resNFC.error) console.error('NFC Search Error:', resNFC.error);
+        if (resNFD.error) console.error('NFD Search Error:', resNFD.error);
+
+        // Combine and deduplicate
+        const allResults = [
+            ...(resNFC.data || []),
+            ...(resNFD.data || []),
+            ...(resRaw.data || [])
+        ];
+
+        const seenIds = new Set();
+        const uniqueCompanies = [];
+
+        for (const company of allResults) {
+            if (!seenIds.has(company.id)) {
+                seenIds.add(company.id);
+                uniqueCompanies.push(company);
+            }
+        }
+
+        // Fetch manager names
+        const enhancedCompanies = await Promise.all(uniqueCompanies.map(async (company) => {
             let managerName = '없음';
             if (company.manager_id) {
                 const { data: profile } = await supabaseAdmin
@@ -59,6 +91,8 @@ export async function GET(request: Request) {
                 manager_name: managerName
             };
         }));
+
+        console.log(`[Search] Found ${enhancedCompanies.length} matches.`);
 
         return NextResponse.json({ data: enhancedCompanies });
     } catch (error) {
