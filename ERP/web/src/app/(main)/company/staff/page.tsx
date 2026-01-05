@@ -62,7 +62,7 @@ export default function StaffManagementPage() {
             if (res.ok) {
                 alert('처리되었습니다.');
                 // If I demoted myself, I am no longer a manager. Reload to trigger redirects or UI updates.
-                if (action === 'demote' && targetUserId === user.id) {
+                if (action === 'demote' && (targetUserId === user.id || targetUserId === user.uid)) {
                     // Update local storage user
                     const updatedUser = { ...user, role: 'staff' };
                     localStorage.setItem('user', JSON.stringify(updatedUser));
