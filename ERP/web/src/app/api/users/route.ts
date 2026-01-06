@@ -6,7 +6,26 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const companyFilter = searchParams.get('company');
+        const isDebug = searchParams.get('debug') === 'true';
+
+        if (isDebug) {
+            const debugInfo = {
+                envUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+                count: 0,
+                error: null as any,
+                data: [] as any[]
+            };
+
+            const { data, error, count } = await supabaseAdmin
+                .from('profiles')
+                .select('*', { count: 'exact', head: false });
+
+            debugInfo.count = count || 0;
+            debugInfo.data = data || [];
+            debugInfo.error = error;
+
+            return NextResponse.json(debugInfo);
+        }
 
         const supabaseAdmin = await getSupabaseAdmin();
 
