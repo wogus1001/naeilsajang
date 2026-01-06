@@ -499,7 +499,7 @@ function ContractsPageContent() {
                 {/* Batch Actions Removed from Header to fix layout */}
                 <div>
 
-                    <h1 style={styles.title}>계약 관리 (Updated)</h1>
+                    <h1 style={styles.title}>계약 관리</h1>
                     <p style={styles.subtitle}>프로젝트 및 전자계약 통합 관리</p>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
