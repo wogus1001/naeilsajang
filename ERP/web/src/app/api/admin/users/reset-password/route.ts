@@ -12,11 +12,34 @@ export async function POST(request: Request) {
         const authHeader = request.headers.get('Authorization');
         console.log('[DEBUG-API] ResetPassword Auth Header:', authHeader ? 'Header present' : 'Header missing');
 
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('[DEBUG-API] ResetPassword Session User:', session?.user?.id || 'No Session');
+        let user;
 
-        if (!session) {
-            return NextResponse.json({ error: 'Unauthorized: No valid session found' }, { status: 401 });
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            const { data: { user: authUser }, error } = await supabase.auth.getUser(token);
+            if (!error && authUser) {
+                user = authUser;
+            }
+        }
+
+        if (!user) {
+            // Fallback to cookie session if header fails (though header is preferred for admin actions)
+            const { data: { session } } = await supabase.auth.getSession();
+            user = session?.user;
+        }
+
+        console.log('[DEBUG-API] ResetPassword User ID:', user?.id || 'No User');
+
+        if (!user) {
+            return NextResponse.json({
+                error: 'Unauthorized: Invalid token or session',
+                debug: {
+                    details: 'User verification failed',
+                    authHeaderPresent: !!authHeader,
+                    authHeaderLength: authHeader?.length || 0,
+                    tokenPreview: authHeader ? authHeader.substring(0, 15) + '...' : 'N/A',
+                }
+            }, { status: 401 });
         }
 
         const { data: profile } = await supabase
