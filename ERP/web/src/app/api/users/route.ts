@@ -233,7 +233,23 @@ export async function DELETE(request: Request) {
 
     } catch (error: any) {
         console.error('Delete user error:', error);
-        return NextResponse.json({ error: `[DEBUG-DELETE] 서버 오류: ${error.message || error}` }, { status: 500 });
+
+        // Capture specific Postgres error details that are often non-enumerable
+        const errorDetails = {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+            constraint: error.constraint,
+            tableName: error.table,
+            columnName: error.column,
+            fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        };
+
+        return NextResponse.json({
+            error: `[DEBUG-DELETE] 서버 오류: ${error.message}`,
+            debug: errorDetails
+        }, { status: 500 });
     }
 }
 
