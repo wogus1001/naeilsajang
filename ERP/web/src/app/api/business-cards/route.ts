@@ -7,7 +7,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 const dataPath = path.join(process.cwd(), 'src/data/business-cards.json');
 
 // Helper to resolve IDs
-async function resolveIds(legacyCompany: string, legacyUser: string) {
+async function resolveIds(legacyCompany: string | null, legacyUser: string | null) {
     const supabaseAdmin = getSupabaseAdmin();
     let companyId = null;
     let userId = null;

@@ -10,7 +10,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 const scheduleFilePath = path.join(process.cwd(), 'src/data/schedules.json');
 
 // Helper: Resolve UUIDs
-async function resolveIds(legacyCompany: string, legacyManager: string) {
+async function resolveIds(legacyCompany: string | null, legacyManager: string | null) {
     let companyId = null;
     let managerId = null;
     const supabaseAdmin = await getSupabaseAdmin();

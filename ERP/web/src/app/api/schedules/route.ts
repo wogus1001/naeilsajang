@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 // Helper: Resolve IDs
-async function resolveIds(legacyCompany: string, legacyUser: string) {
+async function resolveIds(legacyCompany: string | null, legacyUser: string | null) {
     const supabaseAdmin = getSupabaseAdmin();
     let companyId = null;
     let userId = null;

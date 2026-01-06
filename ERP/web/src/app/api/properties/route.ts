@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 // Service Role Client moved to handlers
 
 // Helper Query: Resolve Company/User UUIDs
-async function resolveIds(legacyCompany: string, legacyManager: string) {
+async function resolveIds(legacyCompany: string | null, legacyManager: string | null) {
     const supabaseAdmin = getSupabaseAdmin();
     let companyId = null;
     let managerId = null;
