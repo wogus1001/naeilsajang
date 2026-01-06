@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+    // Force rebuild: Fix ambiguous relationship
     try {
         const { searchParams } = new URL(request.url);
         const isDebug = searchParams.get('debug') === 'true';
