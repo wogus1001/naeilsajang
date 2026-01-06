@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS contract_templates (
 ALTER TABLE contract_templates ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Read Sharing (System OR Own Company)
+DROP POLICY IF EXISTS "Enable read access for all users" ON contract_templates;
 CREATE POLICY "Enable read access for all users" ON contract_templates
     FOR SELECT USING (
         (is_system = true) OR 
@@ -27,10 +28,12 @@ CREATE POLICY "Enable read access for all users" ON contract_templates
     );
 
 -- Policy: Insert (Authenticated users, requires valid company_id typically handled by API)
+DROP POLICY IF EXISTS "Authenticated users can create templates" ON contract_templates;
 CREATE POLICY "Authenticated users can create templates" ON contract_templates
     FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- Policy: Update (Author OR Company Admin)
+DROP POLICY IF EXISTS "Users can update own or company templates" ON contract_templates;
 CREATE POLICY "Users can update own or company templates" ON contract_templates
     FOR UPDATE USING (
         (auth.uid() = created_by) OR 
@@ -43,6 +46,7 @@ CREATE POLICY "Users can update own or company templates" ON contract_templates
     );
 
 -- Policy: Delete (Author OR Company Admin, Protect System Templates)
+DROP POLICY IF EXISTS "Users can delete own or company templates" ON contract_templates;
 CREATE POLICY "Users can delete own or company templates" ON contract_templates
     FOR DELETE USING (
         (is_system = false) AND (
@@ -75,6 +79,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
 ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
 
 -- Policy: SELECT (Read)
+DROP POLICY IF EXISTS "Users can view projects of their company" ON public.projects;
 CREATE POLICY "Users can view projects of their company" ON public.projects
     FOR SELECT
     USING (
@@ -86,6 +91,7 @@ CREATE POLICY "Users can view projects of their company" ON public.projects
     );
 
 -- Policy: INSERT (Create)
+DROP POLICY IF EXISTS "Users can create projects" ON public.projects;
 CREATE POLICY "Users can create projects" ON public.projects
     FOR INSERT
     WITH CHECK (
@@ -93,6 +99,7 @@ CREATE POLICY "Users can create projects" ON public.projects
     );
 
 -- Policy: UPDATE
+DROP POLICY IF EXISTS "Users can update projects of their company" ON public.projects;
 CREATE POLICY "Users can update projects of their company" ON public.projects
     FOR UPDATE
     USING (
@@ -104,6 +111,7 @@ CREATE POLICY "Users can update projects of their company" ON public.projects
     );
 
 -- Policy: DELETE
+DROP POLICY IF EXISTS "Users can delete projects of their company" ON public.projects;
 CREATE POLICY "Users can delete projects of their company" ON public.projects
     FOR DELETE
     USING (
