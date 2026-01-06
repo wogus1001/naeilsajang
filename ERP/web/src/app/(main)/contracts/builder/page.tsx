@@ -13,7 +13,7 @@ import {
     ArrowUpFromLine, MoveVertical
 } from 'lucide-react';
 import { ContractTemplate, FormField } from '@/types/contract-core';
-import { getTemplateById, getAllTemplates } from '@/lib/templates/registry';
+import { getTemplateById, getAllTemplates, fetchCombinedTemplates } from '@/lib/templates/registry';
 import { createClient } from '@/utils/supabase/client';
 
 const PAGE_DELIMITER = '<!-- GENUINE_PAGE_BREAK -->';
@@ -100,123 +100,124 @@ const BuilderContent = () => {
     // LOAD EXISTING TEMPLATE
     useEffect(() => {
         if (templateId) {
-            const templates = getAllTemplates();
-            const template = templates.find(t => t.id === templateId);
+            fetchCombinedTemplates().then(templates => {
+                const template = templates.find(t => t.id === templateId);
 
-            if (template) {
-                setEditingTemplateId(templateId);
-                setTitle(template.name);
-                setCategory(template.category);
+                if (template) {
+                    setEditingTemplateId(templateId);
+                    setTitle(template.name);
+                    setCategory(template.category);
 
-                // Restore Pages and Variables
-                const rawHTML = template.htmlTemplate;
-                const pageStrings = rawHTML.split(PAGE_DELIMITER);
-
-
+                    // Restore Pages and Variables
+                    const rawHTML = template.htmlTemplate;
+                    const pageStrings = rawHTML.split(PAGE_DELIMITER);
 
 
-                const processedPages = pageStrings.map(html => {
-                    // 1. Basic hydration (String replace) - this handles plain text {{key}}
-                    let processedHTML = html;
-                    template.formSchema.forEach(field => {
-                        if (field.type === 'section') return;
-                        const placeholder = `{{${field.key}}}`;
-                        // Escaped regex
-                        const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        // Use Negative Lookahead to ensure not already inside a span? Hard in regex.
 
-                        // Let's use the DOM wrapper approach.
-                        // Parse HTML, find {{key}} in text nodes, replace with Element.
-                        // This is robust.
-                    });
 
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = html;
+                    const processedPages = pageStrings.map(html => {
+                        // 1. Basic hydration (String replace) - this handles plain text {{key}}
+                        let processedHTML = html;
+                        template.formSchema.forEach(field => {
+                            if (field.type === 'section') return;
+                            const placeholder = `{{${field.key}}}`;
+                            // Escaped regex
+                            const escaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            // Use Negative Lookahead to ensure not already inside a span? Hard in regex.
 
-                    // Un-double-wrap logic:
-                    // If we have existing spans, they are preserved.
-                    // If we run string replace on `tempDiv.innerHTML`, we risk nesting.
+                            // Let's use the DOM wrapper approach.
+                            // Parse HTML, find {{key}} in text nodes, replace with Element.
+                            // This is robust.
+                        });
 
-                    // Better Algorithm:
-                    // 1. Parse HTML.
-                    // 2. Find ALL text nodes.
-                    // 3. For each text node, check if it contains `{{key}}`.
-                    // 4. If parent is NOT variable span, replace text with variable span.
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
 
-                    const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT);
-                    const textNodes: Text[] = [];
-                    while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+                        // Un-double-wrap logic:
+                        // If we have existing spans, they are preserved.
+                        // If we run string replace on `tempDiv.innerHTML`, we risk nesting.
 
-                    textNodes.forEach(node => {
-                        if (node.parentElement?.dataset.type === 'variable') {
-                            // Migration: If inline style exists, remove it and add class
-                            const p = node.parentElement;
-                            if (p && (p.style.backgroundColor || p.style.border)) {
-                                p.removeAttribute('style');
-                                p.classList.add('contract-variable');
+                        // Better Algorithm:
+                        // 1. Parse HTML.
+                        // 2. Find ALL text nodes.
+                        // 3. For each text node, check if it contains `{{key}}`.
+                        // 4. If parent is NOT variable span, replace text with variable span.
+
+                        const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT);
+                        const textNodes: Text[] = [];
+                        while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+
+                        textNodes.forEach(node => {
+                            if (node.parentElement?.dataset.type === 'variable') {
+                                // Migration: If inline style exists, remove it and add class
+                                const p = node.parentElement;
+                                if (p && (p.style.backgroundColor || p.style.border)) {
+                                    p.removeAttribute('style');
+                                    p.classList.add('contract-variable');
+                                }
+                                // Ensure class is present
+                                if (p && !p.classList.contains('contract-variable')) {
+                                    p.classList.add('contract-variable');
+                                }
+                                return;
                             }
-                            // Ensure class is present
-                            if (p && !p.classList.contains('contract-variable')) {
-                                p.classList.add('contract-variable');
+
+                            let content = node.textContent || '';
+                            let changed = false;
+                            const fragment = document.createDocumentFragment();
+
+                            // We need to split content by ALL keys.
+                            // Simplification: Replace keys one by one?
+                            // Issue: Text node splitting.
+
+                            // Lets try the "Cleanup" approach. It's much simpler.
+                            // 1. Do string replace (Global).
+                            // 2. Parse DOM.
+                            // 3. Find nested variable spans (`span[data-type="variable"] span[data-type="variable"]`).
+                            // 4. Unwrap them.
+                        });
+
+                        // Let's implement the cleanup approach.
+                        template.formSchema.forEach(field => {
+                            if (field.type === 'section') return;
+                            const placeholder = `{{${field.key}}}`;
+                            const spanHTML = `<span class="contract-variable" data-type="variable" data-var-type="${field.type}" data-key="${field.key}" data-label="${field.label}">{{${field.label}}}</span>`;
+                            const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+                            processedHTML = processedHTML.replace(regex, spanHTML);
+                        });
+
+                        // Cleanup Nested Spans
+                        const cleanupDiv = document.createElement('div');
+                        cleanupDiv.innerHTML = processedHTML;
+                        const nested = cleanupDiv.querySelectorAll('span[data-type="variable"] span[data-type="variable"]');
+                        nested.forEach(inner => {
+                            // The inner span was created by string replace inside an existing span.
+                            // The existing span (outer) holds the correct style (from DB).
+                            // The inner span holds the default style.
+                            // We want to keep Outer style, but Inner content (which is {{Label}}).
+                            // So replace Outer content with Inner content, but discard Inner tag.
+                            const outer = inner.parentElement;
+                            if (outer) {
+                                outer.innerHTML = inner.innerHTML; // Keep text
                             }
-                            return;
-                        }
+                        });
 
-                        let content = node.textContent || '';
-                        let changed = false;
-                        const fragment = document.createDocumentFragment();
-
-                        // We need to split content by ALL keys.
-                        // Simplification: Replace keys one by one?
-                        // Issue: Text node splitting.
-
-                        // Lets try the "Cleanup" approach. It's much simpler.
-                        // 1. Do string replace (Global).
-                        // 2. Parse DOM.
-                        // 3. Find nested variable spans (`span[data-type="variable"] span[data-type="variable"]`).
-                        // 4. Unwrap them.
+                        return cleanupDiv.innerHTML;
                     });
 
-                    // Let's implement the cleanup approach.
-                    template.formSchema.forEach(field => {
-                        if (field.type === 'section') return;
-                        const placeholder = `{{${field.key}}}`;
-                        const spanHTML = `<span class="contract-variable" data-type="variable" data-var-type="${field.type}" data-key="${field.key}" data-label="${field.label}">{{${field.label}}}</span>`;
-                        const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-                        processedHTML = processedHTML.replace(regex, spanHTML);
-                    });
+                    setPages(processedPages);
+                    setCurrentPageIndex(0);
 
-                    // Cleanup Nested Spans
-                    const cleanupDiv = document.createElement('div');
-                    cleanupDiv.innerHTML = processedHTML;
-                    const nested = cleanupDiv.querySelectorAll('span[data-type="variable"] span[data-type="variable"]');
-                    nested.forEach(inner => {
-                        // The inner span was created by string replace inside an existing span.
-                        // The existing span (outer) holds the correct style (from DB).
-                        // The inner span holds the default style.
-                        // We want to keep Outer style, but Inner content (which is {{Label}}).
-                        // So replace Outer content with Inner content, but discard Inner tag.
-                        const outer = inner.parentElement;
-                        if (outer) {
-                            outer.innerHTML = inner.innerHTML; // Keep text
-                        }
-                    });
+                    // Explicitly sync to editor immediately after loading
+                    if (editorRef.current && processedPages[0]) {
+                        editorRef.current.innerHTML = processedPages[0];
+                    }
 
-                    return cleanupDiv.innerHTML;
-                });
-
-                setPages(processedPages);
-                setCurrentPageIndex(0);
-
-                // Explicitly sync to editor immediately after loading
-                if (editorRef.current && processedPages[0]) {
-                    editorRef.current.innerHTML = processedPages[0];
+                    // Initialize History with loaded content
+                    setHistory([processedPages[0]]);
+                    setHistoryIndex(0);
                 }
-
-                // Initialize History with loaded content
-                setHistory([processedPages[0]]);
-                setHistoryIndex(0);
-            }
+            });
         }
     }, [templateId]);
 
