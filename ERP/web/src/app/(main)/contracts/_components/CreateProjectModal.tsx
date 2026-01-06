@@ -131,7 +131,6 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
             };
 
             // 2. Create Project Object
-            const projectId = `p-${Date.now()}`;
             const projectTitle = title || `${selectedCategory} 프로젝트`;
 
             const newProject: ContractProject = {

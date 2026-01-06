@@ -57,6 +57,15 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { id, title, status, category, participants, data } = body;
 
+        // Ensure we have a valid UUID for the project id
+        let projectId = id;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        if (!projectId || !uuidRegex.test(projectId)) {
+            projectId = crypto.randomUUID();
+            console.log(`Generated new UUID for project: ${projectId} (received: ${id})`);
+        }
+
         // Get user company
         const { data: profile } = await supabase
             .from('profiles')
@@ -67,7 +76,7 @@ export async function POST(request: Request) {
         const { data: project, error } = await supabase
             .from('projects')
             .insert({
-                id,
+                id: projectId,
                 title,
                 status,
                 category,
@@ -79,7 +88,10 @@ export async function POST(request: Request) {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database insert error for project:', error);
+            throw error;
+        }
 
         return NextResponse.json({ success: true, project });
 
