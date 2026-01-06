@@ -30,22 +30,21 @@ export async function GET(request: Request) {
         const supabaseAdmin = await getSupabaseAdmin();
 
         // Build query
+        // Update: explicitly specify foreign key 'company_id' because we now have multiple relationships
+        // (profiles.company_id -> companies.id AND companies.manager_id -> profiles.id)
         let query = supabaseAdmin
             .from('profiles')
             .select(`
                 *,
-                company:companies(name)
+                company:companies!company_id(name)
             `)
             .order('created_at', { ascending: false });
 
         if (companyFilter) {
-            // This is tricky because companyFilter is a NAME, but we have company_id.
-            // We need to filter by the joined table... Supabase postgrest supports inner join filtering?
-            // simpler: Fetch all and filter in memory (not efficient for big data, but OK for now)
-            // or: !inner join
+            // Explicit FK here too!
             query = supabaseAdmin
                 .from('profiles')
-                .select(`*, company:companies!inner(name)`)
+                .select(`*, company:companies!company_id!inner(name)`)
                 .eq('company.name', companyFilter)
                 .order('created_at', { ascending: false });
         }
