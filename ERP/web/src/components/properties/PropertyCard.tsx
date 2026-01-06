@@ -1326,14 +1326,25 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
                     const user = JSON.parse(userStr);
-                    if (user.companyName) {
-                        const res = await fetch(`/api/users?company=${encodeURIComponent(user.companyName)}`);
+                    const currentUser = user.user || user; // Handle wrapped 'user' object
+
+                    if (currentUser.companyName) {
+                        const res = await fetch(`/api/users?company=${encodeURIComponent(currentUser.companyName)}`);
                         if (res.ok) {
                             const data = await res.json();
                             setManagers(data);
                         }
                     } else {
-                        setManagers([user]);
+                        setManagers([currentUser]);
+                    }
+
+                    // Default to current user if new property and no manager set
+                    if (!property.id && !formData.managerId) {
+                        setFormData((prev: any) => ({
+                            ...prev,
+                            managerId: currentUser.id,
+                            managerName: currentUser.name
+                        }));
                     }
                 }
             } catch (error) {
@@ -1768,15 +1779,19 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
             name: '',
             status: 'progress',
             priceHistory: [],
-            workHistory: []
+            workHistory: [],
+            managerId: '',
+            managerName: ''
         };
 
-        // Inject company info
+        // Inject company info and manager info
         const userStr = localStorage.getItem('user');
         if (userStr) {
             const parsed = JSON.parse(userStr);
             const user = parsed.user || parsed; // Handle wrapped 'user' object
             (emptyData as any).companyName = user.companyName;
+            (emptyData as any).managerId = user.id;
+            (emptyData as any).managerName = user.name;
         }
 
         setFormData(emptyData);
