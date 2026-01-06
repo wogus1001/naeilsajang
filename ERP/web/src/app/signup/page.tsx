@@ -132,10 +132,13 @@ export default function SignupPage() {
                         <input
                             type="text"
                             id="id"
-                            placeholder="아이디를 입력하세요"
+                            placeholder="아이디(이메일)를 입력하세요"
                             className={styles.input}
                             required
                         />
+                        <p style={{ fontSize: '12px', color: '#868e96', marginTop: '4px' }}>
+                            이메일 형식을 권장합니다. (예: user@example.com)
+                        </p>
                     </div>
 
                     <div className={styles.inputGroup}>

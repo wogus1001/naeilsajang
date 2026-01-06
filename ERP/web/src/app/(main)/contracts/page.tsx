@@ -93,20 +93,30 @@ function ContractsPageContent() {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     // --- DATA FETCHING ---
-    const fetchSavedProjects = () => {
-        const loaded: any[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('project_data_')) {
-                try {
-                    const data = localStorage.getItem(key);
-                    if (data) loaded.push(JSON.parse(data));
-                } catch (e) {
-                    console.error('Failed to parse project', key, e);
-                }
+    const fetchSavedProjects = async () => {
+        try {
+            const res = await fetch('/api/projects');
+            if (res.ok) {
+                const { data } = await res.json();
+                // Map DB rows to UI model
+                const mapped = data.map((p: any) => ({
+                    id: p.id,
+                    title: p.title,
+                    category: p.category,
+                    status: p.status,
+                    participants: p.participants,
+                    documents: p.data?.documents || [],
+                    updatedAt: p.updated_at,
+                    createdAt: p.created_at,
+                    // commonData? not needed for list
+                }));
+                setSavedProjects(mapped);
+            } else {
+                console.error('Failed to fetch projects');
             }
+        } catch (e) {
+            console.error('Failed to fetch projects', e);
         }
-        setSavedProjects(loaded.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     };
 
     const refreshAll = () => {
@@ -425,17 +435,29 @@ function ContractsPageContent() {
         }
     };
 
-    const handleDeleteSelected = () => {
+    const handleDeleteSelected = async () => {
         if (!confirm(`${selectedIds.length}개의 프로젝트를 삭제하시겠습니까?`)) return;
-        const projectsToDelete = savedProjects.filter(p => selectedIds.includes(p.id));
-        projectsToDelete.forEach(p => {
-            if (p._storageKey) localStorage.removeItem(p._storageKey);
-            else localStorage.removeItem(`project_data_${p.id}`);
-        });
-        const newProjects = savedProjects.filter(p => !selectedIds.includes(p.id));
-        setSavedProjects(newProjects);
-        setSelectedIds([]);
-        alert('삭제되었습니다.');
+
+        try {
+            // Bulk delete via multiple API calls (or could add a bulk endpoint, but this is simple)
+            const promises = selectedIds.map(id =>
+                fetch(`/api/projects/${id}`, { method: 'DELETE' })
+            );
+
+            await Promise.all(promises);
+
+            // Optimistic update
+            const newProjects = savedProjects.filter(p => !selectedIds.includes(p.id));
+            setSavedProjects(newProjects);
+            setSelectedIds([]);
+            alert('삭제되었습니다.');
+
+            // Re-fetch to be safe
+            fetchSavedProjects();
+        } catch (e) {
+            console.error(e);
+            alert('삭제 중 오류가 발생했습니다.');
+        }
     };
 
     // Filter helpers

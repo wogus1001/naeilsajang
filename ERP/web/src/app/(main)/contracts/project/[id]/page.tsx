@@ -86,24 +86,51 @@ function ProjectEditor() {
         // 1. Load Templates
         loadTemplatesAsync();
 
-        // 2. Load Project Data from LocalStorage
-        const storageKey = `project_data_${params.id}`;
-        try {
-            const savedProjectStr = localStorage.getItem(storageKey);
-            if (savedProjectStr) {
-                const savedProject = JSON.parse(savedProjectStr);
-                setProject(savedProject);
+        // 2. Load Project Data from API
+        const loadProject = async () => {
+            try {
+                const res = await fetch(`/api/projects/${params.id}`);
+                if (!res.ok) throw new Error('Failed to fetch project');
+                const projectData = await res.json();
+
+                // Map API data to Frontend Model if needed
+                // API returns { id, title, status, category, participants, data: { commonData, documents } }
+                // Frontend Model: { id, title, status, category, commonData, documents, ... }
+
+                // If the API returns the flat structure or nested?
+                // The API GET /api/projects/[id] returns the row.
+                // Row has `data` column which contains the JSON content.
+                // We need to merge them.
+
+                const mappedProject: ContractProject = {
+                    id: projectData.id,
+                    title: projectData.title,
+                    status: projectData.status,
+                    category: projectData.category,
+                    participants: projectData.participants,
+                    createdAt: projectData.created_at,
+                    updatedAt: projectData.updated_at,
+                    commonData: projectData.data?.commonData || {},
+                    documents: projectData.data?.documents || []
+                };
+
+                setProject(mappedProject);
+
                 // Also restore active doc if possible
-                if (savedProject.documents.length > 0) {
-                    setActiveDocId(savedProject.documents[savedProject.documents.length - 1].id);
+                if (mappedProject.documents.length > 0) {
+                    setActiveDocId(mappedProject.documents[mappedProject.documents.length - 1].id);
                 }
-            } else {
-                setProject(prev => ({ ...prev, id: params.id as string }));
+            } catch (e) {
+                console.error("Failed to load project", e);
+                // Fallback or Alert?
+                // alert('프로젝트를 불러오는데 실패했습니다.');
+            } finally {
+                setIsLoaded(true);
             }
-        } catch (e) {
-            console.error("Failed to load project", e);
-        } finally {
-            setIsLoaded(true);
+        };
+
+        if (params.id) {
+            loadProject();
         }
     }, [params.id]);
 
@@ -127,13 +154,52 @@ function ProjectEditor() {
         }
     }, [newDocTemplateId, params.id, router]);
 
-    // AUTO-SAVE PROJECT (Persistence)
+    // AUTO-SAVE PROJECT (Persistence) - API Version
     useEffect(() => {
-        if (isLoaded && project.id) {
-            const storageKey = `project_data_${project.id}`;
-            console.log('Auto-saving project:', storageKey); // Debug log
-            localStorage.setItem(storageKey, JSON.stringify(project));
-        }
+        // Debounce save or just save on change?
+        // For API, we should probably debounce or save on explicit actions + auto-save every X seconds?
+        // For simplicity and user request, let's keep it simple. But relying on useEffect for API calls on every keystroke is bad.
+        // The user didn't explicitly ask for real-time collab, just "sharing".
+        // Use a debounce here.
+
+        if (!isLoaded || !project.id) return;
+
+        const timer = setTimeout(async () => {
+            // Prepare payload
+            // We need to structure it back to what API expects: { title, status, ... data: { commonData, documents } }
+            // Actually API PUT allows partial updates? No, it usually updates the whole row or specific fields.
+            // Our PUT /api/projects/[id] updates: title, status, category, participants, data.
+
+            const payload = {
+                title: project.title,
+                status: project.status,
+                category: project.category || '기타',
+                participants: project.participants,
+                data: {
+                    commonData: project.commonData,
+                    documents: project.documents
+                }
+            };
+
+            try {
+                // We add Authorization header via middleware/browser? No, server component or client?
+                // Client fetch usually sends cookies if credentials: include?
+                // Supabase helpers usually handle it. 
+                // But our API endpoint checks `supabase.auth.getUser()`.
+                // Let's assume the session cookie is adequate.
+
+                await fetch(`/api/projects/${project.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                console.log('Auto-saved project');
+            } catch (err) {
+                console.error('Auto-save failed', err);
+            }
+        }, 2000); // 2 second debounce
+
+        return () => clearTimeout(timer);
     }, [project, isLoaded]);
 
     // DERIVED STATE
@@ -276,13 +342,30 @@ function ProjectEditor() {
         }));
     };
 
-    const handleSave = () => {
-        // Save to LocalStorage
+    const handleSave = async () => {
         try {
-            const storageKey = `project_data_${project.id}`;
-            console.log('Saving project to:', storageKey, project); // DEBUG
-            localStorage.setItem(storageKey, JSON.stringify(project));
-            alert('프로젝트가 저장되었습니다.');
+            const payload = {
+                title: project.title,
+                status: project.status,
+                category: project.category || '기타',
+                participants: project.participants,
+                data: {
+                    commonData: project.commonData,
+                    documents: project.documents
+                }
+            };
+
+            const res = await fetch(`/api/projects/${project.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert('프로젝트가 저장되었습니다.');
+            } else {
+                throw new Error('Server error');
+            }
         } catch (e) {
             console.error('Save failed', e);
             alert('저장 중 오류가 발생했습니다.');
@@ -340,14 +423,24 @@ function ProjectEditor() {
         alert('프로젝트 정보가 수정되었습니다.');
     };
 
-    const handleDeleteProject = () => {
-        // Remove from localStorage
-        const storageKey = `project_data_${project.id}`;
-        localStorage.removeItem(storageKey);
+    const handleDeleteProject = async () => {
+        if (!confirm('정말 삭제하시겠습니까?')) return;
 
-        // Redirect to list
-        alert('프로젝트가 삭제되었습니다.');
-        router.replace('/contracts');
+        try {
+            const res = await fetch(`/api/projects/${project.id}`, {
+                method: 'DELETE'
+            });
+
+            if (res.ok) {
+                alert('프로젝트가 삭제되었습니다.');
+                router.replace('/contracts');
+            } else {
+                alert('삭제 실패');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('삭제 중 오류가 발생했습니다.');
+        }
     };
 
     // --- RENDERERS ---
@@ -927,7 +1020,7 @@ const styles = {
     main: { flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' },
     toolbar: { height: '50px', borderBottom: '1px solid #dee2e6', backgroundColor: 'white', display: 'flex', alignItems: 'center', padding: '0 20px', justifyContent: 'space-between' },
     workspace: { flex: 1, display: 'flex', overflow: 'hidden' },
-    formPanel: { width: '400px', backgroundColor: '#f8f9fa', borderRight: '1px solid #dee2e6', overflowY: 'auto' as const, padding: '20px' },
+    formPanel: { width: '400px', backgroundColor: '#f8f9fa', borderRight: '1px solid #dee2e6', overflowY: 'auto' as const, padding: '20px 20px 20px 30px' },
     previewPanel: { flex: 1, backgroundColor: '#e9ecef', padding: '40px 20px', overflowY: 'auto' as const, overflowX: 'auto' as const, display: 'flex', justifyContent: 'center' },
     paper: {
         width: '210mm',

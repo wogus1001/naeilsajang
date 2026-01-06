@@ -55,3 +55,62 @@ CREATE POLICY "Users can delete own or company templates" ON contract_templates
             ))
         )
     );
+
+-- --- PROJECT SHARING (CLOUD PROJECTS) ---
+-- 1. Create Projects Table
+CREATE TABLE IF NOT EXISTS public.projects (
+    id UUID PRIMARY KEY, -- Use generated UUID or provided ID
+    company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    status TEXT DEFAULT 'draft',
+    category TEXT,
+    participants TEXT,
+    data JSONB DEFAULT '{}'::JSONB, -- Stores content like documents, commonData
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    created_by UUID REFERENCES auth.users(id)
+);
+
+-- 2. RLS Policies for Projects
+ALTER TABLE public.projects ENABLE ROW LEVEL SECURITY;
+
+-- Policy: SELECT (Read)
+CREATE POLICY "Users can view projects of their company" ON public.projects
+    FOR SELECT
+    USING (
+        company_id IN (
+            SELECT company_id FROM public.profiles WHERE id = auth.uid()
+        )
+        OR
+        created_by = auth.uid()
+    );
+
+-- Policy: INSERT (Create)
+CREATE POLICY "Users can create projects" ON public.projects
+    FOR INSERT
+    WITH CHECK (
+        auth.uid() = created_by
+    );
+
+-- Policy: UPDATE
+CREATE POLICY "Users can update projects of their company" ON public.projects
+    FOR UPDATE
+    USING (
+        company_id IN (
+            SELECT company_id FROM public.profiles WHERE id = auth.uid()
+        )
+        OR
+        created_by = auth.uid()
+    );
+
+-- Policy: DELETE
+CREATE POLICY "Users can delete projects of their company" ON public.projects
+    FOR DELETE
+    USING (
+        company_id IN (
+            SELECT company_id FROM public.profiles WHERE id = auth.uid()
+        )
+        OR
+        created_by = auth.uid()
+    );
+

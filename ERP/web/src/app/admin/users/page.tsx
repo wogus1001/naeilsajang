@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, CheckCircle, XCircle, Shield, User, Clock } from 'lucide-react';
+import { Trash2, CheckCircle, XCircle, Shield, User, Clock, Key, Lock } from 'lucide-react';
 
 // Reuse some styles but inline for admin specific needs to avoid module weirdness
 const styles = {
@@ -146,13 +146,55 @@ export default function AdminUsersPage() {
         }
     };
 
+    // --- PASSWORD RESET LOGIC ---
+    const [resetTargetId, setResetTargetId] = useState<string | null>(null);
+    const [newPassword, setNewPassword] = useState('');
+    const [resetLoading, setResetLoading] = useState(false);
+
+    const handlePasswordReset = async () => {
+        if (!resetTargetId || !newPassword) return;
+        if (newPassword.length < 6) {
+            alert('비밀번호는 6자 이상이어야 합니다.');
+            return;
+        }
+
+        if (!confirm('정말 이 사용자의 비밀번호를 변경하시겠습니까?')) return;
+
+        setResetLoading(true);
+        try {
+            const res = await fetch('/api/admin/users/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: resetTargetId,
+                    newPassword: newPassword
+                })
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                alert('비밀번호가 성공적으로 변경되었습니다.');
+                setResetTargetId(null);
+                setNewPassword('');
+            } else {
+                alert(`변경 실패: ${data.error}`);
+            }
+        } catch (e: any) {
+            console.error('Password reset failed', e);
+            alert('오류가 발생했습니다.');
+        } finally {
+            setResetLoading(false);
+        }
+    };
+
     if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading...</div>;
 
     return (
         <div style={styles.container}>
             <div style={styles.header}>
                 <h1 style={styles.title}>회원 및 권한 관리</h1>
-                <p style={styles.subtitle}>사용자의 가입 승인, 등급 변경, 탈퇴 처리를 관리합니다.</p>
+                <p style={styles.subtitle}>사용자의 가입 승인, 등급 변경, 탈퇴 처리 및 비밀번호 재설정을 관리합니다.</p>
             </div>
 
             {/* Tabs */}
@@ -211,6 +253,14 @@ export default function AdminUsersPage() {
                                                 </button>
                                             )}
 
+                                            <button
+                                                style={{ ...styles.actionBtn, backgroundColor: '#f1f3f5', color: '#495057' }}
+                                                onClick={() => { setResetTargetId(user.uuid); setNewPassword(''); }}
+                                                title="비밀번호 변경"
+                                            >
+                                                <Key size={14} /> <span style={{ fontSize: '11px' }}>비번변경</span>
+                                            </button>
+
                                             {user.role !== 'admin' && (
                                                 <button
                                                     style={{ ...styles.actionBtn, color: '#fa5252', backgroundColor: 'transparent' }}
@@ -247,6 +297,52 @@ export default function AdminUsersPage() {
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                             <button onClick={() => setDeleteTargetId(null)} style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #ddd', backgroundColor: 'white', cursor: 'pointer' }}>취소</button>
                             <button onClick={handleDelete} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#fa5252', color: 'white', cursor: 'pointer' }}>삭제</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Password Reset Modal */}
+            {resetTargetId && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+                }}>
+                    <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', width: '360px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '18px' }}>비밀번호 변경</h3>
+                        <p style={{ color: '#666', marginBottom: '16px', fontSize: '14px' }}>
+                            새로운 비밀번호를 입력하세요. <br />
+                            (변경 후 즉시 적용됩니다)
+                        </p>
+                        <input
+                            type="password"
+                            placeholder="새 비밀번호 (6자 이상)"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            style={{
+                                width: '100%', padding: '10px', borderRadius: '6px',
+                                border: '1px solid #dee2e6', marginBottom: '20px', fontSize: '14px'
+                            }}
+                            autoFocus
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                            <button
+                                onClick={() => setResetTargetId(null)}
+                                style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #ddd', backgroundColor: 'white', cursor: 'pointer' }}
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handlePasswordReset}
+                                disabled={resetLoading}
+                                style={{
+                                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                                    backgroundColor: '#228be6', color: 'white', cursor: 'pointer',
+                                    opacity: resetLoading ? 0.7 : 1
+                                }}
+                            >
+                                {resetLoading ? '변경 중...' : '변경하기'}
+                            </button>
                         </div>
                     </div>
                 </div>

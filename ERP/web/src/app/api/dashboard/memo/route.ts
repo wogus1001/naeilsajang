@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         const supabaseAdmin = getSupabaseAdmin();
         const { userId, content } = await request.json();
 
-        const email = `${userId}@example.com`;
+        const email = `${userId}@sajang.app`;
         // Use admin client to lookup profile
         const { data: user } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
 

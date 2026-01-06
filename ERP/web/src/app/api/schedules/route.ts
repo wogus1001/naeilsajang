@@ -13,8 +13,14 @@ async function resolveIds(legacyCompany: string, legacyUser: string) {
     }
 
     if (legacyUser) {
-        // Try precise match first (if it's already a UUID or email)
-        if (legacyUser.includes('@')) {
+        // Check if it's a UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        if (uuidRegex.test(legacyUser)) {
+            userId = legacyUser;
+        }
+        // Try precise match first (if email)
+        else if (legacyUser.includes('@')) {
             const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', legacyUser).single();
             if (u) userId = u.id;
         } else {
@@ -116,18 +122,54 @@ export async function POST(request: Request) {
     try {
         const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
-        const { companyName, userId, customerId, propertyId, businessCardId, ...rest } = body;
+        const { companyName, userId, customerId, propertyId, businessCardId, companyId: directCompanyId, ...rest } = body;
 
-        const { companyId, userId: userUuid } = await resolveIds(companyName, userId);
+        let companyId = directCompanyId || null;
+        let userUuid = null;
 
-        if (!companyId) return NextResponse.json({ error: 'Invalid Company' }, { status: 400 });
+        if (!companyId) {
+            const result = await resolveIds(companyName, userId);
+            companyId = result.companyId;
+            userUuid = result.userId;
+
+            // Fallback: If no companyId but we have a userUuid, try to get company from user profile
+            if (!companyId && userUuid) {
+                const { data: userProfile } = await supabaseAdmin
+                    .from('profiles')
+                    .select('company_id')
+                    .eq('id', userUuid)
+                    .single();
+                if (userProfile?.company_id) {
+                    companyId = userProfile.company_id;
+                }
+            }
+        } else {
+            // If direct companyId provided, we still need to resolve userUuid if possible
+            if (userId) {
+                const result = await resolveIds(null, userId);
+                userUuid = result.userId;
+            }
+        }
+
+        if (!companyId) {
+            console.error('Schedules POST Failed: Invalid Company', { received: body, resolved: { companyId, userUuid } });
+            return NextResponse.json({
+                error: 'Invalid Company',
+                debug: {
+                    message: 'Failed to resolve Company ID',
+                    received: { companyName, userId, directCompanyId },
+                    resolved: { companyId, userUuid },
+                    resolutionAttempted: true
+                }
+            }, { status: 400 });
+        }
 
         const newId = String(Date.now());
 
         const { data, error } = await supabaseAdmin.from('schedules').insert({
             id: newId,
             company_id: companyId,
-            user_id: userUuid,
+            user_id: userUuid as string | null,
             customer_id: customerId || null,
             property_id: propertyId || null,
             business_card_id: businessCardId || null,
@@ -135,13 +177,19 @@ export async function POST(request: Request) {
             created_at: new Date().toISOString()
         }).select('*, user:profiles(name)').single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Schedules Insert DB Error:', error);
+            throw error;
+        }
 
         return NextResponse.json(transformSchedule(data), { status: 201 });
 
-    } catch (e) {
+    } catch (e: any) {
         console.error('Schedules POST Error:', e);
-        return NextResponse.json({ error: 'Failed to create schedule' }, { status: 500 });
+        return NextResponse.json({
+            error: 'Failed to create schedule',
+            details: e.message
+        }, { status: 500 });
     }
 }
 

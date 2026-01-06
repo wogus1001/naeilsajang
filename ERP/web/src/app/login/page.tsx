@@ -34,7 +34,8 @@ export default function LoginPage() {
         const password = (document.getElementById('password') as HTMLInputElement).value;
 
         try {
-            // Heuristic for migration compatibility: If no @, assume it's a legacy ID and append domain
+            // Heuristic for migration compatibility + Default Domain
+            // If no @, assume it's a legacy ID and append default domain
             let email = id;
             if (!id.includes('@')) {
                 email = `${id}@example.com`;
