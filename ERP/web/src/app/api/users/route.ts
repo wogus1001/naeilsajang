@@ -187,6 +187,19 @@ export async function DELETE(request: Request) {
             }
         }
 
+        // VERIFICATION: Check if cleanup actually worked
+        const { count: projectCount } = await supabaseAdmin.from('projects').select('id', { count: 'exact', head: true }).eq('created_by', targetUuid);
+        const { count: templateCount } = await supabaseAdmin.from('contract_templates').select('id', { count: 'exact', head: true }).eq('created_by', targetUuid);
+        const { count: companyCount } = await supabaseAdmin.from('companies').select('id', { count: 'exact', head: true }).eq('owner_id', targetUuid);
+
+        console.log(`[DEBUG-DELETE] Cleanup Verification - Projects: ${projectCount}, Templates: ${templateCount}, Companies: ${companyCount}`);
+
+        if ((projectCount || 0) > 0 || (templateCount || 0) > 0 || (companyCount || 0) > 0) {
+            return NextResponse.json({
+                error: `[DEBUG-FINAL] 데이터 연결 해제 실패. 프로젝트: ${projectCount}, 템플릿: ${templateCount}, 회사소유: ${companyCount}. (DB 제약조건으로 인해 업데이트가 무시되었을 수 있습니다.)`
+            }, { status: 409 });
+        }
+
         // Pre-fetch company_id for cleanup check
         const { data: profileForCleanup } = await supabaseAdmin
             .from('profiles')
@@ -196,24 +209,29 @@ export async function DELETE(request: Request) {
 
         const companyIdToClean = profileForCleanup?.company_id;
 
-        // 2. Delete User (Auth) -> Trigger cascades to Profile
+        // [CYCLE 4] Strategy: Explicitly delete from 'profiles' first to reveal hidden constraints
+        // Postgres will throw specific error (e.g., table name, constraint name) here, unlike auth.admin.deleteUser
+        try {
+            const { error: profileDeleteError } = await supabaseAdmin.from('profiles').delete().eq('id', targetUuid);
+            if (profileDeleteError) {
+                console.error('[DEBUG-DELETE] Profile delete failed:', profileDeleteError);
+                throw profileDeleteError; // This will go to outer catch with full Postgres details
+            }
+        } catch (error: any) {
+            console.error('[DEBUG-DELETE] Captured profile delete error:', error);
+            throw error;
+        }
+
+        // 2. Delete User (Auth)
+        // Profile is already deleted, so this cleans up the Auth User row
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUuid);
 
         if (deleteError) {
             console.error('Supabase delete error:', deleteError);
-            if (deleteError.message.includes('foreign key constraint')) {
-                return NextResponse.json({
-                    error: `[DEBUG-FINAL] 이 사용자와 연결된 데이터(계약서, 공지사항 등)가 있어 삭제할 수 없습니다. 데이터 연결을 먼저 해제해주세요. (${deleteError.message})`
-                }, { status: 409 });
-            }
-            // Check if user not found (already deleted from Auth but maybe profile exists?)
             if (!deleteError.message.includes('User not found')) {
                 throw deleteError;
             }
         }
-
-        // [CRITICAL FIX] Explicitly delete from profiles to ensure no "ghost" users remain
-        await supabaseAdmin.from('profiles').delete().eq('id', targetUuid);
 
         // 3. Automatic Company Cleanup: Delete company if no members left
         if (companyIdToClean) {
