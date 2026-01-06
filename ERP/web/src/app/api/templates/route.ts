@@ -4,11 +4,28 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
     const supabase = await createClient();
 
-    const { data: templates, error } = await supabase
+    // 1. Get current user's company_id
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+    // 2. Fetch templates (System OR Shared Company)
+    // Note: RLS policies generally handle this, but explicit query is safer for logic transparency
+    let query = supabase
         .from('contract_templates')
         .select('*')
+        .or(`is_system.eq.true,company_id.eq.${profile?.company_id}`)
         .order('is_system', { ascending: false }) // System first
         .order('name', { ascending: true });
+
+    const { data: templates, error } = await query;
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -38,6 +55,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get Company ID
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
     // Map camelCase (Frontend) to snake_case (DB)
     const dbData = {
         id: body.id || `t-${Date.now()}`,
@@ -47,6 +71,7 @@ export async function POST(request: NextRequest) {
         form_schema: body.formSchema || [],
         html_content: body.htmlTemplate || '',
         is_system: body.is_system || false,
+        company_id: profile?.company_id, // Company Association
         created_by: user.id
     };
 

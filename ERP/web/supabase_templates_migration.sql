@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS contract_templates (
     form_schema jsonb DEFAULT '[]',
     html_content text,
     is_system boolean DEFAULT false,
+    company_id uuid REFERENCES companies(id), -- Company Sharing
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now(),
     created_by uuid REFERENCES auth.users(id)
@@ -15,23 +16,41 @@ CREATE TABLE IF NOT EXISTS contract_templates (
 -- Enable Row Level Security
 ALTER TABLE contract_templates ENABLE ROW LEVEL SECURITY;
 
--- Policy: Everyone can READ all templates
-CREATE POLICY "Everyone can read templates" ON contract_templates
-    FOR SELECT USING (true);
+-- Policy: Read Sharing (System OR Own Company)
+CREATE POLICY "Enable read access for all users" ON contract_templates
+    FOR SELECT USING (
+        (is_system = true) OR 
+        (company_id IN (
+            SELECT company_id FROM profiles WHERE id = auth.uid()
+        ))
+    );
 
--- Policy: Authenticated users can INSERT their own templates
+-- Policy: Insert (Authenticated users, requires valid company_id typically handled by API)
 CREATE POLICY "Authenticated users can create templates" ON contract_templates
     FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
--- Policy: Users can UPDATE their own templates
-CREATE POLICY "Users can update own templates" ON contract_templates
+-- Policy: Update (Author OR Company Admin)
+CREATE POLICY "Users can update own or company templates" ON contract_templates
     FOR UPDATE USING (
         (auth.uid() = created_by) OR 
-        (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'))
+        (EXISTS (
+            SELECT 1 FROM profiles 
+            WHERE id = auth.uid() 
+            AND company_id = contract_templates.company_id 
+            AND role = 'admin'
+        ))
     );
 
--- Policy: Users can DELETE their own templates (Protect System Templates)
-CREATE POLICY "Users can delete own non-system templates" ON contract_templates
+-- Policy: Delete (Author OR Company Admin, Protect System Templates)
+CREATE POLICY "Users can delete own or company templates" ON contract_templates
     FOR DELETE USING (
-        (auth.uid() = created_by) AND (is_system = false)
+        (is_system = false) AND (
+            (auth.uid() = created_by) OR 
+            (EXISTS (
+                SELECT 1 FROM profiles 
+                WHERE id = auth.uid() 
+                AND company_id = contract_templates.company_id 
+                AND role = 'admin'
+            ))
+        )
     );
