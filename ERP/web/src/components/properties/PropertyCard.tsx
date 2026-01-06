@@ -120,7 +120,31 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
         libraries: ["clusterer", "drawing", "services"],
     });
     const router = useRouter();
-    const [formData, setFormData] = useState<any>(property);
+    const [formData, setFormData] = useState<any>(() => {
+        // Safe default: If new property (no ID) and no manager set, try to default to current user
+        if (!property.id && !property.managerId) {
+            if (typeof window !== 'undefined') {
+                try {
+                    const userStr = localStorage.getItem('user');
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        const user = parsed.user || parsed;
+                        if (user.id) {
+                            return {
+                                ...property,
+                                managerId: user.id || property.managerId,
+                                managerName: user.name || property.managerName
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to load user from storage', e);
+                }
+            }
+        }
+        return property;
+    });
+
     const [activeTab, setActiveTab] = useState('priceWork');
     const [openSections, setOpenSections] = useState({
 
@@ -174,6 +198,24 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
             }
         }
     };
+
+    // Fix: Map UUID to Display ID for existing properties
+    useEffect(() => {
+        if (managers.length > 0 && formData.managerId) {
+            // Find manager where UUID matches current formData.managerId
+            const matchedByUuid = managers.find(m => m.uuid === formData.managerId);
+
+            // If matched, meaning we have a UUID (from DB) but need a Display ID (for Dropdown)
+            if (matchedByUuid && matchedByUuid.id !== formData.managerId) {
+                setFormData((prev: any) => ({
+                    ...prev,
+                    managerId: matchedByUuid.id, // Switch to Display ID (e.g., "admin")
+                    managerName: matchedByUuid.name
+                }));
+            }
+        }
+    }, [managers, formData.managerId]);
+
 
     // History Popup State
     const [isPriceHistoryOpen, setIsPriceHistoryOpen] = useState(false);
