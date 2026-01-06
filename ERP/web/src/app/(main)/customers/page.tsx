@@ -425,7 +425,7 @@ function CustomerListPageContent() {
                                     />
                                 </td>
                                 <td>{filteredCustomers.length - index}</td>
-                                <td onClick={(e) => toggleFavorite(e, customer)}>
+                                <td onClick={(e) => toggleFavorite(e, customer)} style={{ cursor: 'pointer', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'visible' }}>
                                     <Star
                                         size={16}
                                         fill={customer.isFavorite ? "#FAB005" : "none"}

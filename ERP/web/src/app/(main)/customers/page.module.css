@@ -3,23 +3,27 @@
     flex-direction: column;
     height: 100%;
     gap: 16px;
-    padding: 16px;
+    padding: 24px;
+    background-color: #f8f9fa;
+    /* Light background for the page */
     position: relative;
-    /* Ensure container is a positioning context */
 }
 
 .toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f1f3f5;
-    padding: 8px 16px;
-    border-radius: 4px;
+    background: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #f1f3f5;
 }
 
 .title {
     font-size: 16px;
-    font-weight: bold;
+    font-weight: 700;
+    color: #343a40;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -28,46 +32,61 @@
 .searchGroup {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
 }
 
 .searchInput {
-    padding: 4px 8px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
+    padding: 8px 12px;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
     font-size: 13px;
-    width: 200px;
+    width: 240px;
+    transition: all 0.2s ease;
+    background-color: #f8f9fa;
+}
+
+.searchInput:focus {
+    outline: none;
+    border-color: #4C6EF5;
+    background-color: white;
+    box-shadow: 0 0 0 3px rgba(76, 110, 245, 0.1);
 }
 
 .filterCheck {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     font-size: 13px;
     margin-right: 12px;
+    cursor: pointer;
 }
 
 /* Grid Table */
 .tableContainer {
     flex: 1;
     overflow: auto;
-    border: 1px solid #dee2e6;
+    border-radius: 12px;
     background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #f1f3f5;
 }
 
 .table {
     width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
+    border-collapse: separate;
+    /* Changed for border-radius support if needed */
+    border-spacing: 0;
+    font-size: 13px;
     text-align: center;
 }
 
 .table th {
-    background: #FFEC99;
-    /* Yellow header from screenshot */
-    padding: 8px 4px;
-    border: 1px solid #dee2e6;
-    font-weight: bold;
+    background: #f8f9fa;
+    /* Soft gray instead of yellow */
+    color: #495057;
+    padding: 12px 8px;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
     white-space: nowrap;
     position: sticky;
     top: 0;
@@ -75,14 +94,14 @@
 }
 
 .table td {
-    border: 1px solid #dee2e6;
-    padding: 6px 4px;
+    border-bottom: 1px solid #f1f3f5;
+    padding: 12px 8px;
     vertical-align: middle;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
-    /* Prevent huge columns */
+    color: #343a40;
 }
 
 /* Row Hover */
@@ -91,42 +110,52 @@
     cursor: pointer;
 }
 
+.tr:last-child td {
+    border-bottom: none;
+}
+
 /* Status Badges */
 .badge {
     color: white;
-    padding: 2px 6px;
-    border-radius: 2px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    /* Pill shape */
     font-size: 11px;
+    font-weight: 600;
     display: inline-block;
-    min-width: 40px;
+    min-width: 50px;
     text-align: center;
-    /* Center the text */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .badgeProgress {
-    background-color: #FA5252;
+    background-color: #FF6B6B;
 }
 
 .badgeManage {
-    background-color: #228BE6;
+    background-color: #339AF0;
 }
 
 .badgeHold {
-    background-color: #FAB005;
+    background-color: #FCC419;
 }
 
 .badgeCommon {
-    background-color: #BE4BDB;
+    background-color: #CC5DE8;
 }
 
 .badgeComplete {
-    background-color: #40C057;
+    background-color: #51CF66;
 }
 
 /* Class Badges (A급, B급) */
 .classBadge {
-    font-weight: bold;
+    font-weight: 700;
     color: #495057;
+    background: #f1f3f5;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
 }
 
 /* Footer */
@@ -134,36 +163,44 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #e9ecef;
-    padding: 4px 8px;
-    font-size: 12px;
+    background: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    font-size: 13px;
+    border: 1px solid #f1f3f5;
 }
 
 .footerBtn {
-    border: 1px solid #ced4da;
+    border: 1px solid #e9ecef;
     background: white;
-    padding: 2px 8px;
-    font-size: 12px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    border-radius: 2px;
+    border-radius: 8px;
+    /* Softer corners */
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    transition: all 0.2s;
+    color: #495057;
 }
 
 .footerBtn:hover {
-    background: #f1f3f5;
+    background: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .primaryBtn {
-    background: #e7f5ff;
-    color: #1971c2;
-    border-color: #1971c2;
+    background: #4C6EF5;
+    color: white !important;
+    border-color: #4C6EF5;
 }
 
-.iconUser {
-    color: #e03131;
-    /* Pink user icon */
+.primaryBtn:hover {
+    background: #4263EB;
 }
 
 /* Modal Styles */
@@ -173,7 +210,9 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(33, 37, 41, 0.4);
+    /* Darker, blurrier overlay usually handled by backdrop-filter if useful */
+    backdrop-filter: blur(2px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -185,22 +224,13 @@
     max-width: 1200px;
     height: 90vh;
     background-color: #fff;
-    border-radius: 8px;
+    border-radius: 16px;
     position: relative;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-}
-
-.closeBtn {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: #868e96;
-    z-index: 10;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    /* For border radius */
 }
 
 /* Drawer Styles */
@@ -220,11 +250,11 @@
     min-width: 400px;
     height: 100%;
     background-color: #fff;
-    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.1);
     position: relative;
     display: flex;
     flex-direction: column;
-    animation: slideIn 0.3s ease-out;
+    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .drawerResizer {
@@ -240,65 +270,84 @@
 }
 
 .drawerResizer:hover {
-    background: rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.05);
 }
 
 @keyframes slideIn {
     from {
         transform: translateX(100%);
+        opacity: 0;
     }
 
     to {
         transform: translateX(0);
+        opacity: 1;
     }
 }
 
-/* Favorite Filter */
-.activeFavorite {
-    /* Color handled inline or via child elements */
-}
-
+/* Custom Checkbox */
 .checkboxSquare {
-    width: 16px;
-    height: 16px;
-    border: 1px solid #adb5bd;
-    border-radius: 2px;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #adb5bd;
+    border-radius: 4px;
     background: white;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.2s;
 }
 
 .checkboxInner {
     width: 10px;
     height: 10px;
     background: #FAB005;
-    border-radius: 1px;
+    border-radius: 2px;
 }
 
-/* Status Filter Buttons */
+/* Status Filter Buttons - Chip Style */
 .statusFilterBtn {
     cursor: pointer;
-    opacity: 0.4;
-    transition: all 0.2s;
+    opacity: 0.6;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: transparent;
     border: 1px solid transparent;
-    border-radius: 4px;
-    padding: 2px 6px;
-    /* Added horizontal padding */
+    border-radius: 20px;
+    padding: 4px 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Center the content */
-    gap: 4px;
-    /* Space between checkbox and text */
+    gap: 6px;
 }
 
 .statusFilterBtn:hover {
-    opacity: 0.7;
+    opacity: 0.9;
+    background: #f1f3f5;
 }
 
 .statusFilterBtn.active {
     opacity: 1;
-    transform: scale(1.05);
-    /* box-shadow: 0 1px 2px rgba(0,0,0,0.1); */
+    background: white;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transform: scale(1.02);
+}
+
+/* Scrollbar tweaks */
+.tableContainer::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.tableContainer::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tableContainer::-webkit-scrollbar-thumb {
+    background-color: #e9ecef;
+    border-radius: 4px;
+}
+
+.tableContainer::-webkit-scrollbar-thumb:hover {
+    background-color: #dee2e6;
 }

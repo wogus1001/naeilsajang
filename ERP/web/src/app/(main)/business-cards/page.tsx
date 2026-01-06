@@ -564,7 +564,7 @@ function BusinessCardListContent() {
                                     />
                                 </td>
                                 <td>{filteredCards.length - index}</td>
-                                <td onClick={(e) => { e.stopPropagation(); toggleFavorite(card.id, card.isFavorite); }} style={{ cursor: 'pointer', textAlign: 'center' }}>
+                                <td onClick={(e) => { e.stopPropagation(); toggleFavorite(card.id, card.isFavorite); }} style={{ cursor: 'pointer', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'visible' }}>
                                     <Star size={16} color={card.isFavorite ? "#FAB005" : "#ced4da"} fill={card.isFavorite ? "#FAB005" : "none"} />
                                 </td>
                                 <td><span className={styles.classBadge} style={{ background: '#f1f3f5', color: '#495057' }}>{card.category}</span></td>
