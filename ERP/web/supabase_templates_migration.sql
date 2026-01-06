@@ -20,6 +20,7 @@ ALTER TABLE contract_templates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable read access for all users" ON contract_templates
     FOR SELECT USING (
         (is_system = true) OR 
+        (created_by = auth.uid()) OR
         (company_id IN (
             SELECT company_id FROM profiles WHERE id = auth.uid()
         ))

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
         .from('contract_templates')
         .select('*')
-        .or(`is_system.eq.true,company_id.eq.${profile?.company_id}`)
+        .or(`is_system.eq.true,company_id.eq.${profile?.company_id},created_by.eq.${user.id}`)
         .order('is_system', { ascending: false }) // System first
         .order('name', { ascending: true });
 
