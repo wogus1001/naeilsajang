@@ -63,6 +63,7 @@ export interface ContractTemplate {
 
     createdAt?: string;
     updatedAt?: string;
+    is_system?: boolean;
 }
 
 export type FieldType = 'text' | 'number' | 'money' | 'currency' | 'date' | 'textarea' | 'section' | 'info';

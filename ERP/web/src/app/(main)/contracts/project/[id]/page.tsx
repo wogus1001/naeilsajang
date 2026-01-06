@@ -752,8 +752,8 @@ function ProjectEditor() {
                                                 <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '2px' }}>{t.name}</div>
                                                 <div style={{ fontSize: '12px', color: '#868e96' }}>{t.description}</div>
                                             </div>
-                                            {/* Show edit/delete controls for custom templates (not in system registry) */}
-                                            {!CONTRACT_TEMPLATES.find(ct => ct.id === t.id) ? (
+                                            {/* Show edit/delete controls for custom templates (not system) */}
+                                            {!t.is_system ? (
                                                 <div style={{ display: 'flex', gap: '2px' }}>
                                                     <div
                                                         onClick={(e) => {
