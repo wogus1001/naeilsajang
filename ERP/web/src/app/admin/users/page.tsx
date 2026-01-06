@@ -118,7 +118,8 @@ export default function AdminUsersPage() {
             } else {
                 const data = await res.json();
                 console.error('Delete failed response:', data);
-                alert(`삭제 실패 (DEBUG): ${JSON.stringify(data, null, 2)}`);
+                // Production-friendly message
+                alert(`삭제 실패: ${data.error || '알 수 없는 오류가 발생했습니다.'}`);
             }
         } catch (error) {
             console.error(error);
@@ -196,11 +197,12 @@ export default function AdminUsersPage() {
                 setNewPassword('');
             } else {
                 console.error('Reset failed data:', data);
-                alert(`변경 실패 (DEBUG): ${JSON.stringify(data, null, 2)}`);
+                // Production-friendly message
+                alert(`변경 실패: ${data.error || '알 수 없는 오류가 발생했습니다.'}`);
             }
         } catch (e: any) {
             console.error('Password reset failed', e);
-            alert(`오류가 발생했습니다: ${e.message}`);
+            alert('오류가 발생했습니다.');
         } finally {
             setResetLoading(false);
         }

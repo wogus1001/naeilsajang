@@ -196,7 +196,7 @@ export async function DELETE(request: Request) {
 
         if ((projectCount || 0) > 0 || (templateCount || 0) > 0 || (companyCount || 0) > 0) {
             return NextResponse.json({
-                error: `[DEBUG-FINAL] 데이터 연결 해제 실패. 프로젝트: ${projectCount}, 템플릿: ${templateCount}, 회사소유: ${companyCount}. (DB 제약조건으로 인해 업데이트가 무시되었을 수 있습니다.)`
+                error: `데이터 연결 해제 실패. 프로젝트: ${projectCount}, 템플릿: ${templateCount}, 회사소유: ${companyCount}. (DB 제약조건으로 인해 업데이트가 무시되었을 수 있습니다.)`
             }, { status: 409 });
         }
 
