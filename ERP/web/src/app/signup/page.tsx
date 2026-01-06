@@ -49,6 +49,14 @@ export default function SignupPage() {
             return;
         }
 
+        // Email Validation Policy
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(id)) {
+            alert('아이디는 이메일 형식(예: user@example.com)으로 입력해주세요.');
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const res = await fetch('/api/signup', {
                 method: 'POST',
