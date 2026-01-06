@@ -496,23 +496,10 @@ function ContractsPageContent() {
             {/* GLOBAL HEADER */}
             <div style={styles.header}>
                 {/* Batch Actions */}
-                {selectedIds.length > 0 && (
-                    <div style={styles.batchActions}>
-                        <span style={styles.selectedCount}>{selectedIds.length}개 선택됨</span>
-                        <div style={styles.batchBtnGroup}>
-
-                            <button style={styles.batchBtn} onClick={handleBulkDownload}>
-                                <DownloadIcon size={14} /> 선택 다운로드
-                            </button>
-                            <button style={{ ...styles.batchBtn, color: '#fa5252', borderColor: '#fa5252' }} onClick={handleDeleteSelected}>
-                                <TrashIcon size={14} /> 선택 삭제
-                            </button>
-                        </div>
-                    </div>
-                )}
+                {/* Batch Actions Removed from Header to fix layout */}
                 <div>
 
-                    <h1 style={styles.title}>계약 관리</h1>
+                    <h1 style={styles.title}>계약 관리 (Updated)</h1>
                     <p style={styles.subtitle}>프로젝트 및 전자계약 통합 관리</p>
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
@@ -577,12 +564,32 @@ function ContractsPageContent() {
                             />
                         </div>
                         {selectedIds.length > 0 && (
-                            <button
-                                onClick={handleDeleteSelected}
-                                style={{ ...styles.createBtn, backgroundColor: '#fff5f5', color: '#fa5252', border: '1px solid #ffc9c9' }}
-                            >
-                                <TrashIcon size={16} /> 선택 삭제 ({selectedIds.length})
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                    onClick={handleBulkDownload}
+                                    style={{
+                                        ...styles.createBtn,
+                                        backgroundColor: 'white',
+                                        color: '#228be6',
+                                        border: '1px solid #228be6',
+                                        padding: '8px 12px'
+                                    }}
+                                >
+                                    <DownloadIcon size={16} /> 선택 다운로드
+                                </button>
+                                <button
+                                    onClick={handleDeleteSelected}
+                                    style={{
+                                        ...styles.createBtn,
+                                        backgroundColor: '#fff5f5',
+                                        color: '#fa5252',
+                                        border: '1px solid #ffc9c9',
+                                        padding: '8px 12px'
+                                    }}
+                                >
+                                    <TrashIcon size={16} /> 선택 삭제 ({selectedIds.length})
+                                </button>
+                            </div>
                         )}
                     </div>
                     <div style={styles.tableWrapper}>

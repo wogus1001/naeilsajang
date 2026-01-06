@@ -31,6 +31,7 @@ const MOCK_CUSTOMERS = [
     { id: 'c3', name: '박중개', phone: '010-5555-6666' },
 ];
 
+// Force redeploy - UI sync fix
 export default function CreateProjectModal({ isOpen, onClose, onCreate }: CreateProjectModalProps) {
     const router = useRouter();
     const [step, setStep] = useState<1 | 2>(1);
@@ -598,11 +599,11 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
 const styles = {
     overlay: { position: 'fixed' as const, top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' },
     modal: { backgroundColor: 'white', width: '600px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column' as const, maxHeight: '90vh' },
-    header: { padding: '20px 24px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+    header: { padding: '20px 40px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
     title: { fontSize: '18px', fontWeight: 'bold', margin: 0 },
     closeBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
-    body: { padding: '24px', overflowY: 'auto' as const, flex: 1 },
-    footer: { padding: '16px 24px', backgroundColor: '#f8f9fa', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between', gap: '10px' },
+    body: { padding: '30px 40px', overflowY: 'auto' as const, flex: 1 },
+    footer: { padding: '16px 40px', backgroundColor: '#f8f9fa', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-between', gap: '10px' },
 
     // Stepper
     stepper: { display: 'flex', alignItems: 'center', marginBottom: '30px', padding: '0 10px' },
@@ -615,7 +616,7 @@ const styles = {
     inputGroup: { display: 'flex', flexDirection: 'column' as const, gap: '8px' },
     label: { fontSize: '14px', fontWeight: 600, color: '#343a40', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
     loadBtn: { fontSize: '11px', padding: '2px 6px', color: '#228be6', border: '1px solid #228be6', borderRadius: '4px', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' },
-    input: { padding: '10px', borderRadius: '6px', border: '1px solid #dee2e6', fontSize: '14px', width: '100%' },
+    input: { padding: '10px', borderRadius: '6px', border: '1px solid #dee2e6', fontSize: '14px', width: '100%', boxSizing: 'border-box' as const },
     grid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' },
 
     // Card Selection
@@ -637,7 +638,7 @@ const styles = {
 
     // Step 2 Styles
     infoBox: { padding: '15px', backgroundColor: '#e7f5ff', borderRadius: '6px', color: '#1c7ed6', fontSize: '14px', marginBottom: '10px' },
-    searchInput: { padding: '10px 10px 10px 36px', borderRadius: '6px', border: '1px solid #dee2e6', fontSize: '14px', width: '100%' },
+    searchInput: { padding: '10px 10px 10px 36px', borderRadius: '6px', border: '1px solid #dee2e6', fontSize: '14px', width: '100%', boxSizing: 'border-box' as const },
     searchIcon: { position: 'absolute' as const, left: '12px', top: '12px', color: '#adb5bd' },
     searchResults: { position: 'absolute' as const, top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '6px', marginTop: '4px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: '200px', overflowY: 'auto' as const },
     resultItem: { padding: '10px', borderBottom: '1px solid #f1f3f5', cursor: 'pointer', fontSize: '14px' },
