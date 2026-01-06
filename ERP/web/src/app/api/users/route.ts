@@ -30,8 +30,6 @@ export async function GET(request: Request) {
             return NextResponse.json(debugInfo);
         }
 
-        const supabaseAdmin = await getSupabaseAdmin();
-
         // Build query
         // Update: explicitly specify foreign key 'company_id' because we now have multiple relationships
         // (profiles.company_id -> companies.id AND companies.manager_id -> profiles.id)
