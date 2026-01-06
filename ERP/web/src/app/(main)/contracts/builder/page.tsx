@@ -30,6 +30,7 @@ const BuilderContent = () => {
     const [title, setTitle] = useState('');
     const [category, setCategory] = useState('기타');
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Table Resizing State
     const resizingState = useRef<{
@@ -903,7 +904,7 @@ const BuilderContent = () => {
     };
 
     // --- Save ---
-    const handleSave = () => {
+    const handleSave = async () => {
         // First save current content
         if (editorRef.current) {
             pages[currentPageIndex] = editorRef.current.innerHTML;
@@ -914,19 +915,16 @@ const BuilderContent = () => {
             return;
         }
 
+        setIsSaving(true);
+
         // Join pages
         const fullContent = pages.join(PAGE_DELIMITER);
         const schema: FormField[] = [];
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(fullContent, 'text/html');
-        // We only parse schema from valid variable nodes,
-        // Note: PAGE_DELIMITER is basically a string separator, parser will treat it as text or comment.
-        // It won't affect Variable parsing.
-
         const varNodes = doc.querySelectorAll('span[data-type="variable"]');
         varNodes.forEach((node: any) => {
-            // Task 2: Sync with visible text (innerText)
             const visibleText = node.innerText.replace(/{{|}}/g, '').trim();
             if (!visibleText) return; // Skip empty vars
 
@@ -940,24 +938,47 @@ const BuilderContent = () => {
                 type: type as any,
                 placeholder: newLabel + ' 을(를) 입력하세요'
             });
-            // Replace for final HTML - DISABLED to preserve styles
-            // We want to keep the SPAN tag in the HTML so that styles (font-size, etc.) are persisted.
-            // When loading, we will handle hydration carefully.
-            // node.replaceWith('{{' + newKey + '}}'); 
         });
 
         const storageHTML = doc.body.innerHTML;
 
         try {
+            // Priority: Save to Cloud (DB)
+            let currentId = editingTemplateId;
+            const isCustom = currentId && currentId.startsWith('usr-t-');
+            const method = (!currentId || isCustom) ? 'POST' : 'PUT';
+            const url = method === 'PUT' ? `/api/templates/${currentId}` : '/api/templates';
+
+            const payload = {
+                name: title,
+                category,
+                formSchema: schema,
+                htmlTemplate: storageHTML,
+                description: '사용자 정의 템플릿'
+            };
+
+            const cloudRes = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (cloudRes.ok) {
+                const cloudData = await cloudRes.json();
+                if (method === 'POST') {
+                    currentId = cloudData.id;
+                    setEditingTemplateId(currentId);
+                }
+            } else {
+                console.error('Cloud save failed, falling back to local');
+            }
+
+            // Also keep LocalStorage as backup/legacy support
             const existingStr = localStorage.getItem('custom_templates');
             const existing: ContractTemplate[] = existingStr ? JSON.parse(existingStr) : [];
 
-            let finalId = '';
-
-            if (editingTemplateId && editingTemplateId.startsWith('usr-t-')) {
-                // UPDATE EXISTING CUSTOM TEMPLATE
-                finalId = editingTemplateId;
-                const index = existing.findIndex(t => t.id === editingTemplateId);
+            if (currentId && currentId.startsWith('usr-t-')) {
+                const index = existing.findIndex(t => t.id === currentId);
                 if (index !== -1) {
                     existing[index] = {
                         ...existing[index],
@@ -969,7 +990,7 @@ const BuilderContent = () => {
                     };
                 } else {
                     existing.push({
-                        id: finalId,
+                        id: currentId,
                         name: title,
                         category,
                         formSchema: schema,
@@ -978,34 +999,20 @@ const BuilderContent = () => {
                     });
                 }
                 localStorage.setItem('custom_templates', JSON.stringify(existing));
-                alert('템플릿이 수정되었습니다!');
-            } else {
-                // CREATE NEW (OR SAVE AS FROM SYSTEM)
-                finalId = 'usr-t-' + Date.now();
-                const newTemplate: ContractTemplate = {
-                    id: finalId,
-                    name: title,
-                    category,
-                    formSchema: schema.filter((v, i, a) => a.findIndex(t => t.key === v.key) === i),
-                    htmlTemplate: storageHTML,
-                    description: '사용자 정의 템플릿',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-
-                existing.push(newTemplate);
-                localStorage.setItem('custom_templates', JSON.stringify(existing));
-                alert('템플릿이 저장되었습니다!');
             }
 
+            alert('템플릿이 저장되었습니다! (클라우드 동기화 완료)');
+
             if (projectId && returnToProject) {
-                router.push('/contracts/project/' + projectId + '?newDoc=' + finalId);
+                router.push('/contracts/project/' + projectId + '?newDoc=' + currentId);
             } else {
                 router.push('/contracts');
             }
         } catch (e) {
-            console.error(e);
-            alert('저장 실패');
+            console.error('Save failed:', e);
+            alert('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -1047,8 +1054,12 @@ const BuilderContent = () => {
                     <div style={{ flex: 1 }} />
 
                     <button onClick={() => router.back()} style={styles.cancelBtn}>취소</button>
-                    <button onClick={handleSave} style={styles.saveBtn}>
-                        <Save size={16} /> 템플릿 저장
+                    <button
+                        onClick={handleSave}
+                        style={{ ...styles.saveBtn, opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
+                        disabled={isSaving}
+                    >
+                        <Save size={16} /> {isSaving ? '저장 중...' : '템플릿 저장'}
                     </button>
                 </div>
 
