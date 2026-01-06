@@ -19,7 +19,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: '아이디는 이메일 형식이어야 합니다.' }, { status: 400 });
         }
 
-        const trimmedCompanyName = companyName.trim().normalize('NFC');
+        const trimmedCompanyName = companyName.trim();
+        const nfcCompanyName = trimmedCompanyName.normalize('NFC');
+        const nfdCompanyName = trimmedCompanyName.normalize('NFD');
         const email = id;
         const supabaseAdmin = await getSupabaseAdmin();
 
@@ -31,18 +33,32 @@ export async function POST(request: Request) {
         let finalStatus = 'active';
         let message = '회원가입이 완료되었습니다.';
 
-        // Check if company exists
+        // Robust check: Search for company name using ilike to handle minor differences (spaces/normalization)
         const { data: companyResults, error: findError } = await supabaseAdmin
             .from('companies')
-            .select('id, manager_id')
-            .eq('name', trimmedCompanyName)
+            .select('id, manager_id, name')
+            .or(`name.ilike.${nfcCompanyName},name.ilike.${nfdCompanyName}`)
             .order('created_at', { ascending: true });
 
         if (findError) {
             console.error('[Signup] Find company error:', findError);
         }
 
-        let existingCompany = companyResults && companyResults.length > 0 ? companyResults[0] : null;
+        // Try to find an exact or near-exact match in memory
+        let existingCompany = null;
+        if (companyResults && companyResults.length > 0) {
+            // First try strict match
+            existingCompany = companyResults.find(c =>
+                c.name.trim().normalize('NFC') === nfcCompanyName ||
+                c.name.trim().normalize('NFD') === nfdCompanyName ||
+                c.name.replace(/\s+/g, '') === nfcCompanyName.replace(/\s+/g, '')
+            );
+
+            // If still not found, just take the first result as a fallback for ilike matches
+            if (!existingCompany) {
+                existingCompany = companyResults[0];
+            }
+        }
 
         if (!existingCompany) {
             console.log(`[Signup] Company "${trimmedCompanyName}" not found. Attempting to create...`);

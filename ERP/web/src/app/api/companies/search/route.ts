@@ -63,13 +63,35 @@ export async function GET(request: Request) {
             ...(resRaw.data || [])
         ];
 
+        // Also search for "name without spaces" if nothing found but we have suspicious candidates
+        if (allResults.length === 0 && rawQuery.length > 2) {
+            // Fallback: search for first 2-3 characters to catch weird variations
+            const firstPart = rawQuery.substring(0, 3);
+            const { data: fallbackData } = await supabaseAdmin
+                .from('companies')
+                .select('id, name, created_at, manager_id')
+                .ilike('name', `%${firstPart}%`)
+                .limit(20);
+
+            if (fallbackData) {
+                allResults.push(...fallbackData);
+            }
+        }
+
         const seenIds = new Set();
         const uniqueCompanies = [];
 
+        const cleanRawQuery = nfcQuery.replace(/\s+/g, '');
+
         for (const company of allResults) {
             if (!seenIds.has(company.id)) {
-                seenIds.add(company.id);
-                uniqueCompanies.push(company);
+
+                // If we performed a fallback search, check if it's actually relevant
+                const cleanName = company.name.replace(/\s+/g, '').normalize('NFC');
+                if (cleanName.includes(cleanRawQuery) || cleanRawQuery.includes(cleanName)) {
+                    seenIds.add(company.id);
+                    uniqueCompanies.push(company);
+                }
             }
         }
 
