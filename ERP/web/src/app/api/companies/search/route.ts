@@ -13,7 +13,7 @@ export async function GET(request: Request) {
         }
 
         const supabaseAdmin = await getSupabaseAdmin();
-
+        // Force re-deploy trigger
         const debugInfo: any = {
             rawQuery,
             nfcQuery: rawQuery.trim().normalize('NFC'), // Initialize here for debugInfo
