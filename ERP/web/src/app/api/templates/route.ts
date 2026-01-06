@@ -81,6 +81,11 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
 
+    console.log('[DEBUG-SAVE] User:', user.id);
+    console.log('[DEBUG-SAVE] Company:', profile?.company_id);
+    console.log('[DEBUG-SAVE] Insert Result:', data, 'Error:', error);
+    console.log('[DEBUG-SAVE] DB URL Segment:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(8, 20)); // Check which project
+
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
