@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ContractTemplate, FormField } from '@/types/contract-core';
 import { getTemplateById, getAllTemplates } from '@/lib/templates/registry';
+import { createClient } from '@/utils/supabase/client';
 
 const PAGE_DELIMITER = '<!-- GENUINE_PAGE_BREAK -->';
 
@@ -905,6 +906,8 @@ const BuilderContent = () => {
 
     // --- Save ---
     const handleSave = async () => {
+        const supabase = createClient();
+
         // First save current content
         if (editorRef.current) {
             pages[currentPageIndex] = editorRef.current.innerHTML;
@@ -950,6 +953,7 @@ const BuilderContent = () => {
             const url = method === 'PUT' ? `/api/templates/${currentId}` : '/api/templates';
 
             const payload = {
+                id: currentId, // Explicitly send ID (API will fallback to generated if null)
                 name: title,
                 category,
                 formSchema: schema,
@@ -957,9 +961,16 @@ const BuilderContent = () => {
                 description: '사용자 정의 템플릿'
             };
 
+            // Get session for Authorization header
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
             const cloudRes = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
                 body: JSON.stringify(payload)
             });
 
@@ -970,7 +981,9 @@ const BuilderContent = () => {
                     setEditingTemplateId(currentId);
                 }
             } else {
-                console.error('Cloud save failed, falling back to local');
+                const errData = await cloudRes.json();
+                console.error('Cloud save failed:', errData);
+                throw new Error(errData.error || 'Server responded with an error');
             }
 
             // Also keep LocalStorage as backup/legacy support
