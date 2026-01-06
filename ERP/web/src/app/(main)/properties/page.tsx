@@ -1219,7 +1219,7 @@ function PropertiesPageContent() {
 
     const getLabel = (col: string) => {
         return {
-            address: '주소', status: '물건등급', type: '업종(중분류)', industryDetail: '업종(소분류)', operationType: '운영형태', processStatus: '진행상황', features: '특징', floor: '층수', area: '실면적',
+            address: '주소', status: '업종(대분류)', type: '업종(중분류)', industryDetail: '업종(소분류)', operationType: '운영형태', processStatus: '진행상황', features: '특징', floor: '층수', area: '실면적',
             deposit: '보증금', monthlyRent: '임대료', premium: '권리금', totalPrice: '합계',
             monthlyProfit: '월순익', monthlyRevenue: '월매출', manager: '담당자',
             createdAt: '등록일', updatedAt: '최종작성일', yield: '수익률'
@@ -1229,7 +1229,7 @@ function PropertiesPageContent() {
     // Legacy getHeaderLabel (kept for table headers mostly but can assume overlap)
     const getHeaderLabel = (column: string) => {
         const labels: { [key: string]: string } = {
-            no: 'NO', isFavorite: '★', processStatus: '진행상황', name: '물건명', grade: '물건등급', address: '주소', status: '물건등급', type: '업종(중분류)', industryDetail: '업종(소분류)', operationType: '운영형태',
+            no: 'NO', isFavorite: '★', processStatus: '진행상황', name: '물건명', grade: '물건등급', address: '주소', status: '업종(대분류)', type: '업종(중분류)', industryDetail: '업종(소분류)', operationType: '운영형태',
             features: '특징', floor: '층수', area: '면적', deposit: '보증금', monthlyRent: '임대료', premium: '권리금',
             totalPrice: '합계', monthlyProfit: '월순수익', monthlyRevenue: '월매출', manager: '담당자', createdAt: '등록일', updatedAt: '최종작성',
             yield: '수익률', monthlyIncome: '월순수익' // Fallback for old data
