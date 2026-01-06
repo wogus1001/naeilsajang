@@ -47,8 +47,20 @@ export async function GET(request: Request) {
         let query = supabase.from('projects').select('*');
 
         // Filter: My Company OR Created By Me (exactly like RLS)
+        // AND handle projects with NULL company_id by checking creators in the same company
         if (profile.company_id) {
-            query = query.or(`company_id.eq.${profile.company_id},created_by.eq.${profile.id}`);
+            // 1. Get all members of the same company to support projects with NULL company_id
+            const { data: members } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('company_id', profile.company_id);
+
+            const memberIds = members?.map(m => m.id) || [profile.id];
+
+            // Format for Postgrest 'in' filter: (uuid1,uuid2,...)
+            const memberIdsList = `(${memberIds.join(',')})`;
+
+            query = query.or(`company_id.eq.${profile.company_id},created_by.in.${memberIdsList}`);
         } else {
             query = query.eq('created_by', profile.id);
         }
