@@ -1,3 +1,4 @@
+import { createClient } from '@/utils/supabase/client';
 import { ContractTemplate } from '@/types/contract-core';
 
 export const CONTRACT_TEMPLATES: ContractTemplate[] = [
@@ -204,7 +205,16 @@ export const fetchCombinedTemplates = async (): Promise<ContractTemplate[]> => {
     // 1. Fetch from DB
     let dbTemplates: ContractTemplate[] = [];
     try {
-        const res = await fetch('/api/templates');
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const res = await fetch('/api/templates', {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            }
+        });
         if (res.ok) {
             dbTemplates = await res.json();
         } else {
