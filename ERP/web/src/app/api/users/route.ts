@@ -167,6 +167,9 @@ export async function DELETE(request: Request) {
             supabaseAdmin.from('contracts').update({ user_id: null }).eq('user_id', targetUuid),
             supabaseAdmin.from('schedules').update({ user_id: null }).eq('user_id', targetUuid),
             supabaseAdmin.from('notices').update({ author_id: null }).eq('author_id', targetUuid),
+            // Fix: Unlink projects and templates
+            supabaseAdmin.from('projects').update({ created_by: null }).eq('created_by', targetUuid),
+            supabaseAdmin.from('contract_templates').update({ created_by: null }).eq('created_by', targetUuid),
         ]);
 
         // Pre-fetch company_id for cleanup check

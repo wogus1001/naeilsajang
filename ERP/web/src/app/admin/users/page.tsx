@@ -48,108 +48,11 @@ const styles = {
     statusBadge: { padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 },
 };
 
+import { createClient } from '@/utils/supabase/client';
+
 export default function AdminUsersPage() {
     const router = useRouter();
-    const [users, setUsers] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
-    const [isLoading, setIsLoading] = useState(true);
-    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-
-    useEffect(() => {
-        // Auth check
-        const userStr = localStorage.getItem('user');
-        if (!userStr || JSON.parse(userStr).role !== 'admin') {
-            router.push('/dashboard');
-            return;
-        }
-        fetchUsers();
-    }, []);
-
-    const fetchUsers = async () => {
-        setIsLoading(true);
-        try {
-            const res = await fetch('/api/users');
-            if (res.ok) {
-                const data = await res.json();
-                setUsers(data);
-            }
-        } catch (error) {
-            console.error('Failed to fetch users:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleApprove = async (user: any) => {
-        if (!confirm(`${user.name}님의 가입을 승인하시겠습니까?`)) return;
-
-        try {
-            const res = await fetch('/api/users', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: user.uuid,
-                    status: 'active'
-                })
-            });
-
-            if (res.ok) {
-                alert('승인되었습니다.');
-                fetchUsers();
-            } else {
-                alert('승인 처리 실패');
-            }
-        } catch (e) {
-            console.error(e);
-            alert('오류가 발생했습니다.');
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!deleteTargetId) return;
-
-        try {
-            const res = await fetch(`/api/users?id=${deleteTargetId}`, { method: 'DELETE' });
-            if (res.ok) {
-                setDeleteTargetId(null);
-                fetchUsers();
-            } else {
-                const data = await res.json();
-                console.error('Delete failed response:', data);
-                alert(`삭제 실패: ${data.error || JSON.stringify(data)}`);
-            }
-        } catch (error) {
-            console.error(error);
-            alert('삭제 중 오류 발생');
-        }
-    };
-
-    // Derived state
-    const pendingUsers = users.filter(u => u.status === 'pending_approval');
-    const filteredUsers = activeTab === 'pending' ? pendingUsers : users;
-
-    const getRoleBadge = (role: string) => {
-        switch (role) {
-            case 'admin': return <span style={{ ...styles.statusBadge, backgroundColor: '#e7f5ff', color: '#1971c2' }}>관리자</span>;
-            case 'manager': return <span style={{ ...styles.statusBadge, backgroundColor: '#fff0f6', color: '#c2255c' }}>팀장</span>;
-            case 'staff': return <span style={{ ...styles.statusBadge, backgroundColor: '#f3f0ff', color: '#7950f2' }}>직원</span>;
-            default: return <span style={{ ...styles.statusBadge, backgroundColor: '#f8f9fa', color: '#868e96' }}>사용자</span>;
-        }
-    };
-
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case 'active': return <span style={{ ...styles.statusBadge, backgroundColor: '#e6fcf5', color: '#0ca678' }}>활성</span>;
-            case 'pending_approval': return <span style={{ ...styles.statusBadge, backgroundColor: '#fff9db', color: '#f08c00' }}>승인대기</span>;
-            case 'blocked': return <span style={{ ...styles.statusBadge, backgroundColor: '#fff5f5', color: '#fa5252' }}>차단됨</span>;
-            default: return <span style={{ ...styles.statusBadge, backgroundColor: '#f8f9fa', color: '#868e96' }}>-</span>;
-        }
-    };
-
-    // --- PASSWORD RESET LOGIC ---
-    const [resetTargetId, setResetTargetId] = useState<string | null>(null);
-    const [newPassword, setNewPassword] = useState('');
-    const [resetLoading, setResetLoading] = useState(false);
+    // ... (existing code)
 
     const handlePasswordReset = async () => {
         if (!resetTargetId || !newPassword) return;
@@ -162,9 +65,17 @@ export default function AdminUsersPage() {
 
         setResetLoading(true);
         try {
+            // Get current session token
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
             const res = await fetch('/api/admin/users/reset-password', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                     userId: resetTargetId,
                     newPassword: newPassword
