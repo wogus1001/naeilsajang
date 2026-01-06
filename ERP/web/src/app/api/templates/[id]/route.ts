@@ -23,12 +23,20 @@ export async function PUT(
         // Assuming RLS allows admins.
     }
 
+    // Map camelCase (Frontend) to snake_case (DB)
+    const updateData: any = {
+        updated_at: new Date().toISOString()
+    };
+    if (body.name) updateData.name = body.name;
+    if (body.category) updateData.category = body.category;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.formSchema) updateData.form_schema = body.formSchema;
+    if (body.htmlTemplate) updateData.html_content = body.htmlTemplate;
+    if (body.is_system !== undefined) updateData.is_system = body.is_system;
+
     const { error } = await supabase
         .from('contract_templates')
-        .update({
-            ...body,
-            updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', id);
 
     if (error) {

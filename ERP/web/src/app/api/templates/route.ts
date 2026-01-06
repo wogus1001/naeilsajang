@@ -14,7 +14,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(templates);
+    // Map snake_case (DB) to camelCase (Frontend)
+    const mappedTemplates = templates.map(t => ({
+        ...t,
+        formSchema: t.form_schema,
+        htmlTemplate: t.html_content, // Corrected from html_template
+    }));
+
+    return NextResponse.json(mappedTemplates);
 }
 
 export async function POST(request: NextRequest) {
@@ -31,13 +38,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Map camelCase (Frontend) to snake_case (DB)
+    const dbData = {
+        id: body.id || `t-${Date.now()}`,
+        name: body.name,
+        category: body.category,
+        description: body.description,
+        form_schema: body.formSchema || [],
+        html_content: body.htmlTemplate || '',
+        is_system: body.is_system || false,
+        created_by: user.id
+    };
+
     const { data, error } = await supabase
         .from('contract_templates')
-        .insert({
-            ...body,
-            id: body.id || `t-${Date.now()}`, // Generate ID if not provided (e.g. from local migration)
-            created_by: user.id
-        })
+        .insert(dbData)
         .select()
         .single();
 
@@ -45,5 +60,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    // Map back for response
+    const mappedData = {
+        ...data,
+        formSchema: data.form_schema,
+        htmlTemplate: data.html_content,
+    };
+
+    return NextResponse.json(mappedData);
 }
