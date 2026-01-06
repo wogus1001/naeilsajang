@@ -1,11 +1,11 @@
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
     try {
-        const supabase = await createClient();
+        const supabase = getSupabaseAdmin();
         const { id } = params;
 
         const { data: project, error } = await supabase
@@ -25,7 +25,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
     try {
-        const supabase = await createClient();
+        const supabase = getSupabaseAdmin();
         const { id } = params;
         const body = await request.json();
 
@@ -55,7 +55,7 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
 export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
     const params = await props.params;
     try {
-        const supabase = await createClient();
+        const supabase = getSupabaseAdmin();
         const { id } = params;
 
         const { error } = await supabase

@@ -89,7 +89,11 @@ function ProjectEditor() {
         // 2. Load Project Data from API
         const loadProject = async () => {
             try {
-                const res = await fetch(`/api/projects/${params.id}`);
+                const storedUser = localStorage.getItem('user');
+                const uid = storedUser ? JSON.parse(storedUser).id : null;
+                const userIdQuery = uid ? `?userId=${uid}` : '';
+
+                const res = await fetch(`/api/projects/${params.id}${userIdQuery}`);
                 if (!res.ok) throw new Error('Failed to fetch project');
                 const projectData = await res.json();
 
@@ -188,7 +192,11 @@ function ProjectEditor() {
                 // But our API endpoint checks `supabase.auth.getUser()`.
                 // Let's assume the session cookie is adequate.
 
-                await fetch(`/api/projects/${project.id}`, {
+                const storedUser = localStorage.getItem('user');
+                const uid = storedUser ? JSON.parse(storedUser).id : null;
+                const userIdQuery = uid ? `?userId=${uid}` : '';
+
+                await fetch(`/api/projects/${project.id}${userIdQuery}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
@@ -355,7 +363,11 @@ function ProjectEditor() {
                 }
             };
 
-            const res = await fetch(`/api/projects/${project.id}`, {
+            const storedUser = localStorage.getItem('user');
+            const uid = storedUser ? JSON.parse(storedUser).id : null;
+            const userIdQuery = uid ? `?userId=${uid}` : '';
+
+            const res = await fetch(`/api/projects/${project.id}${userIdQuery}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -427,7 +439,11 @@ function ProjectEditor() {
         if (!confirm('정말 삭제하시겠습니까?')) return;
 
         try {
-            const res = await fetch(`/api/projects/${project.id}`, {
+            const storedUser = localStorage.getItem('user');
+            const uid = storedUser ? JSON.parse(storedUser).id : null;
+            const userIdQuery = uid ? `?userId=${uid}` : '';
+
+            const res = await fetch(`/api/projects/${project.id}${userIdQuery}`, {
                 method: 'DELETE'
             });
 

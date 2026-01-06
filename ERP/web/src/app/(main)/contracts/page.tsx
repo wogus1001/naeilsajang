@@ -95,7 +95,11 @@ function ContractsPageContent() {
     // --- DATA FETCHING ---
     const fetchSavedProjects = async () => {
         try {
-            const res = await fetch('/api/projects');
+            const storedUser = localStorage.getItem('user');
+            if (!storedUser) return;
+            const uid = JSON.parse(storedUser).id;
+
+            const res = await fetch(`/api/projects?userId=${uid}`);
             if (res.ok) {
                 const { data } = await res.json();
                 // Map DB rows to UI model
@@ -439,9 +443,13 @@ function ContractsPageContent() {
         if (!confirm(`${selectedIds.length}개의 프로젝트를 삭제하시겠습니까?`)) return;
 
         try {
+            const storedUser = localStorage.getItem('user');
+            if (!storedUser) return;
+            const uid = JSON.parse(storedUser).id;
+
             // Bulk delete via multiple API calls (or could add a bulk endpoint, but this is simple)
             const promises = selectedIds.map(id =>
-                fetch(`/api/projects/${id}`, { method: 'DELETE' })
+                fetch(`/api/projects/${id}?userId=${uid}`, { method: 'DELETE' })
             );
 
             await Promise.all(promises);

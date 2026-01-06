@@ -199,7 +199,11 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
             newProjectPayload.data.documents = createdContracts;
 
             // API CALL
-            const res = await fetch('/api/projects', {
+            const storedUser = localStorage.getItem('user');
+            if (!storedUser) return;
+            const uid = JSON.parse(storedUser).id;
+
+            const res = await fetch(`/api/projects?userId=${uid}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newProjectPayload)
