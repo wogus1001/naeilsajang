@@ -131,6 +131,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
             };
 
             // 2. Create Project Object
+            const projectId = crypto.randomUUID();
             const projectTitle = title || `${selectedCategory} 프로젝트`;
 
             const newProject: ContractProject = {
@@ -205,12 +206,13 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
             });
 
             if (!res.ok) {
-                throw new Error('Project creation failed');
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Project creation failed');
             }
 
-            const { data: createdProject } = await res.json();
+            const { project: createdProject } = await res.json();
             // Use the ID returned from DB
-            const finalProjectId = createdProject.id;
+            const finalProjectId = createdProject?.id || projectId;
 
 
             // --- 5. SIDE EFFECTS (DB Integration) ---
