@@ -7,10 +7,16 @@ export async function POST(request: Request) {
     try {
         // 1. Check if requester is Admin
         const supabase = await createClient();
+
+        // DEBUG: Header Check
+        const authHeader = request.headers.get('Authorization');
+        console.log('[DEBUG-API] ResetPassword Auth Header:', authHeader ? 'Header present' : 'Header missing');
+
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('[DEBUG-API] ResetPassword Session User:', session?.user?.id || 'No Session');
 
         if (!session) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized: No valid session found' }, { status: 401 });
         }
 
         const { data: profile } = await supabase

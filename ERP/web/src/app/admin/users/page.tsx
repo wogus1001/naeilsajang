@@ -169,6 +169,13 @@ export default function AdminUsersPage() {
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
 
+            console.log('[DEBUG-CLIENT] Reset Password Token:', token ? 'Token exists' : 'Token missing');
+            if (!token) {
+                alert('로그인 세션이 만료된 것 같습니다. 새로고침 후 다시 시도해주세요.');
+                setResetLoading(false);
+                return;
+            }
+
             const res = await fetch('/api/admin/users/reset-password', {
                 method: 'POST',
                 headers: {

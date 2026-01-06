@@ -161,16 +161,30 @@ export async function DELETE(request: Request) {
         }
 
         // 1. Unlink references (Foreign Key Cleanup) to prevent constraint violations
-        await Promise.all([
-            supabaseAdmin.from('properties').update({ manager_id: null }).eq('manager_id', targetUuid),
-            supabaseAdmin.from('customers').update({ manager_id: null }).eq('manager_id', targetUuid),
-            supabaseAdmin.from('contracts').update({ user_id: null }).eq('user_id', targetUuid),
-            supabaseAdmin.from('schedules').update({ user_id: null }).eq('user_id', targetUuid),
-            supabaseAdmin.from('notices').update({ author_id: null }).eq('author_id', targetUuid),
-            // Fix: Unlink projects and templates
-            supabaseAdmin.from('projects').update({ created_by: null }).eq('created_by', targetUuid),
-            supabaseAdmin.from('contract_templates').update({ created_by: null }).eq('created_by', targetUuid),
-        ]);
+        // 1. Unlink references (Foreign Key Cleanup) sequentially to identify failure
+        const cleanupTables = [
+            { table: 'properties', col: 'manager_id' },
+            { table: 'customers', col: 'manager_id' },
+            { table: 'contracts', col: 'user_id' },
+            { table: 'schedules', col: 'user_id' },
+            { table: 'notices', col: 'author_id' },
+            { table: 'projects', col: 'created_by' },
+            { table: 'contract_templates', col: 'created_by' }
+        ];
+
+        for (const { table, col } of cleanupTables) {
+            try {
+                console.log(`[DEBUG-DELETE] Unlinking ${table}.${col}...`);
+                const { error } = await supabaseAdmin.from(table).update({ [col]: null }).eq(col, targetUuid);
+                if (error) {
+                    console.error(`[DEBUG-DELETE] Failed to unlink ${table}: ${error.message}`);
+                    return NextResponse.json({ error: `[DEBUG-DELETE] Failed to unlink ${table}: ${error.message}` }, { status: 500 });
+                }
+            } catch (err: any) {
+                console.error(`[DEBUG-DELETE] Exception unlinking ${table}:`, err);
+                return NextResponse.json({ error: `[DEBUG-DELETE] Exception unlinking ${table}: ${err.message}` }, { status: 500 });
+            }
+        }
 
         // Pre-fetch company_id for cleanup check
         const { data: profileForCleanup } = await supabaseAdmin
