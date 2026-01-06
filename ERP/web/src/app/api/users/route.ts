@@ -9,6 +9,8 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const isDebug = searchParams.get('debug') === 'true';
 
+        const supabaseAdmin = await getSupabaseAdmin();
+
         if (isDebug) {
             const debugInfo = {
                 envUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
