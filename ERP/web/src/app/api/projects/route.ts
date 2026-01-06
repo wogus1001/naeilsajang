@@ -46,9 +46,9 @@ export async function GET(request: Request) {
 
         let query = supabase.from('projects').select('*');
 
-        // Filter: My Company OR Created By Me (if no company)
+        // Filter: My Company OR Created By Me (exactly like RLS)
         if (profile.company_id) {
-            query = query.eq('company_id', profile.company_id);
+            query = query.or(`company_id.eq.${profile.company_id},created_by.eq.${profile.id}`);
         } else {
             query = query.eq('created_by', profile.id);
         }
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
             throw error;
         }
 
-        return NextResponse.json({ projects });
+        return NextResponse.json({ success: true, data: projects });
 
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
