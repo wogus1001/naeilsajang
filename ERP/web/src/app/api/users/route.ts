@@ -209,6 +209,29 @@ export async function DELETE(request: Request) {
 
         const companyIdToClean = profileForCleanup?.company_id;
 
+        // [CYCLE 5] Handle Storage Objects (Files)
+        // Scenario A: User uploaded files but others need them -> Set owner to NULL (Anonymize)
+        // Scenario B: User is solo -> Files will eventually be cleaned up by company deletion or manual GC, but for now NULL is safe.
+        // This prevents the "Foreign Key Violation" from storage.objects blocking deletion.
+        try {
+            // explicit schema('storage') access is required for storage tables
+            console.log('[DEBUG-DELETE] Anonymizing storage objects...');
+            const { error: storageError } = await supabaseAdmin
+                .schema('storage')
+                .from('objects')
+                .update({ owner: null })
+                .eq('owner', targetUuid);
+
+            if (storageError) {
+                console.error('[DEBUG-DELETE] Storage unlink failed (will try ignore):', storageError);
+            } else {
+                console.log('[DEBUG-DELETE] Storage objects anonymized successfully.');
+            }
+        } catch (e) {
+            console.error('[DEBUG-DELETE] Failed to access storage schema:', e);
+            // Verify if 'storage' schema access is enabled for this client
+        }
+
         // [CYCLE 4] Strategy: Explicitly delete from 'profiles' first to reveal hidden constraints
         // Postgres will throw specific error (e.g., table name, constraint name) here, unlike auth.admin.deleteUser
         try {
