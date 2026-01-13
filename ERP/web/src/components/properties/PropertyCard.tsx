@@ -12,6 +12,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
 // ... (previous imports)
+import { getSupabase } from '@/lib/supabase';
 
 interface RevenueItem {
     id: string;
@@ -110,6 +111,7 @@ interface PropertyDocument {
     name: string;
     size: number;
     url?: string; // In a real app, this would be the S3/Cloud path
+    path?: string; // Supabase Storage path
 }
 
 
@@ -1893,50 +1895,92 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
     const docInputRef = React.useRef<HTMLInputElement>(null);
     const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
+    // Updated Interface in implementation (needs to be consistent with top of file, but here we modify usage)
+    // IMPORTANT: Ideally I should update the interface definition at the top of the file too.
+    // However, since I am replacing a block in the middle, I cannot easily reach the top interface definition in the same tool call without reading it all specifically.
+    // TypeScript might complain if I use 'path' property without updating interface.
+    // I will try to use 'any' casting or rely on the previous ViewFile showing I can maybe reach it? 
+    // Wait, the interface is at line 105. I should probably update that in a separate call or hope TS is lenient/inferred.
+    // Re-reading: The replacement target is lines 1892-1956.
+    // The Interface update is necessary. I will handle Interface update in a separate MultiReplace or just cast to any for now to ensure runtime works, then cleanup.
+    // Actually, I can allow implicit typing or just cast `newDocs` item.
+
     const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
+        setIsLoading(true); // Show loading state
         const newDocs: PropertyDocument[] = [];
-        const maxSize = 10 * 1024 * 1024; // 10MB
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        const supabase = getSupabase();
 
         const userStr = localStorage.getItem('user');
         let userName = 'Unknown';
         if (userStr) {
             const user = JSON.parse(userStr);
-            userName = (user.user || user).name || 'Unknown';
+            userName = (user.user || user).name || 'Unknown'; // Simplified
         }
 
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            if (file.size > maxSize) {
-                alert(`파일 '${file.name}'의 용량이 10MB를 초과하여 제외됩니다.`);
-                continue;
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.size > maxSize) {
+                    alert(`파일 '${file.name}'의 용량이 50MB를 초과하여 제외됩니다.`);
+                    continue;
+                }
+
+                const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
+
+                // 1. Upload to Supabase Storage
+                // Path: properties/{propertyId}/{timestamp}_{filename}
+                const timestamp = Date.now();
+                // Sanitize filename to avoid weird character issues
+                const sanitizedName = file.name.replace(/[^\x00-\x7F]/g, "_");
+                const filePath = `properties/${property.id || 'temp'}/${timestamp}_${sanitizedName}`;
+
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('property-documents')
+                    .upload(filePath, file);
+
+                if (uploadError) {
+                    console.error('Upload error:', uploadError);
+                    alert(`Upload failed for ${file.name}: ${uploadError.message}`);
+                    continue;
+                }
+
+                // 2. Get Public URL
+                const { data: urlData } = supabase.storage
+                    .from('property-documents')
+                    .getPublicUrl(filePath);
+
+                // 3. Create Document Metadata
+                newDocs.push({
+                    id: timestamp.toString() + Math.random().toString().substr(2, 5),
+                    date: new Date().toISOString().split('T')[0],
+                    uploader: userName,
+                    type: ext,
+                    name: file.name,
+                    size: file.size,
+                    url: urlData.publicUrl,
+                    path: filePath // Store path for deletion
+                } as PropertyDocument);
             }
 
-            const ext = file.name.split('.').pop()?.toLowerCase() || 'unknown';
-
-            newDocs.push({
-                id: Date.now().toString() + Math.random().toString(),
-                date: new Date().toISOString().split('T')[0],
-                uploader: userName,
-                type: ext,
-                name: file.name,
-                size: file.size,
-                // In a real app, upload logic here
-            });
+            if (newDocs.length > 0) {
+                const currentDocs = formData.documents || [];
+                const updatedDocs = [...newDocs, ...currentDocs];
+                const updatedFormData = { ...formData, documents: updatedDocs };
+                setFormData(updatedFormData);
+                await autoSaveProperty(updatedFormData);
+                alert(`${newDocs.length}개의 문서가 등록되었습니다.`);
+            }
+        } catch (error) {
+            console.error('Doc upload process error:', error);
+            alert('문서 업로드 중 오류가 발생했습니다.');
+        } finally {
+            setIsLoading(false);
+            if (docInputRef.current) docInputRef.current.value = '';
         }
-
-        if (newDocs.length > 0) {
-            const currentDocs = formData.documents || [];
-            const updatedDocs = [...newDocs, ...currentDocs];
-            const updatedFormData = { ...formData, documents: updatedDocs };
-            setFormData(updatedFormData);
-            await autoSaveProperty(updatedFormData);
-            alert(`${newDocs.length}개의 문서가 등록되었습니다.`);
-        }
-
-        if (docInputRef.current) docInputRef.current.value = '';
     };
 
     const handleDeleteDocuments = async () => {
@@ -1946,13 +1990,43 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
         }
         if (!confirm(`${selectedDocIds.length}개의 문서를 삭제하시겠습니까?`)) return;
 
-        const currentDocs = formData.documents || [];
-        const updatedDocs = currentDocs.filter((doc: any) => !selectedDocIds.includes(doc.id));
-        const updatedFormData = { ...formData, documents: updatedDocs };
+        setIsLoading(true);
+        const supabase = getSupabase();
 
-        setFormData(updatedFormData);
-        setSelectedDocIds([]);
-        await autoSaveProperty(updatedFormData);
+        try {
+            const currentDocs = formData.documents || [];
+
+            // 1. Find files to delete from Storage (those with 'path')
+            const docsToDelete = currentDocs.filter((doc: any) => selectedDocIds.includes(doc.id));
+            const pathsToDelete = docsToDelete
+                .filter((doc: any) => doc.path)
+                .map((doc: any) => doc.path);
+
+            if (pathsToDelete.length > 0) {
+                const { error: deleteError } = await supabase.storage
+                    .from('property-documents')
+                    .remove(pathsToDelete);
+
+                if (deleteError) {
+                    console.error('Storage delete error:', deleteError);
+                    // Decide whether to stop or continue. Usually safe to continue removing metadata.
+                    // alert('Error deleting files from storage, but metadata will be removed.');
+                }
+            }
+
+            // 2. Remove from State
+            const updatedDocs = currentDocs.filter((doc: any) => !selectedDocIds.includes(doc.id));
+            const updatedFormData = { ...formData, documents: updatedDocs };
+
+            setFormData(updatedFormData);
+            setSelectedDocIds([]);
+            await autoSaveProperty(updatedFormData);
+        } catch (error) {
+            console.error('Delete docs error:', error);
+            alert('문서 삭제 중 오류가 발생했습니다.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleFranchiseChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
@@ -3301,7 +3375,18 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                         <td style={{ textAlign: 'center', color: '#1098ad' }}>{doc.uploader}</td>
                                                         <td style={{ textAlign: 'center' }}>{getDocIcon(doc.type)}</td>
                                                         <td style={{ fontWeight: '500' }}>
-                                                            {doc.name}
+                                                            {doc.url ? (
+                                                                <a
+                                                                    href={doc.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    style={{ color: 'inherit', textDecoration: 'none', ':hover': { textDecoration: 'underline', color: '#339af0' } } as any}
+                                                                >
+                                                                    {doc.name}
+                                                                </a>
+                                                            ) : (
+                                                                doc.name
+                                                            )}
                                                             <span style={{ fontSize: 11, color: '#adb5bd', marginLeft: 6 }}>
                                                                 ({(doc.size / 1024 / 1024).toFixed(2)} MB)
                                                             </span>
