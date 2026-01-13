@@ -1512,11 +1512,11 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div className="print-section no-print-margin f3-section" style={{ display: 'flex', flexDirection: 'column' }}>
                         <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업현황 메모</h2>
-                        <div className="memo-box" style={{ height: '115px', maxHeight: '115px', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden', backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>{data.operationMemo || '-'}</div>
+                        <div className="memo-box" style={{ height: '115px', maxHeight: '115px', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden', backgroundColor: '#f4fce3', borderColor: '#d8f5a2', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{data.operationMemo || '-'}</div>
                     </div>
                     <div className="print-section no-print-margin f3-section" style={{ display: 'flex', flexDirection: 'column' }}>
                         <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차권리 메모</h2>
-                        <div className="memo-box" style={{ height: '115px', maxHeight: '115px', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden', backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>{data.leaseMemo || '-'}</div>
+                        <div className="memo-box" style={{ height: '115px', maxHeight: '115px', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden', backgroundColor: '#e7f5ff', borderColor: '#d0ebff', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{data.leaseMemo || '-'}</div>
                     </div>
                 </div>
 
