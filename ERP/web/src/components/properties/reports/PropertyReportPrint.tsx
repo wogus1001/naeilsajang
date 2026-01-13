@@ -1635,6 +1635,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <DrawingManager
                                     ref={drawingManagerRef}
                                     drawingMode={['circle', 'polyline', 'rectangle', 'polygon'].includes(drawingMode) ? drawingMode : null}
+                                    onDrawEnd={() => setDrawingMode(null)}
                                     markerOptions={{
                                         draggable: true,
                                         removable: true,
@@ -2189,6 +2190,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <DrawingManager
                                     ref={drawingManagerRef}
                                     drawingMode={['circle', 'polyline', 'rectangle', 'polygon'].includes(drawingMode) ? drawingMode : null}
+                                    onDrawEnd={() => setDrawingMode(null)}
                                     markerOptions={{
                                         draggable: true,
                                         removable: true,
@@ -2664,6 +2666,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                     <DrawingManager
                                         ref={drawingManagerRef}
                                         drawingMode={['circle', 'polyline', 'rectangle', 'polygon'].includes(drawingMode) ? drawingMode : null}
+                                        onDrawEnd={() => setDrawingMode(null)}
                                         markerOptions={{
                                             draggable: true,
                                             removable: true,
