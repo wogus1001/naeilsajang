@@ -2776,15 +2776,18 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                         </div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             {isAddingOperationCategory && (
-                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, width: '100%', flexWrap: 'nowrap' }}>
                                                     <input
                                                         className={styles.input}
                                                         placeholder="새 항목 이름"
                                                         value={newOperationCategory}
                                                         onChange={(e) => setNewOperationCategory(e.target.value)}
+                                                        style={{ flex: 1, minWidth: 0 }}
                                                     />
-                                                    <button className={styles.smallBtn} onClick={() => addCustomField('operation')}>확인</button>
-                                                    <button className={styles.smallBtn} onClick={() => setIsAddingOperationCategory(false)}>취소</button>
+                                                    <div style={{ display: 'flex', flexDirection: 'row', gap: 4, flexShrink: 0 }}>
+                                                        <button className={styles.smallBtn} onClick={() => addCustomField('operation')} style={{ whiteSpace: 'nowrap' }}>확인</button>
+                                                        <button className={styles.smallBtn} onClick={() => setIsAddingOperationCategory(false)} style={{ whiteSpace: 'nowrap' }}>취소</button>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -2866,15 +2869,18 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                         </div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             {isAddingLeaseCategory && (
-                                                <div style={{ display: 'flex', gap: 4 }}>
+                                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 6, width: '100%', flexWrap: 'nowrap' }}>
                                                     <input
                                                         className={styles.input}
                                                         placeholder="새 항목 이름"
                                                         value={newLeaseCategory}
                                                         onChange={(e) => setNewLeaseCategory(e.target.value)}
+                                                        style={{ flex: 1, minWidth: 0 }}
                                                     />
-                                                    <button className={styles.smallBtn} onClick={() => addCustomField('lease')}>확인</button>
-                                                    <button className={styles.smallBtn} onClick={() => setIsAddingLeaseCategory(false)}>취소</button>
+                                                    <div style={{ display: 'flex', flexDirection: 'row', gap: 4, flexShrink: 0 }}>
+                                                        <button className={styles.smallBtn} onClick={() => addCustomField('lease')} style={{ whiteSpace: 'nowrap' }}>확인</button>
+                                                        <button className={styles.smallBtn} onClick={() => setIsAddingLeaseCategory(false)} style={{ whiteSpace: 'nowrap' }}>취소</button>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -3481,7 +3487,7 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                 <button type="button" onClick={() => setIsBrandSearchOpen(false)}><X size={20} /></button>
                             </div>
                             <div style={{ padding: '20px' }}>
-                                <div className={styles.searchBox}>
+                                <div className={styles.searchBox} style={{ alignItems: 'center' }}>
                                     <input
                                         type="text"
                                         placeholder="브랜드명 입력"
@@ -3494,8 +3500,9 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                 searchBrands();
                                             }
                                         }}
+                                        style={{ flex: 1, minWidth: 0 }}
                                     />
-                                    <button type="button" className={styles.smallBtn} onClick={searchBrands} disabled={isSearchingBrand}>
+                                    <button type="button" className={styles.smallBtn} onClick={searchBrands} disabled={isSearchingBrand} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
                                         {isSearchingBrand ? '검색 중...' : '검색'}
                                     </button>
                                 </div>

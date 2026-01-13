@@ -1264,16 +1264,19 @@ export default function RegisterPropertyPage() {
 
                                 <div style={{ marginTop: '12px' }}>
                                     {isAddingOperationCategory ? (
-                                        <div className={styles.inputGroup}>
+                                        <div className={styles.inputGroup} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', flexWrap: 'nowrap', gap: 6 }}>
                                             <input
                                                 type="text"
                                                 className={styles.input}
                                                 placeholder="새 항목 이름"
                                                 value={newOperationCategory}
                                                 onChange={(e) => setNewOperationCategory(e.target.value)}
+                                                style={{ flex: 1, minWidth: 0 }}
                                             />
-                                            <button type="button" className={styles.saveBtn} onClick={() => addCustomField('operation')} style={{ width: 'auto', padding: '0 16px' }}>추가</button>
-                                            <button type="button" className={styles.cancelBtn} onClick={() => setIsAddingOperationCategory(false)} style={{ width: 'auto', padding: '0 16px' }}>취소</button>
+                                            <div style={{ display: 'flex', flexDirection: 'row', gap: 4, flexShrink: 0 }}>
+                                                <button type="button" className={styles.saveBtn} onClick={() => addCustomField('operation')} style={{ width: 'auto', padding: '10px 16px', whiteSpace: 'nowrap', border: '1px solid transparent' }}>추가</button>
+                                                <button type="button" className={styles.cancelBtn} onClick={() => setIsAddingOperationCategory(false)} style={{ width: 'auto', padding: '10px 16px', whiteSpace: 'nowrap' }}>취소</button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <button type="button" className={styles.addBtn} onClick={() => setIsAddingOperationCategory(true)}>
@@ -1349,16 +1352,19 @@ export default function RegisterPropertyPage() {
 
                                 <div style={{ marginTop: '12px' }}>
                                     {isAddingLeaseCategory ? (
-                                        <div className={styles.inputGroup}>
+                                        <div className={styles.inputGroup} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: '100%', flexWrap: 'nowrap', gap: 6 }}>
                                             <input
                                                 type="text"
                                                 className={styles.input}
                                                 placeholder="새 항목 이름"
                                                 value={newLeaseCategory}
                                                 onChange={(e) => setNewLeaseCategory(e.target.value)}
+                                                style={{ flex: 1, minWidth: 0 }}
                                             />
-                                            <button type="button" className={styles.saveBtn} onClick={() => addCustomField('lease')} style={{ width: 'auto', padding: '0 16px' }}>추가</button>
-                                            <button type="button" className={styles.cancelBtn} onClick={() => setIsAddingLeaseCategory(false)} style={{ width: 'auto', padding: '0 16px' }}>취소</button>
+                                            <div style={{ display: 'flex', flexDirection: 'row', gap: 4, flexShrink: 0 }}>
+                                                <button type="button" className={styles.saveBtn} onClick={() => addCustomField('lease')} style={{ width: 'auto', padding: '10px 16px', whiteSpace: 'nowrap', border: '1px solid transparent' }}>추가</button>
+                                                <button type="button" className={styles.cancelBtn} onClick={() => setIsAddingLeaseCategory(false)} style={{ width: 'auto', padding: '10px 16px', whiteSpace: 'nowrap' }}>취소</button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <button type="button" className={styles.addBtn} onClick={() => setIsAddingLeaseCategory(true)}>
@@ -1406,7 +1412,7 @@ export default function RegisterPropertyPage() {
                                 <button type="button" onClick={() => setIsBrandSearchOpen(false)}><X size={20} /></button>
                             </div>
                             <div style={{ padding: '20px' }}>
-                                <div className={styles.searchBox}>
+                                <div className={styles.searchBox} style={{ alignItems: 'center' }}>
                                     <input
                                         type="text"
                                         placeholder="브랜드명 입력"
@@ -1419,8 +1425,15 @@ export default function RegisterPropertyPage() {
                                                 searchBrands();
                                             }
                                         }}
+                                        style={{ flex: 1, minWidth: 0 }}
                                     />
-                                    <button type="button" className={styles.saveBtn} onClick={searchBrands} disabled={isSearchingBrand}>
+                                    <button
+                                        type="button"
+                                        className={styles.saveBtn}
+                                        onClick={searchBrands}
+                                        disabled={isSearchingBrand}
+                                        style={{ whiteSpace: 'nowrap', flexShrink: 0, width: 'auto' }}
+                                    >
                                         {isSearchingBrand ? '검색 중...' : '검색'}
                                     </button>
                                 </div>
