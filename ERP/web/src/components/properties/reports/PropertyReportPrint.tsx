@@ -1529,8 +1529,6 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 center={data.coordinates}
                                 level={4}
                                 style={{ width: '100%', height: '100%', borderRadius: '4px', border: '1px solid #dee2e6' }}
-                                draggable={false}
-                                zoomable={false}
                                 onCreate={setMap}
                                 onClick={(_map, mouseEvent) => handleMapClick(mouseEvent)}
                                 onMouseMove={(_map, mouseEvent) => handleMouseMove(mouseEvent)}
