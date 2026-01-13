@@ -188,7 +188,11 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
         if (moveLineRef.current) moveLineRef.current.setMap(null);
         moveLineRef.current = null;
         deleteCircleDot();
-        deleteDistance();
+        // deleteDistance(); // Prevent deleting finalized distances
+        if (distanceOverlayRef.current) {
+            distanceOverlayRef.current.setMap(null);
+            distanceOverlayRef.current = null;
+        }
         setIsMeasuring(false);
 
         // Reset Circle Radius
