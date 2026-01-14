@@ -73,12 +73,13 @@ export async function GET(request: Request) {
 
 
     // Build query
+    // Build query
     let query = supabaseAdmin
         .from('business_cards')
         .select(`
             *,
             promoted_items:business_card_promoted(*),
-            history:business_card_history(*, target_property:properties(name))
+            history:business_card_history(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -160,6 +161,30 @@ export async function GET(request: Request) {
         });
     }
 
+    // Manual Join for History Target Names (to avoid FK dependency)
+    // 1. Collect all target_ids from history
+    const propertyIds = new Set<string>();
+    data.forEach((card: any) => {
+        if (card.history && Array.isArray(card.history)) {
+            card.history.forEach((h: any) => {
+                if (h.target_id && h.target_type === 'property') {
+                    propertyIds.add(h.target_id);
+                }
+            });
+        }
+    });
+
+    const propertyNameMap = new Map<string, string>();
+    if (propertyIds.size > 0) {
+        const { data: props, error: pInfo } = await supabaseAdmin
+            .from('properties')
+            .select('id, name')
+            .in('id', Array.from(propertyIds));
+
+        if (props && !pInfo) {
+            props.forEach((p: any) => propertyNameMap.set(p.id, p.name));
+        }
+    }
 
     // Map DB columns to Frontend Interface (BusinessCardData)
     // Front: id, name, companyName, department, mobile, email, etc.
@@ -178,6 +203,7 @@ export async function GET(request: Request) {
         email: item.email,
         memo: item.etc_memo, // DB: etc_memo -> Front: memo
         companyAddress: item.company_address,
+
         homeAddress: item.home_address,
         fax: item.fax,
         homepage: item.homepage,
@@ -208,7 +234,7 @@ export async function GET(request: Request) {
             target: h.target,
             targetId: h.target_id, // Added for linking
             targetType: h.target_type, // Added for linking
-            targetName: h.target_property?.name || h.related_item // Fallback to text
+            targetName: (h.target_id ? propertyNameMap.get(h.target_id) : null) || h.related_item || '-' // Fallback to text
         })) || []
     }));
 
