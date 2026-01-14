@@ -15,6 +15,7 @@ interface BusinessCardData {
     companyName: string; // The target company, not the user's company
     companyAddress: string;
     department: string;
+    position: string; // Added missing field
     homeAddress: string;
     mobile: string;
     companyPhone1: string;
@@ -42,6 +43,7 @@ const INITIAL_DATA: BusinessCardData = {
     companyName: '',
     companyAddress: '',
     department: '',
+    position: '', // Fix: Add missing field
     homeAddress: '',
     mobile: '',
     companyPhone1: '',
