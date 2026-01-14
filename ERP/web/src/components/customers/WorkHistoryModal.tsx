@@ -7,9 +7,10 @@ interface WorkHistoryModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (data: any) => void;
+    initialData?: any;
 }
 
-export default function WorkHistoryModal({ isOpen, onClose, onSave }: WorkHistoryModalProps) {
+export default function WorkHistoryModal({ isOpen, onClose, onSave, initialData }: WorkHistoryModalProps) {
     const [formData, setFormData] = useState({
         content: '',
         date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
@@ -19,6 +20,32 @@ export default function WorkHistoryModal({ isOpen, onClose, onSave }: WorkHistor
         targetId: ''
     });
     const [showSelector, setShowSelector] = useState(false);
+
+    // Reset or Load Data when Modal Opens
+    React.useEffect(() => {
+        if (isOpen) {
+            if (initialData) {
+                setFormData({
+                    content: initialData.content || '',
+                    date: initialData.date || new Date().toISOString().split('T')[0],
+                    details: initialData.details || '',
+                    targetType: initialData.targetType || 'store',
+                    targetName: initialData.targetName || initialData.relatedProperty || initialData.related || initialData.relatedItem || '', // Handle various legacy fields including relatedItem
+                    targetId: initialData.targetId || ''
+                });
+            } else {
+                // Reset for New Entry
+                setFormData({
+                    content: '',
+                    date: new Date().toISOString().split('T')[0],
+                    details: '',
+                    targetType: 'store',
+                    targetName: '',
+                    targetId: ''
+                });
+            }
+        }
+    }, [isOpen, initialData]);
 
     if (!isOpen) return null;
 

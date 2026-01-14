@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Star, Plus, UserPlus, X, Trash2, Contact, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Star, Plus, UserPlus, X, Trash2, Contact, FileSpreadsheet, ChevronDown, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from '@/app/(main)/customers/page.module.css'; // Reusing Customer styles
 import BusinessCard from '@/components/business/BusinessCard';
@@ -106,14 +106,18 @@ function BusinessCardListContent() {
             let query = '';
             if (userStr) {
                 const user = JSON.parse(userStr);
-                if (user.companyName) {
-                    query = `?company=${encodeURIComponent(user.companyName)}`;
-                }
+                const params = new URLSearchParams();
+                if (user.companyName) params.append('company', user.companyName);
+                // Use uid (UUID) if available, fallback to id (legacy)
+                if (user.uid) params.append('userId', user.uid);
+                else if (user.id) params.append('userId', user.id);
+                query = `?${params.toString()}`;
             }
 
             const res = await fetch(`/api/business-cards${query}`);
             if (res.ok) {
                 const data = await res.json();
+
                 setCards(data);
 
                 // Extract Categories
@@ -128,121 +132,127 @@ function BusinessCardListContent() {
         }
     };
 
-    // Excel Handler
-    const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    // Upload State
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [uploadFiles, setUploadFiles] = useState<{ main: File | null; promoted: File | null; history: File | null }>({
+        main: null,
+        promoted: null,
+        history: null
+    });
+
+    const parseExcel = (file: File) => {
+        return new Promise<any[]>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = e.target?.result;
+                    const workbook = XLSX.read(data, { type: 'binary' }); // or 'array'
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+                    resolve(json);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = (err) => reject(err);
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
+    const handleBatchUpload = async () => {
+        if (!uploadFiles.main) {
+            alert('명함정보(Main) 파일은 필수입니다.');
+            return;
+        }
+
+        if (!confirm('선택한 파일들로 명함 데이터를 업로드하시겠습니까?\n(기존 관리ID가 있는 경우 업데이트됩니다)')) return;
 
         setLoading(true);
         try {
-            const data = await file.arrayBuffer();
-            const workbook = XLSX.read(data);
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
+            // Parse all files
+            const mainData = await parseExcel(uploadFiles.main);
+            const promotedData = uploadFiles.promoted ? await parseExcel(uploadFiles.promoted) : [];
+            const historyData = uploadFiles.history ? await parseExcel(uploadFiles.history) : [];
 
+            // Add metadata (managerId, etc)
             const userStr = localStorage.getItem('user');
             let userCompanyName = 'Unknown';
-            let managerId = 'Unknown';
+            let managerIdVal = 'Unknown';
             if (userStr) {
                 const user = JSON.parse(userStr);
                 userCompanyName = user.companyName || 'Unknown';
-                managerId = user.id || 'Unknown';
+                managerIdVal = user.id || 'Unknown';
             }
 
-            const formattedData = jsonData.map((row: any) => {
-                // Combine Department and Position if both exist, or use logic
-                const dept = (row['부서'] || '').toString().trim();
-                const pos = (row['직함'] || '').toString().trim();
-                let department = dept;
-                if (pos) {
-                    // Avoid duplication if they are same
-                    if (dept !== pos) {
-                        department = department ? `${dept} ${pos}` : pos;
-                    }
+            const payload = {
+                main: mainData,
+                promoted: promotedData,
+                history: historyData,
+                meta: {
+                    userCompanyName,
+                    managerId: managerIdVal
                 }
-
-                // Handle Date (Excel Date Serial or String)
-                // Priority: Excel Date Serial -> String Parsing (YYYY년 MM월 DD일) -> New Date
-                let createdAt = new Date().toISOString();
-                const rawDate = row['명함 등록일'];
-
-                if (rawDate) {
-                    if (typeof rawDate === 'number') {
-                        // Excel date to JS date (UTC adjust)
-                        const date = new Date((rawDate - (25567 + 2)) * 86400 * 1000);
-                        if (!isNaN(date.getTime())) createdAt = date.toISOString();
-                    } else {
-                        // String parsing
-                        const str = String(rawDate).trim();
-                        // Handle "YYYY년 MM월 DD일"
-                        const koreanDateMatch = str.match(/(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/);
-                        if (koreanDateMatch) {
-                            const year = koreanDateMatch[1];
-                            const month = koreanDateMatch[2].padStart(2, '0');
-                            const day = koreanDateMatch[3].padStart(2, '0');
-                            // Create UTC ISO date 'YYYY-MM-DDT00:00:00.000Z'
-                            createdAt = `${year}-${month}-${day}T00:00:00.000Z`;
-                        } else {
-                            const d = new Date(str);
-                            if (!isNaN(d.getTime())) createdAt = d.toISOString();
-                        }
-                    }
-                }
-
-                return {
-                    name: row['이름'] || row['성명'] || row['Name'] || '무명',
-                    companyName: row['회사'] || '',
-                    department: department,
-                    email: row['전자 메일 주소'] || '',
-                    companyPhone1: row['근무처 전화'] || '',
-                    fax: row['근무처 팩스'] || '',
-                    companyAddress: row['근무지 주소 번지'] || '', // Map to companyAddress
-                    memo: row['메모'] || '', // Explicitly map '메모' to memo
-                    createdAt: createdAt,
-
-                    // Default Fields
-                    gender: 'M',
-                    category: row['그룹'] || '기타', // Map '그룹' to category
-                    mobile: row['휴대폰'] || row['핸드폰'] || '',
-                    managerId: managerId,
-                    userCompanyName: userCompanyName,
-                    history: [],
-                    promotedProperties: []
-                };
-            });
-
-            if (formattedData.length === 0) {
-                alert('업로드할 데이터가 없습니다.');
-                return;
-            }
-
-            if (!confirm(`${formattedData.length}건의 명함을 업로드하시겠습니까?`)) {
-                if (e.target) e.target.value = '';
-                setLoading(false);
-                return;
-            }
+            };
 
             const res = await fetch('/api/business-cards', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formattedData)
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
                 const result = await res.json();
-                alert(`업로드 완료 (생성: ${result.created}, 수정: ${result.updated}, 건너뜀: ${result.skipped})`);
+                alert(`업로드 완료\n- 명함: ${result.cards.created}개 생성, ${result.cards.updated}개 수정`);
+                setIsUploadModalOpen(false);
+                setUploadFiles({ main: null, promoted: null, history: null });
                 fetchCards();
             } else {
-                alert('업로드 실패');
+                const err = await res.json();
+                alert(`업로드 실패: ${err.error || '알 수 없는 오류'}`);
             }
+
         } catch (error) {
             console.error(error);
             alert('파일 처리 중 오류가 발생했습니다.');
         } finally {
-            if (e.target) e.target.value = '';
             setLoading(false);
         }
+    };
+
+    // --- Sync Logic ---
+    const handleSync = async () => {
+        if (!confirm('현재 등록된 명함의 내역과 점포 데이터를 동기화하시겠습니까?\n(오래 걸릴 수 있습니다.)')) return;
+
+        setLoading(true);
+        try {
+            const userStr = localStorage.getItem('user');
+            const user = userStr ? JSON.parse(userStr) : {};
+
+            const res = await fetch('/api/business-cards/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId: user.companyId || user.company_id })
+            });
+            const result = await res.json();
+
+            if (res.ok) {
+                alert(`동기화 완료!\n- 작업내역 연결: ${result.results.history.matched}건 성공\n- 추진물건 연결: ${result.results.promoted.matched}건 성공`);
+                fetchCards(); // Refresh list
+            } else {
+                alert('동기화 실패: ' + (result.error || '알 수 없는 오류'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert('동기화 중 오류가 발생했습니다.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Remove old single-file handler
+    const handleExcelUpload_DEPRECATED = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        // ... kept for reference if needed, but UI replaced
     };
 
 
@@ -409,7 +419,7 @@ function BusinessCardListContent() {
             {/* Toolbar */}
             <div className={styles.toolbar}>
                 <div
-                    className={`${styles.title} ${showFavoritesOnly ? styles.activeFavorite : ''}`}
+                    className={`${styles.title} ${showFavoritesOnly ? styles.activeFavorite : ''} `}
                     onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
                     style={{ cursor: 'pointer', userSelect: 'none' }}
                 >
@@ -506,6 +516,14 @@ function BusinessCardListContent() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                    <button
+                        className={styles.footerBtn}
+                        onClick={handleSync}
+                        style={{ backgroundColor: '#1098AD', color: 'white', borderColor: '#1098AD', display: 'flex', alignItems: 'center', gap: 6, marginLeft: '8px' }}
+                    >
+                        <RefreshCw size={14} />
+                        DB 동기화
+                    </button>
                     <ViewModeSwitcher currentMode={viewMode} onModeChange={setViewMode} />
                 </div>
             </div>
@@ -599,31 +617,84 @@ function BusinessCardListContent() {
                         </button>
                     )}
                     <button
-                        className={`${styles.footerBtn} ${styles.primaryBtn}`}
+                        className={`${styles.footerBtn} ${styles.primaryBtn} `}
                         onClick={handleNewClick}
                     >
                         <Contact size={14} />
                         신규명함
                     </button>
 
-                    {/* Excel Upload Button */}
-                    <input
-                        type="file"
-                        id="excel-upload"
-                        accept=".xlsx, .xls"
-                        style={{ display: 'none' }}
-                        onChange={handleExcelUpload}
-                    />
-                    <label
-                        htmlFor="excel-upload"
+                    {/* Multi-file Upload Modal Trigger */}
+                    <button
                         className={styles.footerBtn}
+                        onClick={() => setIsUploadModalOpen(true)}
                         style={{ cursor: 'pointer', background: '#228be6', color: 'white', borderColor: '#228be6', display: 'flex', alignItems: 'center', gap: 6 }}
                     >
                         <FileSpreadsheet size={14} />
-                        엑셀업로드
-                    </label>
+                        엑셀업로드 (통합)
+                    </button>
                 </div>
             </div>
+
+            {/* Upload Modal */}
+            {isUploadModalOpen && (
+                <div className={styles.modalOverlay} onClick={() => setIsUploadModalOpen(false)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ width: 500, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <h3 style={{ margin: 0, fontSize: 18 }}>명함 데이터 일괄 업로드</h3>
+                        <p style={{ margin: 0, color: '#868e96', fontSize: 13 }}>
+                            세 개의 엑셀 파일(명함정보, 추진물건, 작업내역)을 모두 선택해주세요.<br />
+                            '관리ID'를 기준으로 데이터가 자동 연결됩니다.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: 13 }}>1. 명함정보 (Main)</label>
+                                <input
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    onChange={(e) => setUploadFiles(prev => ({ ...prev, main: e.target.files?.[0] || null }))}
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: 13 }}>2. 추진물건 (Promoted)</label>
+                                <input
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    onChange={(e) => setUploadFiles(prev => ({ ...prev, promoted: e.target.files?.[0] || null }))}
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: 13 }}>3. 작업내역 (History)</label>
+                                <input
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    onChange={(e) => setUploadFiles(prev => ({ ...prev, history: e.target.files?.[0] || null }))}
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+                            <button
+                                onClick={() => setIsUploadModalOpen(false)}
+                                className={styles.footerBtn}
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleBatchUpload}
+                                className={`${styles.footerBtn} ${styles.primaryBtn} `}
+                                disabled={!uploadFiles.main || loading}
+                                style={{ opacity: (!uploadFiles.main || loading) ? 0.5 : 1 }}
+                            >
+                                {loading ? '업로드 중...' : '업로드 시작'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modals */}
             {isCardOpen && viewMode === 'center' && (

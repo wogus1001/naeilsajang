@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Save, Plus, X, Trash2, Star, List } from 'lucide-react';
+import { Save, Plus, X, Trash2, Star, List, RefreshCw } from 'lucide-react';
 import styles from '@/app/(main)/customers/register/page.module.css'; // Reusing Customer styles for consistency
 import WorkHistoryModal from '../customers/WorkHistoryModal';
 import PropertySelector from '../customers/PropertySelector';
@@ -77,6 +77,9 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
 
     const [managers, setManagers] = useState<{ id: string, name: string }[]>([]);
 
+    // Edit State for Work History
+    const [editingHistoryIndex, setEditingHistoryIndex] = useState<number | null>(null);
+
     // Load Data & Managers
     useEffect(() => {
         // Fetch Managers
@@ -113,9 +116,30 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                     if (id) {
                         const found = cards.find(c => c.id === id);
                         if (found) {
-                            setFormData({ ...INITIAL_DATA, ...found });
-                            if (found.category && !categories.includes(found.category)) {
-                                setIsDirectCategory(true);
+                            // Sanitize nulls to empty strings for inputs
+                            setFormData({
+                                ...INITIAL_DATA,
+                                ...found,
+                                companyName: found.companyName || '',
+                                department: found.department || '',
+                                position: found.position || '',
+                                mobile: found.mobile || '',
+                                companyPhone1: found.companyPhone1 || '',
+                                companyPhone2: found.companyPhone2 || '',
+                                fax: found.fax || '',
+                                homePhone: found.homePhone || '',
+                                homepage: found.homepage || '',
+                                email: found.email || '',
+                                memo: found.memo || '',
+                                companyAddress: found.companyAddress || '',
+                                homeAddress: found.homeAddress || '',
+                                managerId: found.managerId || ''
+                            });
+
+                            if (found.category && (!categories.includes(found.category) || found.category === '기타')) {
+                                // Logic for direct input or existing category
+                                if (found.category !== '기타' && !categories.includes(found.category)) setIsDirectCategory(true);
+                                else setIsDirectCategory(false);
                             } else {
                                 setIsDirectCategory(false);
                             }
@@ -257,7 +281,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                 if (onSuccess) onSuccess();
                 else onClose();
             } else {
-                alert('저장에 실패했습니다.');
+                const savedData = await res.json();
+                alert(`저장에 실패했습니다.\n사유: ${savedData.error || '알 수 없는 오류'}`);
             }
         } catch (error) {
             console.error(error);
@@ -295,18 +320,57 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
             managerName = (u.user || u).name || u.managerName || 'Unknown';
         }
 
-        const newHistory = {
-            id: Date.now(),
-            ...data,
-            manager: managerName,
-            relatedProperty: data.targetName || ''
-        };
-        handleHistoryAdd(newHistory);
+        if (editingHistoryIndex !== null) {
+            // Edit Mode
+            const updatedItem = {
+                ...formData.history[editingHistoryIndex],
+                ...data,
+                // Do not overwrite ID or Manager if not intended, but usually we keep original manager unless changed?
+                // Let's keep original manager for history integrity? Or update to current editor?
+                // Usually edit updates content but not "Worker". Or maybe it does.
+                // For now, let's just update content fields.
+                date: data.date,
+                content: data.content,
+                details: data.details,
+                relatedProperty: data.targetName || ''
+            };
 
-        // NEW: Sync to Property if targetId exists
-        if (data.targetId) {
-            syncWorkHistoryToProperty(data.targetId, newHistory, formData.name);
+            const newHistoryList = [...formData.history];
+            newHistoryList[editingHistoryIndex] = updatedItem;
+
+            setFormData(prev => ({ ...prev, history: newHistoryList }));
+
+            // Sync Update to Server immediately if card exists
+            if (formData.id) {
+                fetch('/api/business-cards', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...formData, history: newHistoryList })
+                }).catch(console.error);
+
+                // TODO: Also sync update to Property/Schedule if Linked? 
+                // Getting complicated. For now, just fix the view/edit in this list.
+            }
+
+        } else {
+            // Add Mode
+            const newHistory = {
+                id: Date.now(),
+                ...data,
+                manager: managerName,
+                relatedProperty: data.targetName || ''
+            };
+            handleHistoryAdd(newHistory);
+
+            // NEW: Sync to Property if targetId exists
+            if (data.targetId) {
+                syncWorkHistoryToProperty(data.targetId, newHistory, formData.name);
+            }
         }
+
+        // Reset
+        setEditingHistoryIndex(null);
+        setIsWorkModalOpen(false);
     };
 
     const syncWorkHistoryToProperty = async (propertyId: string, historyItem: any, personName: string) => {
@@ -417,9 +481,12 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
     // --- LOGIC: Promoted Properties ---
 
     const handleAddPromotedProperty = () => {
+        setLinkingPromotedItem(null);
         setIsPropertySelectorOpen(true);
     };
+    const [linkingPromotedItem, setLinkingPromotedItem] = useState<{ id: string, name: string } | null>(null);
 
+    // Sync to property (for new items)
     const syncToProperty = async (card: BusinessCardData, property: any) => {
         try {
             // 1. Fetch Property
@@ -488,6 +555,57 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
     };
 
     const handleSelectProperty = async (selectedProperties: any[]) => {
+        // CASE 1: Linking Existing Promoted Item
+        if (linkingPromotedItem) {
+            if (selectedProperties.length === 0) return;
+            const property = selectedProperties[0]; // Take first one
+
+            try {
+                const res = await fetch('/api/business-cards/promoted/link', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        promotedId: linkingPromotedItem.id,
+                        propertyId: property.id
+                    })
+                });
+
+                if (res.ok) {
+                    alert('연동되었습니다.');
+
+                    // Optimistic Update: Immediate Value Change
+                    setFormData(prev => ({
+                        ...prev,
+                        promotedProperties: (prev.promotedProperties || []).map(item =>
+                            item.id === linkingPromotedItem.id
+                                ? { ...item, propertyId: property.id, itemName: property.name }
+                                : item
+                        )
+                    }));
+
+                    // Reload for consistency
+                    const loadRes = await fetch(`/api/business-cards?id=${id}`);
+                    if (loadRes.ok) {
+                        const refreshed = await loadRes.json();
+                        setFormData(prev => ({
+                            ...prev,
+                            promotedProperties: refreshed.promotedProperties || []
+                        }));
+                    }
+                } else {
+                    alert('연동 실패');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('오류가 발생했습니다.');
+            } finally {
+                setLinkingPromotedItem(null);
+                setIsPropertySelectorOpen(false);
+            }
+            return;
+        }
+
+        // CASE 2: Adding New Promoted Items (Original Logic)
         const currentList = formData.promotedProperties || [];
         const currentIds = currentList.map((p: any) => p.id);
         const newItems = selectedProperties.filter((p: any) => !currentIds.includes(p.id));
@@ -499,6 +617,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
 
         const itemsToAdd = newItems.map((p: any) => ({
             ...p,
+            propertyId: p.id, // Critical: Set propertyId for the link
+            itemName: p.name, // Set name explicitly if needed for display
             addedDate: new Date().toISOString().split('T')[0]
         }));
         const updatedList = [...itemsToAdd, ...currentList];
@@ -518,6 +638,57 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
             for (const item of itemsToAdd) {
                 await syncToProperty(updatedData, item);
             }
+        }
+    };
+
+    const handleSync = async () => {
+        if (!confirm('DB 데이터와 동기화하시겠습니까?')) return;
+        try {
+            const res = await fetch('/api/business-cards/sync', { method: 'POST' });
+            const result = await res.json();
+            if (res.ok) {
+                const dbg = result.debug || {};
+                let debugMsg = `\n(Debug - Found: ${dbg.promotedFound || 0}, Matched: ${dbg.promotedMatches || 0})`;
+                if (dbg.lastFailure) debugMsg += `\n[Last Error]: ${dbg.lastFailure}`;
+
+                alert(`동기화 완료\n- 작업내역 연결: ${result.results.history?.matched || 0}건\n- 추진물건 연결: ${result.results.promoted?.matched || 0}건${debugMsg}`);
+
+                // Refresh data
+                if (id) {
+                    const loadRes = await fetch(`/api/business-cards?id=${id}`);
+                    if (loadRes.ok) {
+                        const newData = await loadRes.json();
+                        // Sanitize nulls
+                        const sanitized = {
+                            ...newData,
+                            name: newData.name || '',
+                            category: newData.category || '',
+                            position: newData.position || '',
+                            companyName: newData.companyName || '',
+                            companyAddress: newData.companyAddress || '',
+                            department: newData.department || '',
+                            homeAddress: newData.homeAddress || '',
+                            mobile: newData.mobile || '',
+                            companyPhone1: newData.companyPhone1 || '',
+                            companyPhone2: newData.companyPhone2 || '',
+                            fax: newData.fax || '',
+                            homePhone: newData.homePhone || '',
+                            homepage: newData.homepage || '',
+                            email: newData.email || '',
+                            memo: newData.memo || '',
+                            history: newData.history || [],
+                            promotedProperties: newData.promotedProperties || []
+                        };
+
+                        setFormData(sanitized);
+                    }
+                }
+            } else {
+                alert('동기화 실패: ' + (result.error || '알 수 없는 오류'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert('오류가 발생했습니다.');
         }
     };
 
@@ -832,18 +1003,22 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                     <div className={styles.panel} style={{ flex: 1 }}>
                         <div className={styles.panelHeaderBlue}>
                             <span>명함작업내역</span>
-                            <button className={`${styles.headerBtn} ${styles.headerBtnPrimary}`} onClick={() => setIsWorkModalOpen(true)}>+ 작업추가</button>
+                            <button className={`${styles.headerBtn} ${styles.headerBtnPrimary}`} onClick={() => {
+                                setEditingHistoryIndex(null); // Clear edit state
+                                setIsWorkModalOpen(true);
+                            }}>+ 작업추가</button>
                         </div>
                         <div className={styles.panelContent} style={{ padding: 0 }}>
-                            <table className={styles.historyTable}>
+                            <table className={styles.historyTable} style={{ tableLayout: 'fixed', width: '100%' }}>
+                                <colgroup><col style={{ width: 40 }} /><col style={{ width: 100 }} /><col style={{ width: 70 }} /><col style={{ width: 120 }} /><col /><col style={{ width: 50 }} /></colgroup>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 50 }}>No</th>
-                                        <th style={{ width: 100 }}>날짜</th>
-                                        <th style={{ width: 80 }}>작업자</th>
-                                        <th style={{ width: 120 }}>관련물건</th>
+                                        <th>No</th>
+                                        <th>날짜</th>
+                                        <th>작업자</th>
+                                        <th>관련물건</th>
                                         <th>내역</th>
-                                        <th style={{ width: 60, textAlign: 'center' }}>삭제</th>
+                                        <th style={{ textAlign: 'center' }}>삭제</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -851,13 +1026,34 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                                         <tr><td colSpan={6} style={{ padding: 20, color: '#868e96' }}>등록된 내역이 없습니다.</td></tr>
                                     ) : (
                                         formData.history.map((item: any, i) => (
-                                            <tr key={i}>
+                                            <tr key={i} onClick={() => {
+                                                // Default: Edit
+                                                setEditingHistoryIndex(i);
+                                                setIsWorkModalOpen(true);
+                                            }} style={{ cursor: 'pointer', backgroundColor: 'inherit' }}>
                                                 <td>{i + 1}</td>
-                                                <td>{item.date}</td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{item.date}</td>
                                                 <td>{item.manager || item.worker}</td>
-                                                <td>{item.relatedProperty || item.related}</td>
-                                                <td>{item.content}</td>
-                                                <td style={{ textAlign: 'center' }}>
+                                                <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={(e) => {
+                                                    // Handling Link Click
+                                                    if (item.targetId) {
+                                                        e.stopPropagation();
+                                                        setOpenedPropertyId(item.targetId);
+                                                    } else {
+                                                        e.stopPropagation(); // Do nothing (as requested)
+                                                    }
+                                                }}>
+                                                    <span style={{
+                                                        color: item.targetId ? '#228BE6' : 'inherit',
+                                                        textDecoration: item.targetId ? 'underline' : 'none',
+                                                        cursor: item.targetId ? 'pointer' : 'default',
+                                                        fontWeight: item.targetId ? 500 : 400
+                                                    }}>
+                                                        {item.relatedItem || item.targetName || item.related || '-'}
+                                                    </span>
+                                                </td>
+                                                <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.content}>{item.content}</td>
+                                                <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                                                     <button className={styles.iconBtn} style={{ color: '#e03131', padding: 4 }} onClick={() => handleDeleteHistory(i)}>
                                                         <Trash2 size={14} />
                                                     </button>
@@ -876,22 +1072,31 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                             <div style={{ display: 'flex', gap: 8 }}>
                                 <span>추진물건</span>
                                 <button className={`${styles.headerBtn} ${styles.headerBtnPrimary}`} onClick={handleAddPromotedProperty}>+ 점포</button>
+                                <button
+                                    className={`${styles.headerBtn} ${styles.headerBtnPrimary}`}
+                                    onClick={handleSync}
+                                    title="DB 동기화"
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px' }}
+                                >
+                                    <RefreshCw size={12} /> DB연동
+                                </button>
                             </div>
                             <button className={`${styles.headerBtn} ${styles.headerBtnPrimary}`} style={{ color: '#e03131' }} onClick={handleDeletePromotedProperties}>
                                 - 제거
                             </button>
                         </div>
                         <div className={styles.panelContent} style={{ padding: 0 }}>
-                            <table className={styles.historyTable}>
+                            <table className={styles.historyTable} style={{ tableLayout: 'fixed', width: '100%' }}>
+                                <colgroup><col style={{ width: 40 }} /><col style={{ width: 40 }} /><col style={{ width: 90 }} /><col style={{ width: 120 }} /><col style={{ width: 70 }} /><col style={{ width: 70 }} /><col /></colgroup>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 40 }}>선택</th>
-                                        <th style={{ width: 40 }}>No</th>
-                                        <th style={{ width: 90 }}>날짜</th>
+                                        <th style={{ whiteSpace: 'nowrap' }}>선택</th>
+                                        <th>No</th>
+                                        <th>날짜</th>
                                         <th>물건명</th>
-                                        <th style={{ width: 60 }}>업종</th>
-                                        <th style={{ width: 80 }}>금액</th>
-                                        <th style={{ width: 120 }}>주소</th>
+                                        <th>업종</th>
+                                        <th>금액</th>
+                                        <th>주소</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -899,20 +1104,41 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                                         <tr><td colSpan={7} style={{ padding: 20, color: '#868e96' }}>추진 중인 물건이 없습니다.</td></tr>
                                     ) : (
                                         formData.promotedProperties.map((item: any, i) => (
-                                            <tr key={item.id} onClick={() => setOpenedPropertyId(item.id)} style={{ cursor: 'pointer' }}>
-                                                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
+                                            <tr key={item.id} style={{ cursor: 'default', backgroundColor: 'inherit' }}>
+                                                <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedPromotedIds.includes(item.id)}
                                                         onChange={(e) => handleTogglePromotedSelect(item.id, e.target.checked)}
+                                                        disabled={!item.propertyId} // Disable if not linked (Draft)
                                                     />
                                                 </td>
                                                 <td>{i + 1}</td>
-                                                <td>{item.addedDate || item.date || '-'}</td>
-                                                <td style={{ color: '#228BE6' }}>{item.name}</td>
-                                                <td>{item.industrySector || item.type}</td>
-                                                <td style={{ textAlign: 'right' }}>
-                                                    {Number(item.totalPrice || (parseInt(item.premium || '0') + parseInt(item.deposit || '0'))).toLocaleString()}만
+                                                <td style={{ whiteSpace: 'nowrap' }}>{item.addedDate || item.date || '-'}</td>
+                                                {/* Name: Clickable if Linked */}
+                                                <td
+                                                    style={{
+                                                        color: item.propertyId ? '#228BE6' : 'inherit',
+                                                        textDecoration: item.propertyId ? 'underline' : 'none',
+                                                        cursor: item.propertyId ? 'pointer' : 'default', // Or 'pointer' if we add Link action later
+                                                        fontWeight: item.propertyId ? 500 : 400
+                                                    }}
+                                                    onClick={(e) => {
+                                                        if (item.propertyId) {
+                                                            e.stopPropagation();
+                                                            setOpenedPropertyId(item.propertyId);
+                                                        } else {
+                                                            e.stopPropagation();
+                                                            setLinkingPromotedItem({ id: item.id, name: item.itemName || item.name || '' });
+                                                            setIsPropertySelectorOpen(true);
+                                                        }
+                                                    }}
+                                                >
+                                                    {item.itemName || item.name || '-'}
+                                                </td>
+                                                <td style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.industrySector || item.type}</td>
+                                                <td style={{ textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {item.amount || '-'}
                                                 </td>
                                                 <td style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.address}>
                                                     {item.address}
@@ -952,35 +1178,46 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
             {/* Modals */}
             <WorkHistoryModal
                 isOpen={isWorkModalOpen}
-                onClose={() => setIsWorkModalOpen(false)}
+                onClose={() => {
+                    setIsWorkModalOpen(false);
+                    setEditingHistoryIndex(null);
+                }}
                 onSave={handleSaveWorkHistory}
+                initialData={editingHistoryIndex !== null ? formData.history[editingHistoryIndex] : null}
             />
 
             <PropertySelector
                 isOpen={isPropertySelectorOpen}
-                onClose={() => setIsPropertySelectorOpen(false)}
+                onClose={() => {
+                    setIsPropertySelectorOpen(false);
+                    setLinkingPromotedItem(null);
+                }}
                 onSelect={handleSelectProperty}
                 onOpenCard={(id) => setOpenedPropertyId(id)}
             />
 
-            {openedPropertyId && openedPropertyData && (
-                <div className={styles.modalOverlay} style={{ zIndex: 3100 }} onClick={() => setOpenedPropertyId(null)}>
-                    <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1400px', height: '90vh', padding: 0 }} onClick={e => e.stopPropagation()}>
-                        <PropertyCard
-                            property={openedPropertyData}
-                            onClose={() => setOpenedPropertyId(null)}
-                            onRefresh={() => { }}
-                        />
+            {
+                openedPropertyId && openedPropertyData && (
+                    <div className={styles.modalOverlay} style={{ zIndex: 3100 }} onClick={() => setOpenedPropertyId(null)}>
+                        <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1400px', height: '90vh', padding: 0 }} onClick={e => e.stopPropagation()}>
+                            <PropertyCard
+                                property={openedPropertyData}
+                                onClose={() => setOpenedPropertyId(null)}
+                                onRefresh={() => { }}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
-            {openedPropertyId && !openedPropertyData && (
-                <div className={styles.modalOverlay} style={{ zIndex: 3100 }}>
-                    <div style={{ color: 'white' }}>로딩중...</div>
-                </div>
-            )}
+            {
+                openedPropertyId && !openedPropertyData && (
+                    <div className={styles.modalOverlay} style={{ zIndex: 3100 }}>
+                        <div style={{ color: 'white' }}>로딩중...</div>
+                    </div>
+                )
+            }
 
-        </div>
+        </div >
     );
 }
