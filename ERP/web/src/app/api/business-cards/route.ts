@@ -62,6 +62,16 @@ export async function GET(request: Request) {
     // Fetch from Supabase
     const supabaseAdmin = getSupabaseAdmin();
 
+    // Company Filter Logic
+    let userId = searchParams.get('userId');
+
+    // Resolve userId if it looks like an email (Legacy client support)
+    if (userId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+        const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', userId).single();
+        if (u) userId = u.id;
+    }
+
+
     // Build query
     let query = supabaseAdmin
         .from('business_cards')
@@ -73,8 +83,9 @@ export async function GET(request: Request) {
         .order('created_at', { ascending: false });
 
     // Company Filter Logic
-    const userId = searchParams.get('userId');
+    // userId is already resolved above
     if (userId) {
+
         // 1. Get Requester Company ID from Profiles
         const { data: requester } = await supabaseAdmin
             .from('profiles')
