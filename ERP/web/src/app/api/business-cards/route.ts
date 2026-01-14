@@ -4,6 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
+export const dynamic = 'force-dynamic';
+
+
 const dataPath = path.join(process.cwd(), 'src/data/business-cards.json');
 
 // Helper to resolve IDs
