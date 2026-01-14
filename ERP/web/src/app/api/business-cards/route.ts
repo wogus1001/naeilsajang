@@ -127,11 +127,39 @@ export async function GET(request: Request) {
         // But let's leave as-is for non-login path if any.
     }
 
+    // Debug Mode
+    const debugMode = searchParams.get('debug') === 'true';
+    let debugInfo: any = {};
+
     const { data, error } = await query;
     if (error) {
         console.error('GET business-cards error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    if (debugMode) {
+        // Re-fetch context for debug info since query was already built
+        let dCompanyId = null;
+        let dTeamIds = [];
+        if (userId) {
+            const { data: req } = await supabaseAdmin.from('profiles').select('company_id').eq('id', userId).single();
+            if (req) {
+                dCompanyId = req.company_id;
+                const { data: teams } = await supabaseAdmin.from('profiles').select('id').eq('company_id', dCompanyId);
+                if (teams) dTeamIds = teams.map(t => t.id);
+            }
+        }
+        return NextResponse.json({
+            debug: true,
+            inputUserId: searchParams.get('userId'),
+            resolvedUserId: userId,
+            companyId: dCompanyId,
+            teamMemberCount: dTeamIds.length,
+            totalCardsFound: data?.length || 0,
+            firstCard: data && data.length > 0 ? { id: data[0].id, manager_id: data[0].manager_id } : null
+        });
+    }
+
 
     // Map DB columns to Frontend Interface (BusinessCardData)
     // Front: id, name, companyName, department, mobile, email, etc.
