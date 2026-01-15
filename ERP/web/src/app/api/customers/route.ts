@@ -36,6 +36,22 @@ function transformCustomer(row: any) {
         ...data,
         ...core,
         companyId: core.company_id,
+        // Map new explicit columns to frontend fields
+        memoInterest: core.memo_interest,
+        memoHistory: core.memo_history,
+        progressSteps: core.progress_steps,
+        wantedFeature: core.wanted_feature,
+
+        // Range Fields
+        wantedDepositMin: core.wanted_deposit_min,
+        wantedDepositMax: core.wanted_deposit_max,
+        wantedRentMin: core.wanted_rent_min,
+        wantedRentMax: core.wanted_rent_max,
+        wantedAreaMin: core.wanted_area_min,
+        wantedAreaMax: core.wanted_area_max,
+        wantedFloorMin: core.wanted_floor_min,
+        wantedFloorMax: core.wanted_floor_max,
+
         // Ensure legacy fields if needed by frontend
         createdAt: core.created_at,
         updatedAt: core.updated_at
@@ -84,7 +100,13 @@ export async function POST(request: Request) {
     try {
         const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
-        const { companyName, managerId, name, grade, mobile, isFavorite, ...rest } = body;
+        const {
+            companyName, managerId, name, grade, mobile, isFavorite,
+            memoInterest, memoHistory, progressSteps, wantedFeature,
+            wantedDepositMin, wantedDepositMax, wantedRentMin, wantedRentMax,
+            wantedAreaMin, wantedAreaMax, wantedFloorMin, wantedFloorMax,
+            ...rest
+        } = body;
 
         const { companyId, managerId: mgrUuid } = await resolveIds(companyName, managerId);
         if (!companyId) return NextResponse.json({ error: 'Invalid Company' }, { status: 400 });
@@ -100,6 +122,22 @@ export async function POST(request: Request) {
             grade,
             mobile,
             is_favorite: isFavorite || false,
+            // New Explicit Columns
+            memo_interest: memoInterest,
+            memo_history: memoHistory,
+            progress_steps: progressSteps,
+            wanted_feature: wantedFeature,
+
+            // Range Columns
+            wanted_deposit_min: wantedDepositMin,
+            wanted_deposit_max: wantedDepositMax,
+            wanted_rent_min: wantedRentMin,
+            wanted_rent_max: wantedRentMax,
+            wanted_area_min: wantedAreaMin,
+            wanted_area_max: wantedAreaMax,
+            wanted_floor_min: wantedFloorMin,
+            wanted_floor_max: wantedFloorMax,
+
             created_at: timestamp,
             updated_at: timestamp,
             data: { ...rest, companyName, managerId }
@@ -148,7 +186,13 @@ export async function PUT(request: Request) {
     try {
         const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
-        const { id, companyName, managerId, name, grade, mobile, isFavorite, ...rest } = body;
+        const {
+            id, companyName, managerId, name, grade, mobile, isFavorite,
+            memoInterest, memoHistory, progressSteps, wantedFeature,
+            wantedDepositMin, wantedDepositMax, wantedRentMin, wantedRentMax,
+            wantedAreaMin, wantedAreaMax, wantedFloorMin, wantedFloorMax,
+            ...rest
+        } = body;
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
@@ -177,6 +221,22 @@ export async function PUT(request: Request) {
         if (grade !== undefined) updates.grade = grade;
         if (mobile !== undefined) updates.mobile = mobile;
         if (isFavorite !== undefined) updates.is_favorite = isFavorite;
+
+        // Update New Explicit Columns
+        if (memoInterest !== undefined) updates.memo_interest = memoInterest;
+        if (memoHistory !== undefined) updates.memo_history = memoHistory;
+        if (progressSteps !== undefined) updates.progress_steps = progressSteps;
+        if (wantedFeature !== undefined) updates.wanted_feature = wantedFeature;
+
+        // Update Range Columns
+        if (wantedDepositMin !== undefined) updates.wanted_deposit_min = wantedDepositMin;
+        if (wantedDepositMax !== undefined) updates.wanted_deposit_max = wantedDepositMax;
+        if (wantedRentMin !== undefined) updates.wanted_rent_min = wantedRentMin;
+        if (wantedRentMax !== undefined) updates.wanted_rent_max = wantedRentMax;
+        if (wantedAreaMin !== undefined) updates.wanted_area_min = wantedAreaMin;
+        if (wantedAreaMax !== undefined) updates.wanted_area_max = wantedAreaMax;
+        if (wantedFloorMin !== undefined) updates.wanted_floor_min = wantedFloorMin;
+        if (wantedFloorMax !== undefined) updates.wanted_floor_max = wantedFloorMax;
 
         const { data: updated, error } = await supabaseAdmin
             .from('customers')

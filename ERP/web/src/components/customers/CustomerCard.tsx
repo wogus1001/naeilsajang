@@ -51,6 +51,8 @@ interface Customer {
     wantedDepositMin: string;
     wantedDepositMax: string;
 
+    progressSteps: string[]; // Added new field
+
     history: any[];
     promotedProperties?: any[];
 }
@@ -61,7 +63,7 @@ const INITIAL_DATA: Customer = {
     grade: 'progress',
     class: 'A',
     managerId: '',
-    status: '상담중',
+    status: '물건진행', // Default updated
     feature: '',
     address: '',
     isFavorite: false,
@@ -76,6 +78,8 @@ const INITIAL_DATA: Customer = {
     memoSituation: '',
     memoInterest: '',
     memoHistory: '',
+
+    progressSteps: [], // Added new field
 
     wantedItem: '',
     wantedIndustry: '',
@@ -757,14 +761,20 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <div className={styles.label}>진행상태</div>
                             <div className={styles.inputWrapper}>
                                 <select className={styles.select} value={formData.status} onChange={(e) => handleChange('status', e.target.value)}>
-                                    <option value="상담중">상담중</option>
-                                    <option value="계약상황">계약상황</option>
+                                    <option value="물건진행">물건진행</option>
+                                    <option value="물건문의">물건문의</option>
+                                    <option value="물건컨택">물건컨택</option>
+                                    <option value="계약진행">계약진행</option>
+                                    <option value="계약보류">계약보류</option>
+                                    <option value="완전보류">완전보류</option>
                                     <option value="계약완료">계약완료</option>
-                                    <option value="물건검색">물건검색</option>
-                                    <option value="방문예정">방문예정</option>
-                                    <option value="미팅예정">미팅예정</option>
-                                    <option value="보류">보류</option>
                                 </select>
+                            </div>
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>진행내역</div>
+                            <div className={styles.inputWrapper}>
+                                <textarea className={styles.textarea} value={formData.memoHistory} onChange={(e) => handleChange('memoHistory', e.target.value)} />
                             </div>
                         </div>
 
@@ -819,6 +829,34 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                 <textarea className={styles.textarea} value={formData.memoSituation} onChange={(e) => handleChange('memoSituation', e.target.value)} />
                             </div>
                         </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>관심내용</div>
+                            <div className={styles.inputWrapper}>
+                                <textarea className={styles.textarea} value={formData.memoInterest} onChange={(e) => handleChange('memoInterest', e.target.value)} />
+                            </div>
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>진행</div>
+                            <div className={styles.inputWrapper} style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                {['계약상황', '답사추진', '상담중', '물건검색', '방문예정', '미팅예정'].map(step => (
+                                    <label key={step} className={styles.radioLabel}>
+                                        <input
+                                            type="checkbox"
+                                            checked={(formData.progressSteps || []).includes(step)}
+                                            onChange={(e) => {
+                                                const current = formData.progressSteps || [];
+                                                if (e.target.checked) {
+                                                    handleChange('progressSteps', [...current, step]);
+                                                } else {
+                                                    handleChange('progressSteps', current.filter(s => s !== step));
+                                                }
+                                            }}
+                                        />
+                                        {step}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
 
                         {/* Store Customer Requirements */}
                         <div className={styles.sectionHeader}>[점포고객]</div>
@@ -850,48 +888,50 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                 </div>
                             </div>
                         </div>
-                        <div className={styles.rowPair}>
-                            <div className={styles.formRow}>
-                                <div className={styles.label}>보증금</div>
-                                <div className={styles.inputWrapper}>
-                                    <div className={styles.rangeWrapper}>
-                                        <input className={styles.rangeInput} value={formData.wantedDepositMin} onChange={(e) => handleChange('wantedDepositMin', e.target.value)} />
-                                        <span>~</span>
-                                        <input className={styles.rangeInput} value={formData.wantedDepositMax} onChange={(e) => handleChange('wantedDepositMax', e.target.value)} />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className={styles.formRow}>
-                                <div className={styles.label}>월세</div>
-                                <div className={styles.inputWrapper}>
-                                    <div className={styles.rangeWrapper}>
-                                        <input className={styles.rangeInput} value={formData.wantedRentMin} onChange={(e) => handleChange('wantedRentMin', e.target.value)} />
-                                        <span>~</span>
-                                        <input className={styles.rangeInput} value={formData.wantedRentMax} onChange={(e) => handleChange('wantedRentMax', e.target.value)} />
-                                    </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>보증금</div>
+                            <div className={styles.inputWrapper}>
+                                <div className={styles.rangeWrapper}>
+                                    <input className={styles.rangeInput} value={formData.wantedDepositMin} onChange={(e) => handleChange('wantedDepositMin', e.target.value)} />
+                                    <span>~</span>
+                                    <input className={styles.rangeInput} value={formData.wantedDepositMax} onChange={(e) => handleChange('wantedDepositMax', e.target.value)} />
                                 </div>
                             </div>
                         </div>
-                        <div className={styles.rowPair}>
-                            <div className={styles.formRow}>
-                                <div className={styles.label}>면적</div>
-                                <div className={styles.inputWrapper}>
-                                    <div className={styles.rangeWrapper}>
-                                        <input className={styles.rangeInput} value={formData.wantedAreaMin} onChange={(e) => handleChange('wantedAreaMin', e.target.value)} placeholder="최소(평)" />
-                                        <span>~</span>
-                                        <input className={styles.rangeInput} value={formData.wantedAreaMax} onChange={(e) => handleChange('wantedAreaMax', e.target.value)} placeholder="최대(평)" />
-                                    </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>면적</div>
+                            <div className={styles.inputWrapper}>
+                                <div className={styles.rangeWrapper}>
+                                    <input className={styles.rangeInput} value={formData.wantedAreaMin} onChange={(e) => handleChange('wantedAreaMin', e.target.value)} placeholder="최소(평)" />
+                                    <span>~</span>
+                                    <input className={styles.rangeInput} value={formData.wantedAreaMax} onChange={(e) => handleChange('wantedAreaMax', e.target.value)} placeholder="최대(평)" />
                                 </div>
                             </div>
-                            <div className={styles.formRow}>
-                                <div className={styles.label}>층수</div>
-                                <div className={styles.inputWrapper}>
-                                    <div className={styles.rangeWrapper}>
-                                        <input className={styles.rangeInput} value={formData.wantedFloorMin} onChange={(e) => handleChange('wantedFloorMin', e.target.value)} placeholder="최소(층)" />
-                                        <span>~</span>
-                                        <input className={styles.rangeInput} value={formData.wantedFloorMax} onChange={(e) => handleChange('wantedFloorMax', e.target.value)} placeholder="최대(층)" />
-                                    </div>
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>층수</div>
+                            <div className={styles.inputWrapper}>
+                                <div className={styles.rangeWrapper}>
+                                    <input className={styles.rangeInput} value={formData.wantedFloorMin} onChange={(e) => handleChange('wantedFloorMin', e.target.value)} placeholder="최소(층)" />
+                                    <span>~</span>
+                                    <input className={styles.rangeInput} value={formData.wantedFloorMax} onChange={(e) => handleChange('wantedFloorMax', e.target.value)} placeholder="최대(층)" />
                                 </div>
+                            </div>
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>임대료(월세)</div>
+                            <div className={styles.inputWrapper}>
+                                <div className={styles.rangeWrapper}>
+                                    <input className={styles.rangeInput} value={formData.wantedRentMin} onChange={(e) => handleChange('wantedRentMin', e.target.value)} />
+                                    <span>~</span>
+                                    <input className={styles.rangeInput} value={formData.wantedRentMax} onChange={(e) => handleChange('wantedRentMax', e.target.value)} />
+                                </div>
+                            </div>
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>특징</div>
+                            <div className={styles.inputWrapper}>
+                                <input className={styles.input} value={formData.wantedFeature} onChange={(e) => handleChange('wantedFeature', e.target.value)} />
                             </div>
                         </div>
                     </div>
