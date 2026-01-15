@@ -4,8 +4,8 @@
     height: 100%;
     gap: 24px;
     max-width: 100%;
-    overflow: hidden;
-    /* Prevent page-level horizontal scroll */
+    overflow: auto;
+    /* Allow page-level scrolling for mobile */
 }
 
 /* Toolbar */
@@ -247,7 +247,7 @@
     overflow-y: auto;
 }
 
-.checkboxLabel {
+.filterCheckboxLabel {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -256,7 +256,7 @@
     padding: 4px 0;
 }
 
-.checkboxLabel input[type="checkbox"] {
+.filterCheckboxLabel input[type="checkbox"] {
     width: 16px;
     height: 16px;
     accent-color: #228be6;
@@ -799,4 +799,34 @@
 .sortActionBtn:hover {
     background-color: var(--bg-gray);
     color: var(--text-main);
+}
+
+@media (max-width: 768px) {
+    .filterBar {
+        flex-direction: column;
+        align-items: stretch;
+        /* Stack vertically and fill width */
+        gap: 6px;
+    }
+
+    .activeFilterBtn {
+        height: 32px;
+        /* Smaller height */
+        font-size: 13px;
+        /* Smaller font */
+        padding: 4px 10px;
+        justify-content: space-between;
+        /* Label left, Arrow right */
+        width: 100%;
+        /* Full width */
+    }
+
+    .addFilterBtn {
+        height: 32px;
+        /* Match size */
+        font-size: 13px;
+        justify-content: center;
+        /* Center text for 'Add' button */
+        width: 100%;
+    }
 }

@@ -220,9 +220,9 @@ export default function DashboardPage() {
     };
 
     return (
-        <div style={styles.container}>
+        <div className="p-4 md:p-8 max-w-[1200px] mx-auto" style={{ fontFamily: 'var(--font-pretendard)' }}>
             {/* Header Section */}
-            <div style={styles.header}>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4 md:gap-0">
                 <div>
                     <h1 style={styles.pageTitle}>안녕하세요, {userName}님! 👋</h1>
                     <p style={styles.pageSubtitle}>오늘도 성공적인 비즈니스를 응원합니다.</p>
@@ -233,7 +233,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Stats Cards */}
-            <div style={styles.statsGrid}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
                 {stats.map((stat, index) => {
                     // Special rendering for Contract Card with premium integrated design
                     if (stat.id === 'contract') {
@@ -303,7 +303,7 @@ export default function DashboardPage() {
                 })}
             </div>
 
-            <div style={styles.mainGrid}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 {/* Left Column */}
                 <div style={styles.column}>
 
@@ -435,7 +435,7 @@ export default function DashboardPage() {
                     backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
                 }}>
                     <div style={{
-                        backgroundColor: 'white', width: '500px', borderRadius: '16px', padding: '32px',
+                        backgroundColor: 'white', width: '90%', maxWidth: '500px', borderRadius: '16px', padding: '32px',
                         boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
                     }}>
                         <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '24px', color: '#212529' }}>📢 신규 공지사항 작성</h2>
@@ -523,13 +523,13 @@ export default function DashboardPage() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-    container: { padding: '32px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'var(--font-pretendard)' },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' },
+    // container: { padding: '32px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'var(--font-pretendard)' },
+    // header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px' },
     pageTitle: { fontSize: '24px', fontWeight: '800', margin: '0 0 8px 0', color: '#212529' },
     pageSubtitle: { fontSize: '16px', color: '#868e96', margin: 0 },
     dateDisplay: { fontSize: '14px', color: '#868e96', fontWeight: 500, backgroundColor: '#f8f9fa', padding: '8px 16px', borderRadius: '20px' },
 
-    statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '40px' },
+    // statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '40px' },
     statCard: { backgroundColor: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.3s ease', border: 'none' },
     statCardPremium: { backgroundColor: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 8px 30px rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.3s ease', border: 'none', position: 'relative', overflow: 'hidden' },
     statContent: { display: 'flex', flexDirection: 'column', zIndex: 1 },
@@ -558,7 +558,7 @@ const styles: Record<string, React.CSSProperties> = {
         transition: 'all 0.2s ease'
     },
 
-    mainGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'start' },
+    // mainGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'start' },
     column: { display: 'flex', flexDirection: 'column' },
     sectionHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
     sectionTitle: { fontSize: '18px', fontWeight: '700', color: '#343a40', margin: 0 },

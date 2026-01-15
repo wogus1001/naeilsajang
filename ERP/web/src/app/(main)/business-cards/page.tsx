@@ -105,7 +105,8 @@ function BusinessCardListContent() {
             const userStr = localStorage.getItem('user');
             let query = '';
             if (userStr) {
-                const user = JSON.parse(userStr);
+                const parsed = JSON.parse(userStr);
+                const user = parsed.user || parsed; // Handle wrapped 'user' object
                 const params = new URLSearchParams();
                 if (user.companyName) params.append('company', user.companyName);
                 // Use uid (UUID) if available, fallback to id (legacy)
@@ -180,9 +181,10 @@ function BusinessCardListContent() {
             let userCompanyName = 'Unknown';
             let managerIdVal = 'Unknown';
             if (userStr) {
-                const user = JSON.parse(userStr);
+                const parsed = JSON.parse(userStr);
+                const user = parsed.user || parsed;
                 userCompanyName = user.companyName || 'Unknown';
-                managerIdVal = user.id || 'Unknown';
+                managerIdVal = user.uid || user.id || 'Unknown';
             }
 
             const payload = {
@@ -227,7 +229,8 @@ function BusinessCardListContent() {
         setLoading(true);
         try {
             const userStr = localStorage.getItem('user');
-            const user = userStr ? JSON.parse(userStr) : {};
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const user = parsed.user || parsed;
 
             const res = await fetch('/api/business-cards/sync', {
                 method: 'POST',

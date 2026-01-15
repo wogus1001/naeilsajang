@@ -204,3 +204,49 @@
 .selectBtn:hover {
     background-color: #d0ebff;
 }
+
+@media (max-width: 768px) {
+    .modal {
+        width: 100%;
+        height: 85vh;
+        max-height: 85vh;
+        margin-top: auto;
+        /* Push to bottom */
+        border-radius: 16px 16px 0 0;
+        bottom: 0;
+        position: absolute;
+    }
+
+    .overlay {
+        align-items: flex-end;
+        /* Align modal to bottom */
+        padding: 0;
+    }
+
+    .selectBtn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    /* Mobile Table Fixes */
+    .listContainer {
+        padding: 0;
+        /* Remove padding to maximize width */
+        overflow-x: auto;
+        /* Enable horizontal scroll */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .table {
+        min-width: 600px;
+        /* Force minimum width to trigger scroll */
+    }
+
+    .table th,
+    .table td {
+        white-space: nowrap;
+        /* Prevent text wrapping */
+        padding: 8px;
+        /* Tighter padding */
+    }
+}

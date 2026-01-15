@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styles from './PropertyCard.module.css';
 import { User, Phone, MapPin, Building, DollarSign, FileText, Save, Trash2, Printer, Copy, Plus, Star, ChevronDown, ChevronUp, Search, X, Download } from 'lucide-react';
 import PersonSelectorModal from './PersonSelectorModal';
+import ConfirmModal from './ConfirmModal';
 import { useRouter } from 'next/navigation';
 import { Map, MapMarker, MapTypeId, useKakaoLoader } from 'react-kakao-maps-sdk';
 import PropertyReportTab from './PropertyReportTab';
@@ -122,6 +123,13 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
         libraries: ["clusterer", "drawing", "services"],
     });
     const router = useRouter();
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        message: string;
+        onConfirm: () => void;
+        isDanger?: boolean;
+    }>({ isOpen: false, message: '', onConfirm: () => { } });
+
     const [formData, setFormData] = useState<any>(() => {
         // Safe default: If new property (no ID) and no manager set, try to default to current user
         if (!property.id && !property.managerId) {
@@ -1148,12 +1156,18 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
     };
 
     const handleDeleteAllPhotos = () => {
-        if (!window.confirm('모든 사진을 삭제하시겠습니까?')) return;
-
-        const updatedFormData = { ...formData, photos: [] };
-        setFormData(updatedFormData);
-        // Auto Save
-        autoSaveProperty(updatedFormData);
+        setConfirmModal({
+            isOpen: true,
+            isDanger: true,
+            message: '모든 사진을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+            onConfirm: () => {
+                const updatedFormData = { ...formData, photos: [] };
+                setFormData(updatedFormData);
+                // Auto Save
+                autoSaveProperty(updatedFormData);
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleDownloadPhoto = (photoUrl: string, index: number) => {
@@ -1277,14 +1291,21 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
             alert('삭제할 항목을 선택해주세요.');
             return;
         }
-        if (!confirm(`${selectedRevenueIds.length}건의 매출 내역을 삭제하시겠습니까?`)) return;
 
-        const newHistory = (formData.revenueHistory || []).filter((item: any) => !selectedRevenueIds.includes(item.id));
-        const updatedFormData = { ...formData, revenueHistory: newHistory };
-        setFormData(updatedFormData);
-        setSelectedRevenueIds([]);
+        setConfirmModal({
+            isOpen: true,
+            isDanger: true,
+            message: `${selectedRevenueIds.length}건의 매출 내역을 삭제하시겠습니까?`,
+            onConfirm: async () => {
+                const newHistory = (formData.revenueHistory || []).filter((item: any) => !selectedRevenueIds.includes(item.id));
+                const updatedFormData = { ...formData, revenueHistory: newHistory };
+                setFormData(updatedFormData);
+                setSelectedRevenueIds([]);
 
-        await autoSaveProperty(updatedFormData);
+                await autoSaveProperty(updatedFormData);
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleDownloadTemplate = () => {
@@ -2330,6 +2351,7 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                 value={getDisplayArea()}
                                                 onChange={handleAreaChange}
                                                 placeholder={areaUnit === 'pyeong' ? '평수' : 'm²'}
+                                                style={{ flex: 1, minWidth: 0 }}
                                             />
                                             <div
                                                 onClick={() => setAreaUnit(prev => prev === 'pyeong' ? 'm2' : 'pyeong')}
@@ -2338,12 +2360,17 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                     marginLeft: 4,
                                                     cursor: 'pointer',
                                                     backgroundColor: '#f1f3f5',
-                                                    padding: '2px 6px',
+                                                    padding: '0 8px',
                                                     borderRadius: 4,
-                                                    minWidth: 30,
+                                                    minWidth: 40,
+                                                    width: 'auto',
                                                     textAlign: 'center',
                                                     userSelect: 'none',
-                                                    border: '1px solid #dee2e6'
+                                                    border: '1px solid #dee2e6',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    height: '42px'
                                                 }}
                                                 title="클릭하여 단위 변경 (평 <-> m²)"
                                             >
@@ -2991,8 +3018,8 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                 <div className={styles.paneHeader}>
                                     <h3>월별매출현황</h3>
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        <button className={styles.smallBtn} onClick={handleDownloadTemplate} style={{ backgroundColor: '#107c41', color: 'white' }}><FileText size={14} /> 양식</button>
-                                        <button className={styles.smallBtn} onClick={() => fileInputRef.current?.click()} style={{ backgroundColor: '#217346', color: 'white' }}><FileText size={14} /> 업로드</button>
+                                        <button className={`${styles.smallBtn} ${styles.desktopOnly}`} onClick={handleDownloadTemplate} style={{ backgroundColor: '#107c41', color: 'white' }}><FileText size={14} /> 양식</button>
+                                        <button className={`${styles.smallBtn} ${styles.desktopOnly}`} onClick={() => fileInputRef.current?.click()} style={{ backgroundColor: '#217346', color: 'white' }}><FileText size={14} /> 업로드</button>
                                         <input type="file" ref={fileInputRef} onChange={handleExcelUpload} style={{ display: 'none' }} accept=".xlsx, .xls" />
                                         <div style={{ width: 1, height: 20, backgroundColor: '#ddd', margin: '0 4px' }}></div>
                                         <button className={styles.smallBtn} onClick={handleAddRevenue}><Plus size={14} /> 매출추가</button>
@@ -3096,10 +3123,10 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                 multiple
                                             />
                                             <button className={styles.actionBtn} style={{ borderColor: '#66d9e8', color: '#fff', backgroundColor: '#1098ad' }} onClick={handleDownloadAllPhotos}>
-                                                <Download size={14} /> 전체다운로드
+                                                <Download size={14} /> 다운로드
                                             </button>
                                             <button className={styles.actionBtn} style={{ borderColor: '#ff8787', color: '#fff', backgroundColor: '#fa5252' }} onClick={handleDeleteAllPhotos}>
-                                                <Trash2 size={14} /> 사진모두삭제
+                                                <Trash2 size={14} /> 전체삭제
                                             </button>
                                         </div>
                                     </div>
@@ -3874,6 +3901,14 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                message={confirmModal.message}
+                isDanger={confirmModal.isDanger}
+            />
         </div >
     );
 }

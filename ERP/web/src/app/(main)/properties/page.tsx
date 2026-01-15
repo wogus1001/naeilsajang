@@ -1283,13 +1283,15 @@ function PropertiesPageContent() {
                 {/* Add Filter Button (Moved to Filter Bar) */}
                 <div className={styles.actions}>
 
-                    {/* VIEW MODE SWITCHER */}
-                    <ViewModeSwitcher currentMode={viewMode} onModeChange={handleModeChange} />
+                    {/* VIEW MODE SWITCHER - Desktop Only */}
+                    <div className="hidden md:block">
+                        <ViewModeSwitcher currentMode={viewMode} onModeChange={handleModeChange} />
+                    </div>
 
-                    {/* SORT BUTTON */}
-                    <div style={{ position: 'relative' }} ref={sortDropdownRef}>
+                    {/* SORT BUTTON - Flexible on Mobile */}
+                    <div className="relative flex-1 md:flex-none" ref={sortDropdownRef}>
                         <button
-                            className={`${styles.actionBtn} ${isSortDropdownOpen ? styles.active : ''}`}
+                            className={`${styles.actionBtn} ${isSortDropdownOpen ? styles.active : ''} w-full justify-between md:w-auto md:justify-start whitespace-nowrap`}
                             style={sortRules.length > 0 ? { color: '#228be6', borderColor: '#228be6', backgroundColor: '#e7f5ff' } : {}}
                             onClick={() => {
                                 setIsSortDropdownOpen(!isSortDropdownOpen);
@@ -1298,23 +1300,26 @@ function PropertiesPageContent() {
                                 setIsAddingSort(sortRules.length === 0);
                             }}
                         >
-                            <Layout size={16} />
-                            <span>
-                                {sortRules.length === 0 ? '정렬' : // Just "정렬" if empty
-                                    sortRules.length === 1 ?
-                                        {
-                                            createdAt: '등록일', name: '물건명', area: '면적',
-                                            deposit: '보증금', monthlyRent: '월세', premium: '권리금',
-                                            totalPrice: '합계', monthlyIncome: '월순수익', monthlyProfit: '월순수익', monthlyRevenue: '월매출', yield: '수익률'
-                                        }[sortRules[0].key] || '정렬'
-                                        : `정렬 ${sortRules.length}개`}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <Layout size={16} />
+                                <span>
+                                    {sortRules.length === 0 ? '정렬' : // Just "정렬" if empty
+                                        sortRules.length === 1 ?
+                                            {
+                                                createdAt: '등록일', name: '물건명', area: '면적',
+                                                deposit: '보증금', monthlyRent: '월세', premium: '권리금',
+                                                totalPrice: '합계', monthlyIncome: '월순수익', monthlyProfit: '월순수익', monthlyRevenue: '월매출', yield: '수익률'
+                                            }[sortRules[0].key] || '정렬'
+                                            : `정렬 ${sortRules.length}개`}
+                                </span>
+                            </div>
                             <ChevronDown size={14} />
                         </button>
                         {isSortDropdownOpen && (
                             <div className={styles.dropdownMenu} style={{
                                 width: (isAddingSort || sortRules.length === 0) ? 200 : 320,
-                                zIndex: 1001
+                                zIndex: 1001,
+                                left: 0, right: 'auto' // Fix left alignment
                             }}>
                                 {isAddingSort || sortRules.length === 0 ? (
                                     // FIELD PICKER VIEW
@@ -1480,24 +1485,27 @@ function PropertiesPageContent() {
                         )}
                     </div>
                     {/* FILTER BUTTON */}
-                    <div style={{ position: 'relative' }} ref={toolbarFilterRef}>
+                    <div className="relative flex-1 md:flex-none" ref={toolbarFilterRef}>
                         <button
-                            className={`${styles.actionBtn} ${isFilterMenuOpen ? styles.active : ''}`}
+                            className={`${styles.actionBtn} ${isFilterMenuOpen ? styles.active : ''} w-full justify-between md:w-auto md:justify-start whitespace-nowrap`}
                             onClick={() => {
                                 setIsFilterMenuOpen(!isFilterMenuOpen);
                                 // setIsColumnSelectorOpen(false); // Valid to keep both open
                                 setLastActiveDropdown('filter');
                             }}
                         >
-                            <Filter size={16} />
-                            <span>필터</span>
+                            <div className="flex items-center gap-2">
+                                <Filter size={16} />
+                                <span>필터</span>
+                            </div>
                             <ChevronDown size={14} />
                         </button>
 
                         {/* Filter Main Menu (Vertical List) */}
                         {isFilterMenuOpen && (
                             <div className={styles.filterMenuDropdown} style={{
-                                zIndex: lastActiveDropdown === 'filter' ? 1002 : 1001
+                                zIndex: lastActiveDropdown === 'filter' ? 1002 : 1001,
+                                right: 0, left: 'auto' // Fix right alignment
                             }}>
                                 <div className={styles.menuHeader}>필터 기준</div>
                                 <ul className={styles.menuList}>
@@ -1539,7 +1547,7 @@ function PropertiesPageContent() {
                     </div>
 
 
-                    <div style={{ position: 'relative' }} ref={columnSelectorRef}>
+                    <div style={{ position: 'relative' }} ref={columnSelectorRef} className="hidden md:block">
                         <button
                             className={`${styles.actionBtn} ${isColumnSelectorOpen ? styles.active : ''}`}
                             onClick={() => {
@@ -1719,10 +1727,12 @@ function PropertiesPageContent() {
                         )}
                     </div>
 
-                    <Link href="/properties/register" className={`${styles.actionBtn} ${styles.primaryBtn}`}>
-                        <Plus size={16} />
-                        <span>새로 만들기</span>
-                    </Link>
+                    <div className="hidden md:block">
+                        <Link href="/properties/register" className={`${styles.actionBtn} ${styles.primaryBtn}`}>
+                            <Plus size={16} />
+                            <span>새로 만들기</span>
+                        </Link>
+                    </div>
                 </div>
             </div>
             {/* Active Filters & Filter Menu */}
@@ -1813,7 +1823,7 @@ function PropertiesPageContent() {
                                     <div className={styles.cardContent}>
                                         {filterKey === 'isFavorite' && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 0' }}>
-                                                <label className={styles.checkboxLabel} style={{ width: '100%', cursor: 'pointer' }}>
+                                                <label className={styles.filterCheckboxLabel} style={{ width: '100%', cursor: 'pointer' }}>
                                                     <input
                                                         type="checkbox"
                                                         checked={showFavoritesOnly}
@@ -1847,7 +1857,7 @@ function PropertiesPageContent() {
                                                 )}
                                                 <div className={styles.chipList}>
                                                     {['progress', 'manage', 'hold', 'common', 'complete'].map(status => (
-                                                        <label key={status} className={styles.checkboxLabel}>
+                                                        <label key={status} className={styles.filterCheckboxLabel}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={statusFilter.includes(status)}
@@ -1890,7 +1900,7 @@ function PropertiesPageContent() {
                                                 )}
                                                 <div className={styles.chipList}>
                                                     {managers.map(m => (
-                                                        <label key={m.id} className={styles.checkboxLabel}>
+                                                        <label key={m.id} className={styles.filterCheckboxLabel}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={managerFilters.includes(m.id)}
@@ -1979,7 +1989,7 @@ function PropertiesPageContent() {
                                                         ? Array.from(new Set(properties.map(p => p.industrySector).filter(Boolean))).sort()
                                                         : ['일반음식점', '휴게음식점', '카페', '베이커리', '주점', '노래방', 'PC방', '미용실', '네일아트', '피부관리', '헬스장', '필라테스', '요가', '학원', '교습소', '의원', '약국', '편의점', '마트', '부동산', '세탁소', '기타']
                                                     ).map((type: string) => (
-                                                        <label key={type} className={styles.checkboxLabel}>
+                                                        <label key={type} className={styles.filterCheckboxLabel}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={typeFilter.includes(type)}
@@ -2011,7 +2021,7 @@ function PropertiesPageContent() {
                                                         ? Array.from(new Set(properties.map(p => p.industryDetail).filter(Boolean))).sort()
                                                         : []
                                                     ).map((det: string) => (
-                                                        <label key={det} className={styles.checkboxLabel}>
+                                                        <label key={det} className={styles.filterCheckboxLabel}>
                                                             <input
                                                                 type="checkbox"
                                                                 checked={industryDetailFilter.includes(det)}
@@ -2115,8 +2125,87 @@ function PropertiesPageContent() {
             </div >
 
 
-            {/* Data Grid */}
-            <div className={styles.gridContainer}>
+            {/* Mobile List View (Visible only on mobile) */}
+            <div className="md:hidden space-y-3 p-4 pb-24">
+                {isLoading ? (
+                    <div className="text-center py-10 text-gray-400">데이터를 불러오는 중...</div>
+                ) : filteredProperties.length === 0 ? (
+                    <div className="text-center py-10 text-gray-400">
+                        {searchTerm || statusFilter.length > 0 ? "검색 결과가 없습니다." : "등록된 매물이 없습니다."}
+                    </div>
+                ) : (
+                    paginatedProperties.map((item) => (
+                        <div
+                            key={item.id}
+                            onClick={() => handleRowClick(item.id)}
+                            className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 active:scale-[0.98] transition-transform"
+                        >
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="flex items-center gap-2">
+                                    {/* Status Badge */}
+                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.status === 'progress' ? 'bg-purple-100 text-purple-600' :
+                                        item.status === 'manage' ? 'bg-blue-50 text-blue-600' :
+                                            item.status === 'hold' ? 'bg-red-50 text-red-600' :
+                                                item.status === 'complete' ? 'bg-green-50 text-green-600' :
+                                                    'bg-gray-100 text-gray-600'
+                                        }`}>
+                                        {item.status === 'progress' ? '추진' :
+                                            item.status === 'manage' ? '관리' :
+                                                item.status === 'hold' ? '보류' :
+                                                    item.status === 'complete' ? '완료' : '공동'}
+                                    </span>
+                                    <span className="text-xs text-gray-500 font-medium">{item.industrySector || item.type}</span>
+                                </div>
+                                {item.isFavorite && <Star size={14} fill="#fab005" color="#fab005" />}
+                            </div>
+
+                            <div className="font-bold text-gray-900 text-lg mb-1 line-clamp-1">{item.name}</div>
+                            <div className="text-gray-500 text-sm mb-3 flex items-center gap-1">
+                                <MapPin size={12} />
+                                <span className="line-clamp-1">{item.address} {item.floor ? `${item.floor}층` : ''}</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-sm bg-gray-50 p-3 rounded-lg mb-3">
+                                <div>
+                                    <span className="text-gray-400 text-xs block">보증금/월세</span>
+                                    <span className="font-bold text-gray-700">
+                                        {item.deposit ? parseInt(item.deposit.replace(/,/g, '')).toLocaleString() : '0'} / {item.monthlyRent ? parseInt(item.monthlyRent.replace(/,/g, '')).toLocaleString() : '0'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400 text-xs block">권리금</span>
+                                    <span className="font-bold text-gray-700">
+                                        {item.premium ? parseInt(item.premium.replace(/,/g, '')).toLocaleString() : '0'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400 text-xs block">면적</span>
+                                    <span className="font-bold text-gray-700">{item.area}평</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400 text-xs block">담당자</span>
+                                    <span className="font-bold text-gray-700">{item.manager || item.managerName}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-end text-xs text-gray-400">
+                                <span>{new Date(item.updatedAt || item.createdAt).toLocaleDateString()} 업데이트</span>
+                            </div>
+                        </div>
+                    ))
+                )}
+
+                {/* Mobile FAB (Floating Action Button) */}
+                <Link
+                    href="/properties/register"
+                    className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 rounded-full shadow-lg flex items-center justify-center text-white z-50 active:scale-90 transition-transform"
+                >
+                    <Plus size={28} strokeWidth={2.5} />
+                </Link>
+            </div>
+
+            {/* Desktop Data Grid (Hidden on mobile) */}
+            <div className={`${styles.gridContainer} hidden md:block`}>
                 <div className={styles.gridWrapper} style={{ width: tableWidth }}>
                     <table className={styles.table} style={{ width: tableWidth, tableLayout: 'fixed' }}>
                         <thead>
@@ -2200,8 +2289,8 @@ function PropertiesPageContent() {
             </div>
 
             {/* Footer & Pagination */}
-            < div className={styles.footer} >
-                <div className={styles.totalCount}>
+            <div className={`${styles.footer} flex-col md:flex-row gap-4 md:gap-0`}>
+                <div className={`${styles.totalCount} text-center w-full md:w-auto`}>
                     전체 <strong>{filteredProperties.length}</strong>건 중 {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredProperties.length)}
                 </div>
 
@@ -2231,18 +2320,22 @@ function PropertiesPageContent() {
                         accept=".xlsx, .xls"
                         onChange={handleExcelUpload}
                     />
-                    <button
-                        className={styles.footerBtn}
-                        onClick={() => fileInputRefExport.current?.click()}
-                        style={{ color: '#217346', borderColor: '#217346', marginRight: '8px' }}
-                    >
-                        <Layout size={16} />
-                        <span>엑셀 업로드</span>
-                    </button>
-                    <button className={styles.footerBtn} onClick={handleExcelExport}>
-                        <Download size={16} />
-                        <span>엑셀 저장</span>
-                    </button>
+                    {/* Excel Actions - HIDDEN on Mobile */}
+                    <div className="hidden md:flex gap-2">
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => fileInputRefExport.current?.click()}
+                            style={{ color: '#217346', borderColor: '#217346' }}
+                        >
+                            <Layout size={16} />
+                            <span>엑셀 업로드</span>
+                        </button>
+                        <button className={styles.footerBtn} onClick={handleExcelExport}>
+                            <Download size={16} />
+                            <span>엑셀 저장</span>
+                        </button>
+                    </div>
+
                     {selectedIds.size > 0 && (
                         <button
                             className={`${styles.footerBtn} ${styles.deleteBtn}`}
@@ -2253,7 +2346,7 @@ function PropertiesPageContent() {
                         </button>
                     )}
                 </div>
-            </div >
+            </div>
 
 
             {/* Detail View Overlay */}

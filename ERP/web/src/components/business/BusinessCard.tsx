@@ -93,9 +93,10 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                 let myCompany = '';
                 let myId = '';
                 if (userStr) {
-                    const user = JSON.parse(userStr);
+                    const parsed = JSON.parse(userStr);
+                    const user = parsed.user || parsed;
                     myCompany = user.companyName || '';
-                    myId = user.id;
+                    myId = user.uid || user.id;
                 }
 
                 // Fetch Managers (Filtered by Company)
@@ -191,7 +192,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
             const userStr = localStorage.getItem('user');
             let userInfo = { userId: '', companyName: '' };
             if (userStr) {
-                const { id, companyName } = JSON.parse(userStr);
+                const parsed = JSON.parse(userStr);
+                const { id, companyName } = parsed.user || parsed;
                 userInfo = { userId: id, companyName };
             }
 
@@ -244,9 +246,10 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
             let managerId = '';
 
             if (userStr) {
-                const user = JSON.parse(userStr);
+                const parsed = JSON.parse(userStr);
+                const user = parsed.user || parsed;
                 userCompanyName = user.companyName;
-                managerId = user.id;
+                managerId = user.uid || user.id;
             }
 
             const payload = {
@@ -318,8 +321,9 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
         const userStr = localStorage.getItem('user');
         let managerName = 'Unknown';
         if (userStr) {
-            const u = JSON.parse(userStr);
-            managerName = (u.user || u).name || u.managerName || 'Unknown';
+            const parsed = JSON.parse(userStr);
+            const u = parsed.user || parsed;
+            managerName = u.name || u.managerName || 'Unknown';
         }
 
         if (editingHistoryIndex !== null) {
@@ -529,7 +533,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
             let userInfo = { userId: '', companyName: '' };
             if (userStr) {
                 const parsed = JSON.parse(userStr);
-                userInfo = { userId: parsed.id, companyName: parsed.companyName || '' };
+                const user = parsed.user || parsed;
+                userInfo = { userId: user.id, companyName: user.companyName || '' };
             }
 
             const schedulePayload = {
