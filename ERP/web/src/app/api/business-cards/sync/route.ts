@@ -15,7 +15,10 @@ export async function POST(request: Request) {
         const results = {
             history: { matched: 0, failed: 0 },
             promoted: { matched: 0, failed: 0 },
+            logs: [] as string[] // Debug logs
         };
+
+        const log = (msg: string) => results.logs.push(msg);
 
         // 0. Get Company Properties & Cards for Filtering
         // Get this company's cards to ensure we only sync OUR cards
@@ -35,8 +38,8 @@ export async function POST(request: Request) {
         // Find history items where target_id IS NULL AND belongs to our cards
         const { data: historyItems, error: historyError } = await supabaseAdmin
             .from('business_card_history')
-            .select('id, related_item, target')
-            .is('target_id', null)
+            .select('id, related_item, target, business_card_id, content, work_date, worker_name') // Correct column names: work_date, worker_name
+
             .in('business_card_id', cardIds); // Security Scope
 
         if (historyItems && historyItems.length > 0) {
@@ -45,13 +48,14 @@ export async function POST(request: Request) {
                 let nameToSearch = (item.related_item || item.target || '').trim();
 
                 if (!nameToSearch) continue;
+                log(`Processing History Item ${item.id}: searching for '${nameToSearch}'`);
 
                 const { data: property, error: searchError } = await supabaseAdmin
                     .from('properties')
-                    .select('id, name')
+                    .select('id, name, data') // Fetch data for reverse sync
                     .eq('company_id', companyId) // Security Scope
-                    .eq('name', nameToSearch)
-                    .single();
+                    .eq('name', nameToSearch) // Strict match per user request
+                    .maybeSingle();
 
                 if (property) {
                     await supabaseAdmin
@@ -61,8 +65,44 @@ export async function POST(request: Request) {
                             target_type: 'store' // Default type
                         })
                         .eq('id', item.id);
+
+
+                    // Reverse Sync: Add to Property's workHistory
+                    // Fetch Card Info
+                    const { data: bCard } = await supabaseAdmin.from('business_cards').select('name').eq('id', item.business_card_id).single();
+                    if (bCard) {
+                        const pData = property.data || {};
+                        const pHistory = pData.workHistory || [];
+
+                        // Check duplicates
+                        const exists = pHistory.some((ph: any) =>
+                            ph.targetId === item.business_card_id &&
+                            ph.date === item.work_date &&
+                            ph.content === item.content
+                        );
+
+                        if (!exists) {
+                            const newHistory = {
+                                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                                date: item.work_date,
+                                manager: item.worker_name, // Use correctly selected column
+                                content: item.content,
+                                details: '', // history table might not have details column in select
+                                targetType: 'businessCard',
+                                targetKeyword: bCard.name,
+                                targetId: item.business_card_id
+                            };
+
+                            await supabaseAdmin
+                                .from('properties')
+                                .update({ data: { ...pData, workHistory: [...pHistory, newHistory] } })
+                                .eq('id', property.id);
+                        }
+                    }
+
                     results.history.matched++;
                 } else {
+                    log(`Failed to find property for '${nameToSearch}'`);
                     results.history.failed++;
                 }
             }

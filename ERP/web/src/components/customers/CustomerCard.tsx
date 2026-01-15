@@ -153,6 +153,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
     const [selectedPromotedIds, setSelectedPromotedIds] = useState<string[]>([]);
     const [openedPropertyId, setOpenedPropertyId] = useState<string | null>(null);
     const [openedPropertyData, setOpenedPropertyData] = useState<any>(null); // To store data for card
+    const [editingHistoryIndex, setEditingHistoryIndex] = useState<number | null>(null);
 
     // Fetch property data when opening card
     useEffect(() => {
@@ -292,17 +293,37 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
             managerName = (u.user || u).name || u.managerName || 'Unknown';
         }
 
-        const newHistory = {
-            id: Date.now(),
-            ...data,
-            manager: managerName,
-            relatedProperty: data.targetName || '' // Mapped from WorkHistoryModal's targetName
-        };
-        handleHistoryAdd(newHistory);
+        if (editingHistoryIndex !== null) {
+            // Edit Mode
+            const updatedHistory = [...formData.history];
+            updatedHistory[editingHistoryIndex] = {
+                ...updatedHistory[editingHistoryIndex],
+                ...data,
+                relatedProperty: data.targetName || updatedHistory[editingHistoryIndex].relatedProperty,
+                targetId: data.targetId || updatedHistory[editingHistoryIndex].targetId
+            };
+            const updatedData = { ...formData, history: updatedHistory };
+            setFormData(updatedData);
+            setIsWorkModalOpen(false);
+            setEditingHistoryIndex(null);
 
-        // NEW: Sync to Property if targetId exists
-        if (data.targetId) {
-            syncWorkHistoryToProperty(data.targetId, newHistory, formData.name);
+            // Auto-save update
+            saveCustomer(updatedData);
+            // Note: We don't implement full sync-update for schedules/properties here yet to avoid complexity.
+        } else {
+            // Add Mode
+            const newHistory = {
+                id: Date.now(),
+                ...data,
+                manager: managerName,
+                relatedProperty: data.targetName || '' // Mapped from WorkHistoryModal's targetName
+            };
+            handleHistoryAdd(newHistory);
+
+            // NEW: Sync to Property if targetId exists
+            if (data.targetId) {
+                syncWorkHistoryToProperty(data.targetId, newHistory, formData.name);
+            }
         }
     };
 
@@ -864,13 +885,13 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <div className={styles.formRow}>
                                 <div className={styles.label}>찾는물건</div>
                                 <div className={styles.inputWrapper}>
-                                    <input className={styles.input} value={formData.wantedItem} onChange={(e) => handleChange('wantedItem', e.target.value)} />
+                                    <input className={styles.input} value={formData.wantedItem || ''} onChange={(e) => handleChange('wantedItem', e.target.value)} />
                                 </div>
                             </div>
                             <div className={styles.formRow}>
                                 <div className={styles.label}>찾는업종</div>
                                 <div className={styles.inputWrapper}>
-                                    <input className={styles.input} value={formData.wantedIndustry} onChange={(e) => handleChange('wantedIndustry', e.target.value)} />
+                                    <input className={styles.input} value={formData.wantedIndustry || ''} onChange={(e) => handleChange('wantedIndustry', e.target.value)} />
                                 </div>
                             </div>
                         </div>
@@ -878,13 +899,13 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <div className={styles.formRow}>
                                 <div className={styles.label}>찾는지역</div>
                                 <div className={styles.inputWrapper}>
-                                    <input className={styles.input} value={formData.wantedArea} onChange={(e) => handleChange('wantedArea', e.target.value)} />
+                                    <input className={styles.input} value={formData.wantedArea || ''} onChange={(e) => handleChange('wantedArea', e.target.value)} />
                                 </div>
                             </div>
                             <div className={styles.formRow}>
                                 <div className={styles.label}>예산</div>
                                 <div className={styles.inputWrapper}>
-                                    <input className={styles.input} value={formData.budget} onChange={(e) => handleChange('budget', e.target.value)} placeholder="예: 5000~1억" />
+                                    <input className={styles.input} value={formData.budget || ''} onChange={(e) => handleChange('budget', e.target.value)} placeholder="예: 5000~1억" />
                                 </div>
                             </div>
                         </div>
@@ -892,9 +913,9 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <div className={styles.label}>보증금</div>
                             <div className={styles.inputWrapper}>
                                 <div className={styles.rangeWrapper}>
-                                    <input className={styles.rangeInput} value={formData.wantedDepositMin} onChange={(e) => handleChange('wantedDepositMin', e.target.value)} />
+                                    <input className={styles.rangeInput} value={formData.wantedDepositMin || ''} onChange={(e) => handleChange('wantedDepositMin', e.target.value)} />
                                     <span>~</span>
-                                    <input className={styles.rangeInput} value={formData.wantedDepositMax} onChange={(e) => handleChange('wantedDepositMax', e.target.value)} />
+                                    <input className={styles.rangeInput} value={formData.wantedDepositMax || ''} onChange={(e) => handleChange('wantedDepositMax', e.target.value)} />
                                 </div>
                             </div>
                         </div>
@@ -902,9 +923,9 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <div className={styles.label}>면적</div>
                             <div className={styles.inputWrapper}>
                                 <div className={styles.rangeWrapper}>
-                                    <input className={styles.rangeInput} value={formData.wantedAreaMin} onChange={(e) => handleChange('wantedAreaMin', e.target.value)} placeholder="최소(평)" />
+                                    <input className={styles.rangeInput} value={formData.wantedAreaMin || ''} onChange={(e) => handleChange('wantedAreaMin', e.target.value)} placeholder="최소(평)" />
                                     <span>~</span>
-                                    <input className={styles.rangeInput} value={formData.wantedAreaMax} onChange={(e) => handleChange('wantedAreaMax', e.target.value)} placeholder="최대(평)" />
+                                    <input className={styles.rangeInput} value={formData.wantedAreaMax || ''} onChange={(e) => handleChange('wantedAreaMax', e.target.value)} placeholder="최대(평)" />
                                 </div>
                             </div>
                         </div>
@@ -912,9 +933,9 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <div className={styles.label}>층수</div>
                             <div className={styles.inputWrapper}>
                                 <div className={styles.rangeWrapper}>
-                                    <input className={styles.rangeInput} value={formData.wantedFloorMin} onChange={(e) => handleChange('wantedFloorMin', e.target.value)} placeholder="최소(층)" />
+                                    <input className={styles.rangeInput} value={formData.wantedFloorMin || ''} onChange={(e) => handleChange('wantedFloorMin', e.target.value)} placeholder="최소(층)" />
                                     <span>~</span>
-                                    <input className={styles.rangeInput} value={formData.wantedFloorMax} onChange={(e) => handleChange('wantedFloorMax', e.target.value)} placeholder="최대(층)" />
+                                    <input className={styles.rangeInput} value={formData.wantedFloorMax || ''} onChange={(e) => handleChange('wantedFloorMax', e.target.value)} placeholder="최대(층)" />
                                 </div>
                             </div>
                         </div>
@@ -922,16 +943,16 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <div className={styles.label}>임대료(월세)</div>
                             <div className={styles.inputWrapper}>
                                 <div className={styles.rangeWrapper}>
-                                    <input className={styles.rangeInput} value={formData.wantedRentMin} onChange={(e) => handleChange('wantedRentMin', e.target.value)} />
+                                    <input className={styles.rangeInput} value={formData.wantedRentMin || ''} onChange={(e) => handleChange('wantedRentMin', e.target.value)} />
                                     <span>~</span>
-                                    <input className={styles.rangeInput} value={formData.wantedRentMax} onChange={(e) => handleChange('wantedRentMax', e.target.value)} />
+                                    <input className={styles.rangeInput} value={formData.wantedRentMax || ''} onChange={(e) => handleChange('wantedRentMax', e.target.value)} />
                                 </div>
                             </div>
                         </div>
                         <div className={styles.formRow}>
                             <div className={styles.label}>특징</div>
                             <div className={styles.inputWrapper}>
-                                <input className={styles.input} value={formData.wantedFeature} onChange={(e) => handleChange('wantedFeature', e.target.value)} />
+                                <input className={styles.input} value={formData.wantedFeature || ''} onChange={(e) => handleChange('wantedFeature', e.target.value)} />
                             </div>
                         </div>
                     </div>
@@ -944,7 +965,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                     <div className={styles.panel} style={{ flex: 1 }}>
                         <div className={styles.panelHeaderBlue}>
                             <span>고객작업내역</span>
-                            <button className={`${styles.headerBtn} ${styles.headerBtnPrimary}`} onClick={() => setIsWorkModalOpen(true)}>+ 작업추가</button>
+                            <button className={`${styles.headerBtn} ${styles.headerBtnPrimary}`} onClick={() => { setEditingHistoryIndex(null); setIsWorkModalOpen(true); }}>+ 작업추가</button>
                         </div>
                         <div className={styles.panelContent} style={{ padding: 0 }}>
                             <table className={styles.historyTable}>
@@ -965,11 +986,22 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                         </tr>
                                     ) : (
                                         formData.history.map((item: any, i) => (
-                                            <tr key={i}>
+                                            <tr key={i} onClick={() => { setEditingHistoryIndex(i); setIsWorkModalOpen(true); }} style={{ cursor: 'pointer' }}>
                                                 <td>{i + 1}</td>
                                                 <td>{item.date}</td>
                                                 <td>{item.manager || item.worker}</td>
-                                                <td>{item.relatedProperty || item.related}</td>
+                                                <td
+                                                    style={{
+                                                        color: item.targetId ? '#228BE6' : 'inherit',
+                                                        cursor: item.targetId ? 'pointer' : 'default',
+                                                        fontWeight: item.targetId ? '500' : 'normal'
+                                                    }}
+                                                    onClick={() => {
+                                                        if (item.targetId) setOpenedPropertyId(item.targetId);
+                                                    }}
+                                                >
+                                                    {item.relatedProperty || item.related}
+                                                </td>
                                                 <td>{item.content}</td>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <button
@@ -1025,7 +1057,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                         </tr>
                                     ) : (
                                         formData.promotedProperties.map((item: any, i) => (
-                                            <tr key={item.id} onClick={() => setOpenedPropertyId(item.id)} style={{ cursor: 'pointer' }}>
+                                            <tr key={item.id} onClick={() => item.isSynced !== false && setOpenedPropertyId(item.id)} style={{ cursor: item.isSynced !== false ? 'pointer' : 'default' }}>
                                                 <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center' }}>
                                                     <input
                                                         type="checkbox"
@@ -1035,7 +1067,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                                 </td>
                                                 <td>{i + 1}</td>
                                                 <td>{item.addedDate || item.date || '-'}</td>
-                                                <td style={{ color: '#228BE6' }}>{item.name}</td>
+                                                <td style={{ color: item.isSynced !== false ? '#228BE6' : 'inherit' }}>{item.name}</td>
                                                 <td>{item.industrySector || item.type}</td>
                                                 <td style={{ textAlign: 'right' }}>
                                                     {Number(item.totalPrice || (parseInt(item.premium || '0') + parseInt(item.deposit || '0'))).toLocaleString()}만
@@ -1079,8 +1111,9 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
 
             <WorkHistoryModal
                 isOpen={isWorkModalOpen}
-                onClose={() => setIsWorkModalOpen(false)}
+                onClose={() => { setIsWorkModalOpen(false); setEditingHistoryIndex(null); }}
                 onSave={handleSaveWorkHistory}
+                initialData={editingHistoryIndex !== null ? formData.history[editingHistoryIndex] : null}
             />
 
             <PropertySelector

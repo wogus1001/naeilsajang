@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Star, UserPlus, X, Trash2 } from 'lucide-react';
+import { Star, UserPlus, X, Trash2, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import styles from './page.module.css';
 import CustomerCard from '@/components/customers/CustomerCard';
 import ViewModeSwitcher, { ViewMode } from '@/components/properties/ViewModeSwitcher';
@@ -62,7 +63,13 @@ function CustomerListPageContent() {
 
     // Drawer State
     const [drawerWidth, setDrawerWidth] = useState(1200);
+
     const drawerResizingRef = React.useRef<{ startX: number; startWidth: number } | null>(null);
+
+    // Upload State
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [uploadFiles, setUploadFiles] = useState<{ main: File | null, promoted: File | null, history: File | null }>({ main: null, promoted: null, history: null });
+
 
     useEffect(() => {
         const queryId = searchParams.get('id');
@@ -76,6 +83,113 @@ function CustomerListPageContent() {
         fetchCustomers();
         fetchManagers();
     }, []);
+
+    const parseExcel = (file: File) => {
+        return new Promise<any[]>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = e.target?.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+                    resolve(json);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = (err) => reject(err);
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
+    const handleBatchUpload = async () => {
+        if (!uploadFiles.main) {
+            alert('고객정보(Main) 파일은 필수입니다.');
+            return;
+        }
+
+        if (!confirm('선택한 파일들로 고객 데이터를 업로드하시겠습니까?\n(관리번호 기준 업데이트)')) return;
+
+        setLoading(true);
+        try {
+            const mainData = await parseExcel(uploadFiles.main);
+            const promotedData = uploadFiles.promoted ? await parseExcel(uploadFiles.promoted) : [];
+            const historyData = uploadFiles.history ? await parseExcel(uploadFiles.history) : [];
+
+            // Add metadata
+            const userStr = localStorage.getItem('user');
+            let userCompanyName = 'Unknown';
+            let managerIdVal = '';
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                const user = parsed.user || parsed;
+                userCompanyName = user.companyName || 'Unknown';
+                managerIdVal = user.uid || user.id || '';
+            }
+
+            const payload = {
+                main: mainData,
+                promoted: promotedData,
+                history: historyData,
+                meta: {
+                    userCompanyName,
+                    managerId: managerIdVal
+                }
+            };
+
+            const res = await fetch('/api/customers/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                alert(`업로드 완료\n- 처리된 데이터: ${result.count || 0}건`);
+                setIsUploadModalOpen(false);
+                setUploadFiles({ main: null, promoted: null, history: null });
+                fetchCustomers();
+            } else {
+                const err = await res.json();
+                alert(`업로드 실패: ${err.error || '알 수 없는 오류'}`);
+            }
+        } catch (error) {
+            console.error(error);
+            alert('오류 발생');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSync = async () => {
+        if (!confirm('고객 작업내역 및 추진물건을 시스템(일정/부동산)과 동기화하시겠습니까?')) return;
+        setLoading(true);
+        try {
+            const userStr = localStorage.getItem('user');
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const user = parsed.user || parsed; // Handle wrapped 'user'
+
+            const res = await fetch('/api/customers/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId: user.companyId || user.company_id })
+            });
+            const result = await res.json();
+            if (res.ok) {
+                alert(`동기화 완료\n- 일정 등록: ${result.results.history.matched}건\n- 물건 연결: ${result.results.promoted.linkFound}건`);
+                fetchCustomers();
+            } else {
+                alert('동기화 실패: ' + result.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('오류 발생');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchCustomers = async () => {
         try {
@@ -483,6 +597,20 @@ function CustomerListPageContent() {
                         </button>
                     )}
                     <button
+                        className={styles.footerBtn}
+                        onClick={() => setIsUploadModalOpen(true)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#228be6', color: 'white', borderColor: '#228be6' }}
+                    >
+                        <FileSpreadsheet size={14} /> 엑셀업로드
+                    </button>
+                    <button
+                        className={styles.footerBtn}
+                        onClick={handleSync}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#1098AD', color: 'white', borderColor: '#1098AD' }}
+                    >
+                        <RefreshCw size={14} /> DB동기화
+                    </button>
+                    <button
                         className={`${styles.footerBtn} ${styles.primaryBtn}`}
                         onClick={handleNewClick}
                     >
@@ -524,6 +652,42 @@ function CustomerListPageContent() {
                             onSuccess={handleCardSuccess}
                             isModal={false}
                         />
+                    </div>
+                </div>
+            )}
+            {/* Upload Modal */}
+            {isUploadModalOpen && (
+                <div className={styles.modalOverlay} onClick={() => setIsUploadModalOpen(false)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ width: 500, padding: 24 }}>
+                        <h3>고객 데이터 일괄 업로드</h3>
+                        <p style={{ color: '#868e96', fontSize: 13, marginBottom: 16 }}>
+                            관리번호가 일치하는 Main, WorkHistory, Promoted 파일을 업로드해주세요.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <div>
+                                <label style={{ fontSize: 13, fontWeight: 500 }}>명함정보 (Main)</label>
+                                <input type="file" accept=".xlsx, .xls" onChange={(e) => setUploadFiles(p => ({ ...p, main: e.target.files?.[0] || null }))} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 13, fontWeight: 500 }}>추진물건 (Promoted)</label>
+                                <input type="file" accept=".xlsx, .xls" onChange={(e) => setUploadFiles(p => ({ ...p, promoted: e.target.files?.[0] || null }))} style={{ width: '100%' }} />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 13, fontWeight: 500 }}>작업내역 (History)</label>
+                                <input type="file" accept=".xlsx, .xls" onChange={(e) => setUploadFiles(p => ({ ...p, history: e.target.files?.[0] || null }))} style={{ width: '100%' }} />
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+                            <button className={styles.footerBtn} onClick={() => setIsUploadModalOpen(false)}>취소</button>
+                            <button
+                                className={`${styles.footerBtn} ${styles.primaryBtn}`}
+                                onClick={handleBatchUpload}
+                                disabled={!uploadFiles.main || loading}
+                                style={{ backgroundColor: '#228be6', color: 'white', opacity: (!uploadFiles.main || loading) ? 0.5 : 1 }}
+                            >
+                                {loading ? '업로드 중...' : '업로드'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
