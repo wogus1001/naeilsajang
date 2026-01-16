@@ -996,8 +996,11 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                                         cursor: item.targetId ? 'pointer' : 'default',
                                                         fontWeight: item.targetId ? '500' : 'normal'
                                                     }}
-                                                    onClick={() => {
-                                                        if (item.targetId) setOpenedPropertyId(item.targetId);
+                                                    onClick={(e) => {
+                                                        if (item.targetId) {
+                                                            e.stopPropagation();
+                                                            setOpenedPropertyId(item.targetId);
+                                                        }
                                                     }}
                                                 >
                                                     {item.relatedProperty || item.related}

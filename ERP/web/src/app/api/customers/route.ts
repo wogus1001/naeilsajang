@@ -39,7 +39,7 @@ function transformCustomer(row: any) {
         // Map new explicit columns to frontend fields
         memoInterest: core.memo_interest,
         memoHistory: core.memo_history,
-        progressSteps: core.progress_steps,
+        progressSteps: core.progress_steps || [], // Ensure array
         wantedFeature: core.wanted_feature,
 
         // Range Fields
@@ -54,7 +54,11 @@ function transformCustomer(row: any) {
 
         // Ensure legacy fields if needed by frontend
         createdAt: core.created_at,
-        updatedAt: core.updated_at
+        updatedAt: core.updated_at,
+
+        // Safeguard JSONB arrays
+        history: data?.history || [],
+        promotedProperties: data?.promotedProperties || []
     };
 }
 
