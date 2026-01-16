@@ -164,7 +164,8 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
         revenue: true,
         franchise: true,
         operation: true,
-        lease: true
+        lease: true,
+        memo: true
     });
 
     const [isLoading, setIsLoading] = useState(false);
@@ -251,6 +252,63 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
     const [isPersonSelectorOpen, setIsPersonSelectorOpen] = useState(false);
     const [personSelectorMode, setPersonSelectorMode] = useState<'workHistory' | 'promotedCustomer'>('workHistory');
     const [initialPersonTab, setInitialPersonTab] = useState<'customer' | 'businessCard'>('customer');
+    const [customCategories, setCustomCategories] = useState<any[]>([]); // New State for Custom Categories
+    const [isCategoryInputOpen, setIsCategoryInputOpen] = useState(false); // Custom Input Modal State
+    const [newCategoryName, setNewCategoryName] = useState(''); // Custom Input Value
+
+    // Fetch Custom Categories
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const companyId = user.companyId || user.company_id;
+                    if (companyId) {
+                        const res = await fetch(`/api/categories?companyId=${companyId}&type=industry_detail`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            setCustomCategories(data);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch custom categories:', e);
+            }
+        };
+        fetchCategories();
+    }, []);
+
+    const handleAddCategory = async () => {
+        if (!newCategoryName.trim()) return;
+        try {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                const companyId = user.companyId || user.company_id;
+                if (companyId) {
+                    const res = await fetch('/api/categories', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            companyId: companyId,
+                            categoryType: 'industry_detail',
+                            name: newCategoryName,
+                            parentCategory: formData.industryCategory, // Link to Level 1
+                            subCategory: formData.industrySector // Link to Level 2
+                        })
+                    });
+                    if (res.ok) {
+                        const newCat = await res.json();
+                        setCustomCategories([...customCategories, newCat]);
+                        setFormData({ ...formData, industryDetail: newCategoryName }); // Auto Select
+                        setIsCategoryInputOpen(false);
+                        setNewCategoryName('');
+                    }
+                }
+            }
+        } catch (e) { console.error(e); }
+    };
 
     // Contract History State
     const [isContractModalOpen, setIsContractModalOpen] = useState(false);
@@ -2175,72 +2233,90 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <div style={{ display: 'flex', gap: 4, width: '100%' }}>
                                                 {/* Level 1: Industry Category */}
-                                                <select
-                                                    name="industryCategory"
-                                                    className={styles.select}
-                                                    value={formData.industryCategory || ''}
-                                                    onChange={(e) => {
-                                                        setFormData((prev: any) => ({
-                                                            ...prev,
-                                                            industryCategory: e.target.value,
-                                                            industrySector: '', // Reset Level 2
-                                                            industryDetail: '' // Reset Level 3
-                                                        }));
-                                                    }}
-                                                >
-                                                    <option value="">대분류</option>
-                                                    {Object.keys(INDUSTRY_DATA).map(cat => (
-                                                        <option key={cat} value={cat}>{cat}</option>
-                                                    ))}
-                                                </select>
+                                                <div style={{ flex: 1 }}>
+                                                    <select
+                                                        name="industryCategory"
+                                                        className={styles.select}
+                                                        value={formData.industryCategory || ''}
+                                                        onChange={(e) => {
+                                                            setFormData((prev: any) => ({
+                                                                ...prev,
+                                                                industryCategory: e.target.value,
+                                                                industrySector: '', // Reset Level 2
+                                                                industryDetail: '' // Reset Level 3
+                                                            }));
+                                                        }}
+                                                    >
+                                                        <option value="">대분류</option>
+                                                        {Object.keys(INDUSTRY_DATA).map(cat => (
+                                                            <option key={cat} value={cat}>{cat}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
 
                                                 {/* Level 2: Industry Sector (Category) */}
-                                                <select
-                                                    name="industrySector"
-                                                    className={styles.select}
-                                                    value={formData.industrySector || ''}
-                                                    onChange={(e) => {
-                                                        const newVal = e.target.value;
-                                                        const details = (formData.industryCategory && INDUSTRY_DATA[formData.industryCategory])
-                                                            ? (INDUSTRY_DATA[formData.industryCategory][newVal] || [])
-                                                            : [];
-                                                        setFormData((prev: any) => ({
-                                                            ...prev,
-                                                            industrySector: newVal,
-                                                            // Auto select if no details (use sector) or single detail (use detail)
-                                                            industryDetail: details.length === 0 ? newVal : (details.length === 1 ? details[0] : '')
-                                                        }));
-                                                    }}
-                                                    disabled={!formData.industryCategory}
-                                                >
-                                                    <option value="">중분류</option>
-                                                    {formData.industryCategory && Object.keys(INDUSTRY_DATA[formData.industryCategory] || {}).map(sec => (
-                                                        <option key={sec} value={sec}>{sec}</option>
-                                                    ))}
-                                                </select>
+                                                <div style={{ flex: 1 }}>
+                                                    <select
+                                                        name="industrySector"
+                                                        className={styles.select}
+                                                        value={formData.industrySector || ''}
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            const details = (formData.industryCategory && INDUSTRY_DATA[formData.industryCategory])
+                                                                ? (INDUSTRY_DATA[formData.industryCategory][newVal] || [])
+                                                                : [];
+                                                            setFormData((prev: any) => ({
+                                                                ...prev,
+                                                                industrySector: newVal,
+                                                                // Auto select if no details (use sector) or single detail (use detail)
+                                                                industryDetail: details.length === 0 ? newVal : (details.length === 1 ? details[0] : '')
+                                                            }));
+                                                        }}
+                                                        disabled={!formData.industryCategory}
+                                                    >
+                                                        <option value="">중분류</option>
+                                                        {formData.industryCategory && Object.keys(INDUSTRY_DATA[formData.industryCategory] || {}).map(sec => (
+                                                            <option key={sec} value={sec}>{sec}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
 
                                                 {/* Level 3: Industry Detail */}
-                                                <select
-                                                    name="industryDetail"
-                                                    className={styles.select}
-                                                    value={formData.industryDetail || ''}
-                                                    onChange={handleChange}
-                                                    disabled={!formData.industrySector || !formData.industryCategory || !INDUSTRY_DATA[formData.industryCategory] || (INDUSTRY_DATA[formData.industryCategory][formData.industrySector]?.length === 0)}
-                                                    style={(!formData.industrySector || !formData.industryCategory || !INDUSTRY_DATA[formData.industryCategory] || (INDUSTRY_DATA[formData.industryCategory][formData.industrySector]?.length === 0)) ? { backgroundColor: '#e9ecef' } : {}}
-                                                >
-                                                    <option value="">소분류</option>
-                                                    {/* If no details, show the category name as option or simple hidden? User said "auto select". */}
-                                                    {formData.industryCategory && formData.industrySector && INDUSTRY_DATA[formData.industryCategory] && (
-                                                        (INDUSTRY_DATA[formData.industryCategory][formData.industrySector]?.length > 0) ? (
-                                                            INDUSTRY_DATA[formData.industryCategory][formData.industrySector].map(det => (
+                                                <div style={{ position: 'relative', flex: 1 }}>
+                                                    <select
+                                                        name="industryDetail"
+                                                        className={styles.select}
+                                                        value={formData.industryDetail || ''}
+                                                        onChange={(e) => {
+                                                            if (e.target.value === '___DIRECT_INPUT___') {
+                                                                setIsCategoryInputOpen(true);
+                                                                return;
+                                                            }
+                                                            handleChange(e);
+                                                        }}
+                                                        disabled={!formData.industryCategory}
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        <option value="">소분류</option>
+                                                        {/* Standard Options */}
+                                                        {formData.industryCategory && formData.industrySector && INDUSTRY_DATA[formData.industryCategory] &&
+                                                            (INDUSTRY_DATA[formData.industryCategory][formData.industrySector] || []).map(det => (
                                                                 <option key={det} value={det}>{det}</option>
                                                             ))
-                                                        ) : (
-                                                            // If empty details, show the selected sector as the only option (auto-selected)
-                                                            <option value={formData.industrySector}>{formData.industrySector}</option>
-                                                        )
-                                                    )}
-                                                </select>
+                                                        }
+                                                        {/* Custom Categories (Filtered by Category & Sector) */}
+                                                        {customCategories.filter(c =>
+                                                            c.parent_category === formData.industryCategory &&
+                                                            c.sub_category === formData.industrySector
+                                                        ).map(c => (
+                                                            <option key={c.id} value={c.name}>{c.name}</option>
+                                                        ))}
+
+                                                        {/* Direct Input Option */}
+                                                        <option value="___DIRECT_INPUT___" style={{ color: '#7950f2', fontWeight: 'bold' }}>+ 직접 입력</option>
+                                                    </select>
+
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -2910,6 +2986,33 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                     </div>
                                                 </div>
                                             )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    {/* 7. 물건메모 (Memo) */}
+                    <div className={styles.sectionRow}>
+                        <div
+                            className={styles.verticalHeader}
+                            style={{ backgroundColor: '#862e9c', cursor: 'pointer' }}
+                            onClick={() => toggleSection('memo')}
+                        >물<br />건<br />메<br />모</div>
+                        {openSections.memo && (
+                            <div className={styles.contentArea}>
+                                <div className={styles.fieldGrid}>
+                                    <div className={styles.fieldRow}>
+                                        <div className={styles.fieldLabel}>메모 사항</div>
+                                        <div className={styles.fieldValue} style={{ gridColumn: 'span 3', height: 'auto' }}>
+                                            <textarea
+                                                name="memo"
+                                                className={styles.textarea}
+                                                value={formData.memo || ''}
+                                                onChange={handleChange}
+                                                placeholder="물건에 대한 상세 메모를 입력하세요..."
+                                                style={{ minHeight: '150px', resize: 'vertical' }}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -3883,6 +3986,40 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
             )}
 
 
+
+            {/* Custom Category Input Modal */}
+            {isCategoryInputOpen && (
+                <div className={styles.searchModal}>
+                    <div className={styles.modalContent} style={{ width: '300px' }}>
+                        <div className={styles.modalHeader}>
+                            <h3>새 업종 추가</h3>
+                            <button type="button" onClick={() => setIsCategoryInputOpen(false)}><X size={20} /></button>
+                        </div>
+                        <div style={{ padding: '20px' }}>
+                            <div style={{ marginBottom: 15 }}>
+                                <input
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    placeholder="업종명을 입력하세요"
+                                    className={styles.input}
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleAddCategory();
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                <button className={styles.footerBtn} style={{ backgroundColor: '#339af0', color: 'white' }} onClick={handleAddCategory}>
+                                    추가
+                                </button>
+                                <button className={styles.footerBtn} onClick={() => setIsCategoryInputOpen(false)}>
+                                    취소
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <PersonSelectorModal
                 isOpen={isPersonSelectorOpen}

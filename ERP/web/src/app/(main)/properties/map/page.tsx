@@ -24,6 +24,7 @@ interface Property {
     };
     photos?: string[];
     isFavorite?: boolean; // For Favorites (Fixed from isImportant)
+    memo?: string;
 }
 
 const STATUS_OPTIONS = [

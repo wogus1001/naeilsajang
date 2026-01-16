@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.0] - 2026-01-16
+
+### Added (추가됨)
+- **Property Memo Tab (물건메모 탭 추가)**
+  - Added a dedicated "Property Memo" section to both the Property Detail Card and fixed the New Property Registration page.
+    - 점포 상세카드 및 신규등록 페이지에 독립적인 '물건메모' 섹션을 추가했습니다.
+  - Added `memo` field to the global Data Schema (TypeScript Interface) for consistent storage.
+    - 데이터 스키마(TypeScript Interface)에 `memo` 필드를 추가하여 데이터 일관성을 확보했습니다.
+
+### Changed (변경됨)
+- **Custom Category UI Refinement (업종 직접 입력 UI 개선)**
+  - Integrated the "+ Direct Input" option directly into the Industry Detail dropdown.
+    - '업종 소분류' 드롭다운 내부에 '+ 직접 입력' 옵션을 통합하여 UI 동선을 간소화했습니다.
+  - Implemented a centered modal for adding new categories instead of an inline popover.
+    - 업종 추가 시 인라인 팝오버 대신 화면 중앙 모달(알럿형) UI를 적용했습니다.
+  - Improved category persistence logic: Newly added categories now appear correctly in the dropdown without text suffixes like "(사용자)".
+    - 신규 추가된 업종이 즉시 드롭다운에 반영되도록 로직을 개선하고, 불필요한 접미사("(사용자)")를 제거했습니다.
+
 ## [v1.0.0] - 2026-01-16
 
 ### Added (추가됨)

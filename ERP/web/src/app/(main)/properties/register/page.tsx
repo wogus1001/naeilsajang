@@ -89,6 +89,33 @@ export default function RegisterPropertyPage() {
     const [brandName, setBrandName] = useState('');
     const [isFavorite, setIsFavorite] = useState(false);
 
+    // Custom Categories State
+    const [customCategories, setCustomCategories] = useState<any[]>([]);
+    const [isCategoryInputOpen, setIsCategoryInputOpen] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+
+    React.useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    const companyId = user.companyId || user.company_id;
+                    if (companyId) {
+                        const res = await fetch(`/api/categories?companyId=${companyId}&type=industry_detail`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            setCustomCategories(data);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch custom categories:', e);
+            }
+        };
+        fetchCategories();
+    }, []);
+
     // Price State for Auto Calculation
     const [priceData, setPriceData] = useState({
         deposit: 0,
@@ -225,6 +252,7 @@ export default function RegisterPropertyPage() {
         franchise: true,
         operation: true,
         lease: true,
+        memo: true,
     });
 
     const toggleSection = (section: keyof typeof sections) => {
@@ -432,6 +460,40 @@ export default function RegisterPropertyPage() {
         setIsBrandSearchOpen(false);
         setBrandSearchResults([]);
         setBrandSearchQuery('');
+        setBrandSearchQuery('');
+    };
+
+    const handleAddCategory = async () => {
+        if (!newCategoryName.trim()) return;
+
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return;
+
+        const user = JSON.parse(userStr);
+        const companyId = user.companyId || user.company_id;
+        const createdBy = user.id || user.userId;
+
+        if (companyId) {
+            const res = await fetch('/api/categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    companyId: companyId,
+                    categoryType: 'industry_detail',
+                    name: newCategoryName,
+                    parentCategory: category, // Link to Level 1
+                    subCategory: sector, // Link to Level 2
+                    createdBy
+                })
+            });
+            if (res.ok) {
+                const newCat = await res.json();
+                setCustomCategories([...customCategories, newCat]);
+                setIndustryDetail(newCategoryName); // Auto Select
+                setIsCategoryInputOpen(false);
+                setNewCategoryName('');
+            }
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -690,13 +752,19 @@ export default function RegisterPropertyPage() {
                                     <label className={styles.label}>업종 (소분류)</label>
                                     <select
                                         value={industryDetail}
-                                        onChange={(e) => setIndustryDetail(e.target.value)}
+                                        onChange={(e) => {
+                                            if (e.target.value === '___DIRECT_INPUT___') {
+                                                setIsCategoryInputOpen(true);
+                                            } else {
+                                                setIndustryDetail(e.target.value);
+                                            }
+                                        }}
                                         className={styles.select}
-                                        disabled={!sector || !category || !INDUSTRY_DATA[category] || (INDUSTRY_DATA[category][sector]?.length === 0)}
+                                        disabled={!sector}
                                     >
                                         <option value="">소분류</option>
-                                        {category && sector && INDUSTRY_DATA[category][sector] && (
-                                            INDUSTRY_DATA[category][sector].length > 0 ? (
+                                        {category && sector && INDUSTRY_DATA[category] && (
+                                            INDUSTRY_DATA[category][sector]?.length > 0 ? (
                                                 INDUSTRY_DATA[category][sector].map(det => (
                                                     <option key={det} value={det}>{det}</option>
                                                 ))
@@ -704,6 +772,17 @@ export default function RegisterPropertyPage() {
                                                 <option value={sector}>{sector}</option>
                                             )
                                         )}
+
+                                        {/* Custom Categories */}
+                                        {customCategories.filter(c =>
+                                            c.parent_category === category &&
+                                            c.sub_category === sector
+                                        ).map(c => (
+                                            <option key={c.id} value={c.name}>{c.name}</option>
+                                        ))}
+
+                                        {/* Direct Input Option */}
+                                        <option value="___DIRECT_INPUT___" style={{ color: '#7950f2', fontWeight: 'bold' }}>+ 직접 입력</option>
                                     </select>
                                 </div>
                             </div>
@@ -1377,6 +1456,27 @@ export default function RegisterPropertyPage() {
                     }
                 </section >
 
+                {/* 8. 물건메모 (Memo) */}
+                <section className={styles.section}>
+                    <div className={styles.sectionHeader} onClick={() => toggleSection('memo')}>
+                        <h2 className={styles.sectionTitle}>물건 메모</h2>
+                        {sections.memo ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                    </div>
+                    {sections.memo && (
+                        <div className={styles.sectionContent}>
+                            <div className={styles.field} style={{ width: '100%' }}>
+                                <label className={styles.label}>메모 사항</label>
+                                <textarea
+                                    name="memo"
+                                    className={styles.textarea}
+                                    placeholder="물건에 대한 상세 메모를 입력하세요..."
+                                    style={{ width: '100%', minHeight: '150px', resize: 'vertical' }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </section>
+
                 {/* Bottom Save Button */}
                 < div className={styles.bottomActions} style={{ marginTop: '40px', display: 'flex', justifyContent: 'flex-end' }}>
                     <button type="submit" className={styles.saveBtn} disabled={isLoading} style={{ width: '100%', padding: '16px', fontSize: '16px' }}>
@@ -1462,6 +1562,40 @@ export default function RegisterPropertyPage() {
                     </div>
                 )
             }
+
+            {/* Custom Category Input Modal */}
+            {isCategoryInputOpen && (
+                <div className={styles.searchModal}>
+                    <div className={styles.modalContent} style={{ width: '300px' }}>
+                        <div className={styles.modalHeader}>
+                            <h3>새 업종 추가</h3>
+                            <button type="button" onClick={() => setIsCategoryInputOpen(false)}><X size={20} /></button>
+                        </div>
+                        <div style={{ padding: '20px' }}>
+                            <div style={{ marginBottom: 15 }}>
+                                <input
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    placeholder="업종명을 입력하세요"
+                                    className={styles.input}
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleAddCategory();
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                <button className={styles.footerBtn} style={{ backgroundColor: '#339af0', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }} onClick={handleAddCategory}>
+                                    추가
+                                </button>
+                                <button className={styles.footerBtn} style={{ backgroundColor: '#f1f3f5', color: '#495057', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }} onClick={() => setIsCategoryInputOpen(false)}>
+                                    취소
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

@@ -22,6 +22,7 @@ interface Property {
     monthlyIncome?: string;
     monthlyProfit?: number; // 월순익 (Changed to monthlyProfit)
     realArea?: string;
+    memo?: string;
 }
 
 interface PropertySelectorProps {

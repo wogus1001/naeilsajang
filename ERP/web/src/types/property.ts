@@ -76,6 +76,7 @@ export interface Property {
     otherExpenses?: number; // 홍보기타잡비
     revenueMemo?: string; // 매출오픈여부/매출지출메모
     yieldPercent?: number; // 수익률 (Explicit import)
+    memo?: string; // 물건메모 (New field)
     // Add other fields as needed or use 'any' for now if structure is loose
     [key: string]: any;
 }
