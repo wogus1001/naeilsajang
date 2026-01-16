@@ -135,7 +135,7 @@ export async function POST(request: Request) {
                             h.relatedProperty = prop.name; // Normalize Name
                             cardUpdated = true;
                             // Also add to Property History (Reverse Sync)
-                            const pData = prop.data || {};
+                            const pData = (prop as any).data || {};
                             const pHistory = pData.workHistory || [];
                             // Avoid duplicates: Check if same date/content/targetId exists
                             // Note: 'h.id' might be random float, so duplicates are hard to check perfectly without unique ID.
