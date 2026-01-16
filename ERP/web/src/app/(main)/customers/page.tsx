@@ -357,7 +357,7 @@ function CustomerListPageContent() {
         return sorted[0].date || '-';
     };
 
-    const filteredCustomers = customers.filter(c => {
+    const filteredCustomers = (Array.isArray(customers) ? customers : []).filter(c => {
         // 1. Favorite Filter
         if (showFavoritesOnly && !c.isFavorite) return false;
 
