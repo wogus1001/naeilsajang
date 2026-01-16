@@ -21,6 +21,10 @@ All notable changes to this project will be documented in this file.
   - Improved category persistence logic: Newly added categories now appear correctly in the dropdown without text suffixes like "(사용자)".
     - 신규 추가된 업종이 즉시 드롭다운에 반영되도록 로직을 개선하고, 불필요한 접미사("(사용자)")를 제거했습니다.
 
+### Fixed (수정됨)
+- **Runtime TypeError Fix (런타임 오류 수정)**: Fixed `item.deposit.replace is not a function` error in the property list mobile view by adding proper type safety for numeric fields.
+  - 물건 목록 모바일 뷰에서 숫자형 데이터 처리 시 발생하던 `item.deposit.replace` 런타임 오류를 수정했습니다.
+
 ## [v1.0.0] - 2026-01-16
 
 ### Added (추가됨)
