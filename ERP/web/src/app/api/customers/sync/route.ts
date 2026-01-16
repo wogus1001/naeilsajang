@@ -125,7 +125,7 @@ export async function POST(request: Request) {
                     if (!h.targetId && h.relatedProperty) {
                         const { data: prop } = await supabaseAdmin
                             .from('properties')
-                            .select('id, name')
+                            .select('id, name, data') // Added 'data' to fix TS error
                             .ilike('name', h.relatedProperty.trim()) // Fuzzy match
                             .limit(1)
                             .maybeSingle();
