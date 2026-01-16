@@ -67,16 +67,14 @@ export interface Property {
     reconciliation?: string; // 화해조서
     lessorInfo?: string; // 임대인정보
     partnership?: string; // 동업권리관계
-    maintenanceFee?: number; // 관리비
-    personnelExpense?: number; // 인건비
-    materialExpense?: number; // 재료비
-    rentMaintenanceFee?: number; // 임대관리비
-    utilityFee?: number; // 제세공과금
-    maintenanceCost?: number; // 유지보수감가
-    otherExpenses?: number; // 홍보기타잡비
-    revenueMemo?: string; // 매출오픈여부/매출지출메모
-    yieldPercent?: number; // 수익률 (Explicit import)
-    memo?: string; // 물건메모 (New field)
-    // Add other fields as needed or use 'any' for now if structure is loose
+    monthlyRent?: number;
+    rentUnit?: 'money' | 'percent'; // Added for toggle support
+    // Updated for text input support
+    maintenance?: string | number; // 관리비 (UI uses 'maintenance', not 'maintenanceFee')
+    vat?: string; // 부가세 (별도/포함/Direct Input)
+    maintenanceFee?: string | number; // Legacy or alternative mapping
+    totalExpense?: number; // Added for auto-sum/manual override
+    materialCostUnit?: 'money' | 'percent';
+    royaltyUnit?: 'money' | 'percent';
     [key: string]: any;
 }

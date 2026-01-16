@@ -117,13 +117,22 @@ export default function RegisterPropertyPage() {
     }, []);
 
     // Price State for Auto Calculation
-    const [priceData, setPriceData] = useState({
+    const [priceData, setPriceData] = useState<{
+        deposit: number;
+        premium: number;
+        briefingPrice: number;
+        monthlyRent: number;
+        maintenance: string | number;
+        vat: string;
+        rentUnit?: 'money' | 'percent'; // Added
+    }>({
         deposit: 0,
         premium: 0,
         briefingPrice: 0,
         monthlyRent: 0,
-        maintenance: 0,
+        maintenance: '', // Changed to empty string default for text input
         vat: '별도',
+        rentUnit: 'money', // Default
     });
 
     const formatCurrency = (value: number | string) => {
@@ -148,14 +157,79 @@ export default function RegisterPropertyPage() {
                 newData.premium = (prev.premium || 0) + delta;
             }
 
-            // Sync rentMaintenance if monthlyRent or maintenance changes
-            if (name === 'monthlyRent' || name === 'maintenance') {
-                const newRent = name === 'monthlyRent' ? numValue : prev.monthlyRent;
-                const newMaint = name === 'maintenance' ? numValue : prev.maintenance;
-                setFinancialData(fPrev => ({ ...fPrev, rentMaintenance: newRent + newMaint }));
+            // Sync rentMaintenance if monthlyRent changes
+            if (name === 'monthlyRent') {
+                const rentUnit = prev.rentUnit || 'money';
+                const monthlyRevenue = financialData.monthlyRevenue || 0;
+                let actualRentMoney = 0;
+
+                if (rentUnit === 'percent') {
+                    actualRentMoney = Math.round(monthlyRevenue * (numValue / 100));
+                } else {
+                    actualRentMoney = numValue;
+                }
+
+                // Fix: Advanced Parsing for Maintenance Fee (Leading number only)
+                const currentMaintStr = String(prev.maintenance || '');
+                const match = currentMaintStr.match(/^\s*([\d,]+)/);
+                const currentMaint = match ? parseFloat(match[1].replace(/,/g, '')) : 0;
+
+                setFinancialData(fPrev => {
+                    const newRentMaint = actualRentMoney + currentMaint;
+                    const matCost = Math.round(fPrev.monthlyRevenue * (fPrev.materialCostPercent / 100));
+                    const newTotal = fPrev.laborCost + newRentMaint + fPrev.taxUtilities + fPrev.maintenanceDepreciation + fPrev.promoMisc + matCost;
+                    return { ...fPrev, rentMaintenance: newRentMaint, totalExpense: newTotal };
+                });
             }
 
             return newData;
+        });
+    };
+
+    // New handler for Maintenance input (Text support + Advanced Parsing)
+    const handleMaintenanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { value } = e.target;
+        setPriceData(prev => ({ ...prev, maintenance: value }));
+
+        // Recalculate rentMaintenance with new parsing logic
+        const monthlyRent = priceData.monthlyRent || 0;
+        const match = value.match(/^\s*([\d,]+)/); // Extract leading number ONLY
+        const maintValue = match ? parseFloat(match[1].replace(/,/g, '')) : 0;
+
+        setFinancialData(prev => {
+            const newRentMaint = monthlyRent + maintValue;
+            const matCost = Math.round(prev.monthlyRevenue * (prev.materialCostPercent / 100));
+            const newTotal = prev.laborCost + newRentMaint + prev.taxUtilities + prev.maintenanceDepreciation + prev.promoMisc + matCost;
+            return { ...prev, rentMaintenance: newRentMaint, totalExpense: newTotal };
+        });
+    };
+
+
+
+    const toggleRentUnit = () => {
+        setPriceData(prev => {
+            const newUnit = prev.rentUnit === 'percent' ? 'money' : 'percent';
+
+            // Recalculate Rent Maintenance on Toggle
+            const monthlyRevenue = financialData.monthlyRevenue || 0;
+            const rentInput = prev.monthlyRent || 0;
+            const actualRentMoney = newUnit === 'percent'
+                ? Math.round(monthlyRevenue * (rentInput / 100))
+                : rentInput;
+
+            // Advanced Parsing for Maintenance Fee
+            const currentMaintStr = String(prev.maintenance || '');
+            const match = currentMaintStr.match(/^\s*([\d,]+)/);
+            const maintValue = match ? parseFloat(match[1].replace(/,/g, '')) : 0;
+
+            setFinancialData(fPrev => {
+                const newRentMaint = actualRentMoney + maintValue;
+                const matCost = fPrev.materialCost; // Use stored material cost
+                const newTotal = fPrev.laborCost + newRentMaint + fPrev.taxUtilities + fPrev.maintenanceDepreciation + fPrev.promoMisc + matCost;
+                return { ...fPrev, rentMaintenance: newRentMaint, totalExpense: newTotal };
+            });
+
+            return { ...prev, rentUnit: newUnit };
         });
     };
 
@@ -170,19 +244,100 @@ export default function RegisterPropertyPage() {
         taxUtilities: 0,
         maintenanceDepreciation: 0,
         promoMisc: 0,
+        totalExpense: 0, // Added
+        revenueOpen: '',
+        revenueMemo: '',
+        materialCostUnit: 'percent', // Default
+        materialCost: 0, // Added to state
     });
 
     const handleFinancialChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         const numValue = Number(value.replace(/,/g, ''));
-        setFinancialData(prev => ({ ...prev, [name]: numValue }));
+
+        setFinancialData(prev => {
+            const newData = { ...prev, [name]: numValue };
+
+            // Logic for Material Cost Unit
+            const revenue = newData.monthlyRevenue;
+            const matUnit = prev.materialCostUnit || 'percent';
+
+            if (name === 'materialCostPercent') {
+                if (matUnit === 'percent') {
+                    // Input is Percent
+                    newData.materialCost = Math.round(revenue * (numValue / 100));
+                } else {
+                    // Input is Money
+                    newData.materialCost = numValue;
+                    newData.materialCostPercent = revenue > 0 ? (numValue / revenue) * 100 : 0;
+                }
+            } else if (name === 'monthlyRevenue') {
+                // Revenue Change
+                if (matUnit === 'percent') {
+                    newData.materialCost = Math.round(numValue * (newData.materialCostPercent / 100));
+                } else {
+                    // Keep Money, Recalc Percent
+                    newData.materialCostPercent = numValue > 0 ? (newData.materialCost / numValue) * 100 : 0;
+                }
+            }
+
+            // Auto-sum Total Expense
+            newData.totalExpense =
+                newData.laborCost +
+                newData.rentMaintenance +
+                newData.taxUtilities +
+                newData.maintenanceDepreciation +
+                newData.promoMisc +
+                newData.materialCost;
+
+            return newData;
+        });
+    };
+
+    const toggleMaterialCostUnit = () => {
+        setFinancialData(prev => {
+            const currentUnit = prev.materialCostUnit || 'percent';
+            const newUnit = currentUnit === 'percent' ? 'money' : 'percent';
+            const inputValue = currentUnit === 'percent' ? prev.materialCostPercent : prev.materialCost;
+
+            let newMaterialCost = 0;
+            let newMaterialCostPercent = 0;
+
+            if (newUnit === 'money') {
+                // Was Percent, now Money
+                newMaterialCost = inputValue;
+                newMaterialCostPercent = prev.monthlyRevenue > 0 ? (newMaterialCost / prev.monthlyRevenue) * 100 : 0;
+            } else {
+                // Was Money, now Percent
+                newMaterialCostPercent = inputValue;
+                newMaterialCost = Math.round(prev.monthlyRevenue * (newMaterialCostPercent / 100));
+            }
+
+            // Recalculate Total Expense
+            const otherExpenses = (prev.rentMaintenance || 0) + (prev.laborCost || 0) + (prev.taxUtilities || 0) + (prev.maintenanceDepreciation || 0) + (prev.promoMisc || 0);
+            const newTotalExpense = otherExpenses + newMaterialCost;
+
+            return {
+                ...prev,
+                materialCostUnit: newUnit,
+                materialCost: newMaterialCost,
+                materialCostPercent: newMaterialCostPercent,
+                totalExpense: newTotalExpense
+            };
+        });
+    };
+
+
+    const handleTotalExpenseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { value } = e.target;
+        const numValue = Number(value.replace(/,/g, ''));
+        setFinancialData(prev => ({ ...prev, totalExpense: numValue }));
     };
 
     // Auto Calculations
-    const materialCost = Math.round(financialData.monthlyRevenue * (financialData.materialCostPercent / 100));
-    // rentMaintenance is now in state
-    const totalExpense = financialData.laborCost + financialData.rentMaintenance + financialData.taxUtilities + financialData.maintenanceDepreciation + financialData.promoMisc + materialCost;
-    const monthlyProfit = financialData.monthlyRevenue - totalExpense;
+    // const materialCost = // Now in State assignment directly
+    // totalExpense is now in state
+    const monthlyProfit = financialData.monthlyRevenue - financialData.totalExpense;
     // Yield Formula: (Monthly Profit / (Deposit + Premium)) * 100
     const investment = priceData.deposit + priceData.premium;
     const yieldPercent = investment > 0 ? (monthlyProfit / investment) * 100 : 0;
@@ -195,11 +350,21 @@ export default function RegisterPropertyPage() {
 
         renewal: 0,
         royalty: 0,
+        royaltyUnit: 'money', // Default
     });
 
     const handleFranchiseChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFranchiseData(prev => ({ ...prev, [name]: Number(value) }));
+    };
+
+    const toggleRoyaltyUnit = () => {
+        setFranchiseData(prev => {
+            const currentUnit = (prev as any).royaltyUnit || 'money';
+            const newUnit = currentUnit === 'money' ? 'percent' : 'money';
+            // Simple toggle, no value conversion for input number.
+            return { ...prev, royaltyUnit: newUnit };
+        });
     };
 
     const franchiseTotal = franchiseData.hqDeposit + franchiseData.franchiseFee + franchiseData.educationFee + franchiseData.renewal;
@@ -530,9 +695,9 @@ export default function RegisterPropertyPage() {
             ...priceData,
             totalPrice,
             ...financialData,
-            materialCost,
+            materialCost: financialData.materialCost,
             rentMaintenance: financialData.rentMaintenance,
-            totalExpense,
+
             monthlyProfit,
             yieldPercent,
 
@@ -984,33 +1149,51 @@ export default function RegisterPropertyPage() {
                                         <label className={styles.label}>월 임대료</label>
                                         <div className={styles.inputUnit}>
                                             <input name="monthlyRent" type="text" className={styles.input} placeholder="0" value={formatInput(priceData.monthlyRent)} onChange={handlePriceChange} />
-                                            <span className={styles.unit}>만원</span>
+                                            <button
+                                                type="button"
+                                                onClick={toggleRentUnit}
+                                                style={{
+                                                    marginLeft: '4px',
+                                                    padding: '2px 6px',
+                                                    fontSize: '11px',
+                                                    minWidth: '24px',
+                                                    cursor: 'pointer',
+                                                    backgroundColor: '#f1f3f5',
+                                                    border: '1px solid #ced4da',
+                                                    borderRadius: '4px'
+                                                }}
+                                            >
+                                                {priceData.rentUnit === 'percent' ? '%' : '만'}
+                                            </button>
+
                                         </div>
                                     </div>
                                     <div className={styles.field}>
                                         <label className={styles.label}>관리비</label>
                                         <div className={styles.inputUnit}>
-                                            <input name="maintenance" type="text" className={styles.input} placeholder="0" value={formatInput(priceData.maintenance)} onChange={handlePriceChange} />
-                                            <span className={styles.unit}>만원</span>
+                                            <input
+                                                name="maintenance"
+                                                type="text"
+                                                className={styles.input}
+                                                placeholder="0 (텍스트 가능)"
+                                                value={priceData.maintenance || ''}
+
+                                                onChange={handleMaintenanceChange}
+                                            />
+                                            {/* <span className={styles.unit}>만원</span> */}
                                         </div>
                                     </div>
                                     <div className={styles.field}>
                                         <label className={styles.label}>부가세</label>
-                                        <div className={styles.inputUnit} style={{ border: 'none', background: 'transparent', padding: 0 }}>
-                                            <div style={{ display: 'flex', gap: '12px' }}>
-                                                {['별도', '포함'].map(option => (
-                                                    <label key={option} style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                                                        <input
-                                                            type="radio"
-                                                            name="vat"
-                                                            value={option}
-                                                            checked={priceData.vat === option}
-                                                            onChange={(e) => setPriceData(prev => ({ ...prev, vat: e.target.value }))}
-                                                        />
-                                                        <span style={{ fontSize: '14px' }}>{option}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
+                                        <div className={styles.inputUnit}>
+                                            <input
+                                                name="vat"
+                                                type="text"
+                                                className={styles.input}
+                                                placeholder="예: 별도, 포함, 10%"
+                                                value={priceData.vat || ''}
+                                                onChange={(e) => setPriceData(prev => ({ ...prev, vat: e.target.value }))}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -1083,14 +1266,31 @@ export default function RegisterPropertyPage() {
                                     {/* Row 2: Material + Rent */}
                                     <div className={styles.row}>
                                         <div className={styles.field}>
-                                            <label className={styles.label}>재료비(%)</label>
+                                            <label className={styles.label}>재료비</label>
                                             <div className={styles.inputUnit}>
-                                                <input name="materialCostPercent" type="text" className={styles.input} placeholder="0" value={formatInput(financialData.materialCostPercent)} onChange={handleFinancialChange} />
-                                                <span className={styles.unit}>%</span>
+                                                <input name="materialCostPercent" type="text" className={styles.input} placeholder="0" value={formatInput((financialData.materialCostUnit || 'percent') === 'percent' ? financialData.materialCostPercent : financialData.materialCost)} onChange={handleFinancialChange} />
+                                                <button
+                                                    type="button"
+                                                    onClick={toggleMaterialCostUnit}
+                                                    style={{
+                                                        marginLeft: '4px',
+                                                        padding: '2px 6px',
+                                                        fontSize: '11px',
+                                                        minWidth: '24px',
+                                                        cursor: 'pointer',
+                                                        backgroundColor: '#f1f3f5',
+                                                        border: '1px solid #ced4da',
+                                                        borderRadius: '4px'
+                                                    }}
+                                                >
+                                                    {(financialData.materialCostUnit || 'percent') === 'percent' ? '%' : '만'}
+                                                </button>
                                             </div>
-                                            <div style={{ fontSize: '12px', marginTop: '4px', color: '#868e96' }}>
-                                                ({formatCurrency(materialCost)} 만원)
-                                            </div>
+                                            {(financialData.materialCostUnit || 'percent') === 'percent' && (
+                                                <div style={{ fontSize: '12px', marginTop: '4px', color: '#868e96' }}>
+                                                    ({formatCurrency(financialData.materialCost)} 만원)
+                                                </div>
+                                            )}
                                         </div>
                                         <div className={styles.field}>
                                             <label className={styles.label}>임대관리비</label>
@@ -1141,6 +1341,25 @@ export default function RegisterPropertyPage() {
                                             </div>
                                         </div>
                                         <div className={styles.field}>
+                                            <label className={styles.label}>월 총경비</label>
+                                            <div className={styles.inputUnit}>
+                                                <input
+                                                    name="totalExpense"
+                                                    type="text"
+                                                    className={styles.input}
+                                                    placeholder="0"
+                                                    value={formatInput(financialData.totalExpense)}
+                                                    onChange={handleTotalExpenseChange}
+                                                    style={{ fontWeight: 'bold' }}
+                                                />
+                                                <span className={styles.unit}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Row 5: Yield + Open Status */}
+                                    <div className={styles.row}>
+                                        <div className={styles.field}>
                                             <label className={styles.label} style={{ fontWeight: 'bold' }}>월순수익</label>
                                             <div className={styles.inputUnit}>
                                                 <input value={formatCurrency(monthlyProfit)} type="text" className={`${styles.input} ${styles.highlight}`} readOnly style={{ fontWeight: 'bold', color: '#f08c00' }} />
@@ -1165,17 +1384,24 @@ export default function RegisterPropertyPage() {
                                 <div className={styles.financialActions}>
                                     <div className={styles.field} style={{ marginBottom: '12px' }}>
                                         <label className={styles.label}>매출오픈여부</label>
-                                        <select name="revenueOpen" className={styles.select}>
-                                            <option value="">선택</option>
-                                            <option value="공개">공개</option>
-                                            <option value="조건부공개">조건부공개</option>
-                                            <option value="비공개">비공개</option>
-                                            <option value="협의">협의</option>
-                                        </select>
+                                        <input
+                                            name="revenueOpen"
+                                            className={styles.input}
+                                            placeholder="예: 공개, 비공개, 조건부공개"
+                                            value={financialData.revenueOpen || ''}
+                                            onChange={(e) => setFinancialData(prev => ({ ...prev, revenueOpen: e.target.value }))}
+                                        />
                                     </div>
                                     <div className={styles.field} style={{ marginBottom: '12px' }}>
                                         <label className={styles.label}>매출/지출 메모</label>
-                                        <textarea name="revenueMemo" className={styles.textarea} rows={5} placeholder="매출 관련 특이사항"></textarea>
+                                        <textarea
+                                            name="revenueMemo"
+                                            className={styles.textarea}
+                                            rows={5}
+                                            placeholder="매출 관련 특이사항"
+                                            value={financialData.revenueMemo || ''}
+                                            onChange={(e) => setFinancialData(prev => ({ ...prev, revenueMemo: e.target.value }))}
+                                        ></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -1251,7 +1477,7 @@ export default function RegisterPropertyPage() {
                                     </div>
                                 </div>
                                 <div className={styles.field}>
-                                    <label className={styles.label}>로열티(월)</label>
+                                    <label className={styles.label}>로열티</label>
                                     <div className={styles.inputUnit}>
                                         <input
                                             name="royalty"
@@ -1261,8 +1487,24 @@ export default function RegisterPropertyPage() {
                                             onChange={handleFranchiseChange}
                                             placeholder="0"
                                         />
-                                        <span className={styles.unit}>만원</span>
+                                        <button
+                                            type="button"
+                                            onClick={toggleRoyaltyUnit}
+                                            style={{
+                                                marginLeft: '4px',
+                                                padding: '2px 6px',
+                                                fontSize: '11px',
+                                                minWidth: '24px',
+                                                cursor: 'pointer',
+                                                backgroundColor: '#f1f3f5',
+                                                border: '1px solid #ced4da',
+                                                borderRadius: '4px'
+                                            }}
+                                        >
+                                            {(franchiseData.royaltyUnit || 'money') === 'percent' ? '%' : '만'}
+                                        </button>
                                     </div>
+
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>합계금</label>
