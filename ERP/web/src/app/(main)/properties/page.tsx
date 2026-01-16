@@ -2169,13 +2169,13 @@ function PropertiesPageContent() {
                                 <div>
                                     <span className="text-gray-400 text-xs block">보증금/월세</span>
                                     <span className="font-bold text-gray-700">
-                                        {item.deposit ? parseInt(item.deposit.replace(/,/g, '')).toLocaleString() : '0'} / {item.monthlyRent ? parseInt(item.monthlyRent.replace(/,/g, '')).toLocaleString() : '0'}
+                                        {item.deposit ? Number(String(item.deposit).replace(/,/g, '')).toLocaleString() : '0'} / {item.monthlyRent ? Number(String(item.monthlyRent).replace(/,/g, '')).toLocaleString() : '0'}
                                     </span>
                                 </div>
                                 <div>
                                     <span className="text-gray-400 text-xs block">권리금</span>
                                     <span className="font-bold text-gray-700">
-                                        {item.premium ? parseInt(item.premium.replace(/,/g, '')).toLocaleString() : '0'}
+                                        {item.premium ? Number(String(item.premium).replace(/,/g, '')).toLocaleString() : '0'}
                                     </span>
                                 </div>
                                 <div>
