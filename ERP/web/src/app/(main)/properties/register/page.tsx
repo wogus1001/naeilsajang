@@ -971,7 +971,7 @@ export default function RegisterPropertyPage() {
                                 </div>
                                 <div className={styles.field}>
                                     <label className={styles.label}>개업일</label>
-                                    <input name="openingDate" type="date" className={styles.input} />
+                                    <input name="openingDate" type="text" className={styles.input} placeholder="예: 2023.05" />
                                 </div>
                             </div>
 

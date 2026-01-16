@@ -2678,7 +2678,7 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                         </div>
                                         <div className={styles.fieldLabel}>개업일</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="openingDate" type="date" className={styles.input} value={formData.openingDate || ''} onChange={handleChange} />
+                                            <input name="openingDate" type="text" className={styles.input} value={formData.openingDate || ''} onChange={handleChange} placeholder="예: 2023.05" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
