@@ -324,8 +324,8 @@ export async function POST(request: Request) {
             // Usually frontend doesn't provide manage_id for new cards.
             // Let's generate a unique manage_id: name + random suffix or timestamp
             manage_id: `${name}_${Date.now()}`,
-            registered_at: new Date().toISOString(),
-            created_at: new Date().toISOString(),
+            registered_at: payload.registeredAt || payload.registered_at || new Date().toISOString(),
+            created_at: payload.createdAt || payload.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString()
         };
 
@@ -533,6 +533,7 @@ async function handleBatchUpload(payload: any) {
             gender: (row['성별'] === '남' || row['성별'] === 'M') ? 'M' : (row['성별'] === '여' || row['성별'] === 'F') ? 'F' : null,
             is_favorite: row['관심명함'] === 'O' || row['관심명함'] === true, // Check Excel convention
             registered_at: registeredAt,
+            created_at: registeredAt || now, // Use Excel date for creation time too
             manager_id: managerUuid,
             updated_at: now
         });
@@ -643,9 +644,9 @@ function parseDate(val: any) {
         const date = new Date((val - (25567 + 2)) * 86400 * 1000);
         return date.toISOString();
     }
-    // String "2025-11-10 (월)"
+    // String "2025-11-10 (월)" or "2025. 11. 10"
     const str = String(val);
-    const datePart = str.split('(')[0].trim(); // "2025-11-10"
+    const datePart = str.split('(')[0].trim().replace(/\./g, '-'); // Replace dots with dashes
     const d = new Date(datePart);
     if (!isNaN(d.getTime())) return d.toISOString();
     return null; // or keep original string if field was text

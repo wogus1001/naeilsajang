@@ -1221,20 +1221,22 @@ function PropertiesPageContent() {
             case 'name': return <td className={styles.cellPrimary} title={item.name}>{item.name}</td>;
             case 'processStatus':
                 return (
-                    <td className={styles.cellCompact}>
-                        {item.processStatus && (
-                            <span style={{
-                                display: 'inline-block',
-                                padding: '2px 8px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                backgroundColor: '#7950f2', // Uniform color as requested, or customize per status
-                                color: 'white'
-                            }}>
-                                {item.processStatus}
-                            </span>
-                        )}
+                    <td className={styles.cellCompact} style={{ minWidth: '100px' }}>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {(item.processStatus || '').split(',').filter(Boolean).map((status: string, idx: number) => (
+                                <span key={idx} style={{
+                                    display: 'inline-block',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: '#7950f2',
+                                    color: 'white'
+                                }}>
+                                    {status.trim()}
+                                </span>
+                            ))}
+                        </div>
                     </td>
                 );
             case 'grade': return <td className={styles.cellCompact}>{getStatusBadge(item.status)}</td>;

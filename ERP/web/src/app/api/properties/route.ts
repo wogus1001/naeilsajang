@@ -114,7 +114,7 @@ export async function POST(request: Request) {
             operation_type: operationType,
             address,
             is_favorite: isFavorite || false,
-            created_at: new Date().toISOString(),
+            created_at: body.createdAt || new Date().toISOString(),
             updated_at: new Date().toISOString(),
             data: {
                 ...rest,

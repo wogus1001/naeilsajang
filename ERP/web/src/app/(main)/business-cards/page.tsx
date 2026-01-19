@@ -549,7 +549,7 @@ function BusinessCardListContent() {
                         <col style={{ width: 150 }} />
                         <col style={{ width: 70 }} />
                         <col style={{ width: 90 }} />
-                        <col style={{ width: 90 }} />
+                        <col style={{ width: 120 }} />
                         <col />
                     </colgroup>
                     <thead>

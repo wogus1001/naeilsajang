@@ -482,23 +482,23 @@ function CustomerListPageContent() {
                         <col style={{ width: 30 }} />
                         <col style={{ width: 40 }} />
                         <col style={{ width: 30 }} />
-                        <col style={{ width: 80 }} />
+                        <col style={{ width: 100 }} />
                         <col style={{ width: 60 }} />
                         <col style={{ width: 40 }} />
                         <col style={{ width: 40 }} />
                         <col style={{ width: 80 }} />
-                        <col style={{ width: 150 }} />
                         <col style={{ width: 200 }} />
+                        <col style={{ width: 300 }} />
+                        <col style={{ width: 120 }} />
+                        <col style={{ width: 120 }} />
                         <col style={{ width: 100 }} />
                         <col style={{ width: 100 }} />
                         <col style={{ width: 80 }} />
                         <col style={{ width: 80 }} />
                         <col style={{ width: 80 }} />
+                        <col style={{ width: 120 }} />
                         <col style={{ width: 80 }} />
-                        <col style={{ width: 80 }} />
-                        <col style={{ width: 90 }} />
-                        <col style={{ width: 60 }} />
-                        <col style={{ width: 90 }} />
+                        <col style={{ width: 140 }} />
                     </colgroup>
                     <thead>
                         <tr>
@@ -575,7 +575,7 @@ function CustomerListPageContent() {
                                 <td>{customer.wantedItem}</td>
                                 <td>{customer.wantedIndustry}</td>
                                 <td>{customer.wantedArea}</td>
-                                <td>{customer.createdAt}</td>
+                                <td>{(customer.createdAt || '').substring(0, 10)}</td>
                                 <td>{managers[customer.managerId || customer.manager_id || ''] || (customer.managerId || '-')}</td>
                                 <td style={{ color: '#228be6' }}>{getLatestWorkDate(customer.history || [])}</td>
                             </tr>

@@ -2366,9 +2366,9 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
             {/* Header */}
             <div className={styles.header}>
                 <div className={styles.titleSection}>
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
-                        {formData.processStatus && (
-                            <span style={{
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                        {(formData.processStatus || '').split(',').filter(Boolean).map((status: string, idx: number) => (
+                            <span key={idx} style={{
                                 backgroundColor: '#7950f2',
                                 color: 'white',
                                 padding: '2px 8px',
@@ -2376,9 +2376,9 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                 fontSize: '12px',
                                 fontWeight: 'bold'
                             }}>
-                                {formData.processStatus}
+                                {status.trim()}
                             </span>
-                        )}
+                        ))}
                     </div>
                     <input
                         name="name"
