@@ -23,6 +23,7 @@ interface BusinessCardData {
     companyAddress?: string; // Added companyAddress
     userCompanyName?: string;
     managerId?: string;
+    manager_id?: string; // UUID
     isFavorite?: boolean;
     createdAt?: string;
     updatedAt?: string;
@@ -92,6 +93,7 @@ function BusinessCardListContent() {
                 const map: Record<string, string> = {};
                 data.forEach((u: any) => {
                     map[u.id] = u.name;
+                    if (u.uuid) map[u.uuid] = u.name; // Map UUIDs for fallback
                 });
                 setManagers(map);
             }
@@ -595,7 +597,9 @@ function BusinessCardListContent() {
                                 <td>{card.mobile}</td>
                                 <td>{card.companyPhone1}</td>
                                 <td>{card.email}</td>
-                                <td style={{ color: '#868e96' }}>{managers[card.managerId || ''] || card.managerId}</td>
+                                <td style={{ color: '#868e96' }}>
+                                    {managers[card.managerId || ''] || managers[card.manager_id || ''] || card.managerId || '-'}
+                                </td>
                                 <td style={{ fontSize: '0.9em', color: '#868e96' }}>{card.createdAt ? card.createdAt.split('T')[0] : '-'}</td>
                                 <td style={{ fontSize: '0.9em', color: '#228be6' }}>{getLatestWorkDate(card.history || [])}</td>
                                 <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#868e96' }}>{card.memo}</td>
