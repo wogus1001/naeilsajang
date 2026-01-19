@@ -85,6 +85,7 @@ export default function RegisterPropertyPage() {
     const [sector, setSector] = useState('');
     const [industryDetail, setIndustryDetail] = useState('');
     const [operationTypes, setOperationTypes] = useState<string[]>([]);
+    const [processStatuses, setProcessStatuses] = useState<string[]>([]); // Added
     const [isPy, setIsPy] = useState(true);
     const [brandName, setBrandName] = useState('');
     const [isFavorite, setIsFavorite] = useState(false);
@@ -539,6 +540,15 @@ export default function RegisterPropertyPage() {
         }
     };
 
+    const handleProcessStatusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { value, checked } = e.target;
+        if (checked) {
+            setProcessStatuses(prev => [...prev, value]);
+        } else {
+            setProcessStatuses(prev => prev.filter(t => t !== value));
+        }
+    };
+
     const toggleAreaUnit = () => {
         // Find input
         const input = document.querySelector('input[name="area"]') as HTMLInputElement;
@@ -687,7 +697,8 @@ export default function RegisterPropertyPage() {
             industryCategory: category,
             industrySector: sector,
             industryDetail: industryDetail,
-            operationType: operationTypes.join(','), // Assuming backend takes string
+            operationType: operationTypes.join(','),
+            processStatus: processStatuses.join(','),
             franchiseBrand: brandName,
             franchise: !!brandName,
 
@@ -826,12 +837,12 @@ export default function RegisterPropertyPage() {
                     </div>
                     {sections.overview && (
                         <div className={styles.sectionContent}>
-                            <div className={styles.row3}>
-                                <div className={styles.field}>
+                            <div className={styles.row}>
+                                <div className={styles.field} style={{ flex: 2 }}>
                                     <label className={styles.label}>물건명 <span className={styles.required}>*</span></label>
                                     <input name="name" type="text" className={styles.input} placeholder="예: 강남역 1번출구 카페" required />
                                 </div>
-                                <div className={styles.field}>
+                                <div className={styles.field} style={{ flex: 1 }}>
                                     <label className={styles.label}>물건등급</label>
                                     <select name="status" className={styles.select}>
                                         <option value="progress">추진</option>
@@ -841,18 +852,43 @@ export default function RegisterPropertyPage() {
                                         <option value="complete">완료</option>
                                     </select>
                                 </div>
-                                <div className={styles.field}>
-                                    <label className={styles.label}>진행상황</label>
-                                    <select name="processStatus" className={styles.select}>
-                                        <option value="">선택하세요</option>
-                                        <option value="계약상황">계약상황</option>
-                                        <option value="계약완료">계약완료</option>
-                                        <option value="금액작업">금액작업</option>
-                                        <option value="광고중">광고중</option>
-                                        <option value="신규입점">신규입점</option>
-                                        <option value="양도양수">양도양수</option>
-                                        <option value="교환물건">교환물건</option>
-                                    </select>
+                            </div>
+
+                            <div className={styles.row}>
+                                <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+                                    <label className={styles.label}>진행상황 (중복선택 가능)</label>
+                                    <div className={styles.inputGroup} style={{ flexWrap: 'wrap', gap: '8px' }}>
+                                        {['계약상황', '계약완료', '금액작업', '광고중', '신규입점', '양도양수', '교환물건'].map(item => {
+                                            const isSelected = processStatuses.includes(item);
+                                            return (
+                                                <label key={item} style={{
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: '8px 16px',
+                                                    borderRadius: '24px',
+                                                    border: isSelected ? '1px solid #1c7ed6' : '1px solid #dee2e6',
+                                                    backgroundColor: isSelected ? '#e7f5ff' : '#fff',
+                                                    color: isSelected ? '#1c7ed6' : '#495057',
+                                                    cursor: 'pointer',
+                                                    fontSize: '14px',
+                                                    fontWeight: isSelected ? '600' : '400',
+                                                    transition: 'all 0.2s ease',
+                                                    userSelect: 'none'
+                                                }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        value={item}
+                                                        checked={isSelected}
+                                                        onChange={handleProcessStatusChange}
+                                                        style={{ display: 'none' }}
+                                                    />
+                                                    {item}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                    <input type="hidden" name="processStatus" value={processStatuses.join(',')} />
                                 </div>
                             </div>
 

@@ -76,5 +76,6 @@ export interface Property {
     totalExpense?: number; // Added for auto-sum/manual override
     materialCostUnit?: 'money' | 'percent';
     royaltyUnit?: 'money' | 'percent';
+    legacyId?: string; // 관리번호 (Excel import)
     [key: string]: any;
 }

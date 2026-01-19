@@ -15,7 +15,8 @@ async function resolveIds(legacyCompany: string | null, legacyManager: string | 
     }
 
     if (legacyManager) {
-        const email = `${legacyManager}@example.com`;
+        // Fix: If explicitly email, use it. Else append @example.com for legacy usernames.
+        const email = legacyManager.includes('@') ? legacyManager : `${legacyManager}@example.com`;
         const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
         if (u) managerId = u.id;
         // Also fallback: if manager found but no company yet, maybe infer company?

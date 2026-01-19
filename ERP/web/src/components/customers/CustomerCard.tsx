@@ -16,6 +16,7 @@ interface Customer {
     grade: string;
     class: string;
     managerId: string;
+    manager_id?: string; // UUID from DB
     status: string;
     feature: string;
     address: string;
@@ -712,7 +713,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <select
                                 className={styles.select}
                                 style={{ width: 100, color: '#333' }}
-                                value={formData.managerId}
+                                value={formData.managerId || ''}
                                 onChange={(e) => handleChange('managerId', e.target.value)}
                             >
                                 <option value="">담당자 미지정</option>

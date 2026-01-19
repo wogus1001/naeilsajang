@@ -2522,6 +2522,19 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                             <option key={c.id} value={c.name}>{c.name}</option>
                                                         ))}
 
+                                                        {/* Force render current value if not in options (e.g. from Excel) */}
+                                                        {formData.industryDetail && (
+                                                            !formData.industryCategory ||
+                                                            (
+                                                                formData.industryCategory &&
+                                                                INDUSTRY_DATA[formData.industryCategory] &&
+                                                                !((INDUSTRY_DATA[formData.industryCategory][formData.industrySector] || []).includes(formData.industryDetail)) &&
+                                                                !customCategories.some(c => c.name === formData.industryDetail)
+                                                            )
+                                                        ) && (
+                                                                <option value={formData.industryDetail}>{formData.industryDetail}</option>
+                                                            )}
+
                                                         {/* Direct Input Option */}
                                                         <option value="___DIRECT_INPUT___" style={{ color: '#7950f2', fontWeight: 'bold' }}>+ 직접 입력</option>
                                                     </select>
@@ -2556,11 +2569,11 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                 {['계약상황', '계약완료', '금액작업', '광고중', '신규입점', '양도양수', '교환물건'].map(item => (
                                                     <label key={item} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
                                                         <input
-                                                            type="radio"
+                                                            type="checkbox"
                                                             name="processStatus"
                                                             value={item}
-                                                            checked={formData.processStatus === item}
-                                                            onChange={handleChange}
+                                                            checked={formData.processStatus?.includes(item)}
+                                                            onChange={(e) => handleMultiSelect(e, 'processStatus')}
                                                         />
                                                         {item}
                                                     </label>
@@ -2836,8 +2849,10 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                             <span className={styles.totalPrice}>{formatCurrency(formData.totalPrice)}</span>
                                             <span style={{ fontSize: 12, marginLeft: 4, color: '#c92a2a', fontWeight: 'bold' }}>만</span>
                                         </div>
-                                        <div className={styles.fieldLabel}></div>
-                                        <div className={styles.fieldValue}></div>
+                                        <div className={styles.fieldLabel}>메모</div>
+                                        <div className={styles.fieldValue}>
+                                            <input name="priceMemo" className={styles.input} value={formData.priceMemo || ''} onChange={handleChange} placeholder="금액 관련 메모" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>

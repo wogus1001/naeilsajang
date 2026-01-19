@@ -29,6 +29,7 @@ interface Customer {
     createdAt: string;
     updatedAt: string;
     managerId: string;
+    manager_id?: string; // UUID from DB
     isFavorite?: boolean;
     history?: any[];
 }
@@ -221,7 +222,8 @@ function CustomerListPageContent() {
                 const data = await res.json();
                 const map: Record<string, string> = {};
                 data.forEach((u: any) => {
-                    map[u.id] = u.name;
+                    if (u.id) map[u.id] = u.name;
+                    if (u.uuid) map[u.uuid] = u.name; // Fallback for UUID based lookups
                 });
                 setManagers(map);
             }
@@ -574,7 +576,7 @@ function CustomerListPageContent() {
                                 <td>{customer.wantedIndustry}</td>
                                 <td>{customer.wantedArea}</td>
                                 <td>{customer.createdAt}</td>
-                                <td>{managers[customer.managerId] || customer.managerId}</td>
+                                <td>{managers[customer.managerId || customer.manager_id || ''] || (customer.managerId || '-')}</td>
                                 <td style={{ color: '#228be6' }}>{getLatestWorkDate(customer.history || [])}</td>
                             </tr>
                         ))}

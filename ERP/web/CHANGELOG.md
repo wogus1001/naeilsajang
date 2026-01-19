@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.1] - 2026-01-19
+
+### Fixed (수정됨)
+- **Business Card Manager Assignment Fix (명함카드 담당자 지정 오류 수정)**
+  - Resolved "Unassigned" manager issue whereby managers were not displaying correctly in the Business Card modal.
+    - 명함카드 모달에서 담당자가 "미지정"으로 표시되던 문제를 해결했습니다.
+  - Implemented robust fallback logic to handle both Legacy IDs (Email/ID) and UUIDs for manager matching, ensuring compatibility with mixed data sources.
+    - 기존 ID(이메일 등)와 UUID가 혼용된 데이터에서도 담당자를 정확히 인식하도록 매칭 로직을 개선했습니다.
+
 ## [v1.1.0] - 2026-01-16
 
 ### Added (추가됨)

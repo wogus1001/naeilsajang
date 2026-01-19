@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
-import { Search, Filter, Plus, MoreHorizontal, Printer, Save, Trash2, X, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Settings, Layout, Check, MapPin, Users, Banknote, Maximize, TrendingUp, Star, Eye, EyeOff, Type, Calendar } from 'lucide-react';
+import { Search, Filter, Plus, MoreHorizontal, Printer, Save, Trash2, X, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Settings, Layout, Check, MapPin, Users, Banknote, Maximize, TrendingUp, Star, Eye, EyeOff, Type, Calendar, FileSpreadsheet } from 'lucide-react';
 import Link from 'next/link';
 import Script from 'next/script';
 import { useRouter } from 'next/navigation';
@@ -112,6 +112,7 @@ function PropertiesPageContent() {
     const [viewMode, setViewMode] = useState<ViewMode>('center');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+
     // Advanced Filter State
     const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
     const [openFilterId, setOpenFilterId] = useState<string | null>(null);
@@ -128,6 +129,8 @@ function PropertiesPageContent() {
     const [isColumnSelectorOpen, setIsColumnSelectorOpen] = useState(false);
     const [columnSearchTerm, setColumnSearchTerm] = useState('');
     const [draggedSortIndex, setDraggedSortIndex] = useState<number | null>(null);
+
+
 
     // Click outside to close filter popovers & ESC key support
     useEffect(() => {
@@ -848,10 +851,6 @@ function PropertiesPageContent() {
                 const wb = XLSX.read(bstr, { type: 'binary' });
                 const wsname = wb.SheetNames[0];
                 const ws = wb.Sheets[wsname];
-                // Use header:1 to get array of arrays first to find header row (some excel files have headers on row 2)
-                // Assuming standard header on row 1 for now based on request.
-                // However, user said "Column text below" which usually implies merging or 2nd row?
-                // But typically xlsx.utils.sheet_to_json handles keys well.
                 const data = XLSX.utils.sheet_to_json(ws);
 
                 if (data.length === 0) {
@@ -867,83 +866,99 @@ function PropertiesPageContent() {
 
                 let successCount = 0;
                 let failCount = 0;
-                let hasSpecialWarning = false;
 
-                // Helper to find value by aliases
+                // Helper to find value by aliases (Fuzzy Match)
                 const getVal = (row: any, keys: string[]) => {
+                    // 1. Try exact match
                     for (const k of keys) {
-                        if (row[k] !== undefined) return String(row[k]).trim();
+                        if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') return String(row[k]).trim();
+                    }
+                    // 2. Fuzzy match (ignoring spaces, underscores, and content in brackets/parentheses)
+                    const rowKeys = Object.keys(row);
+                    for (const k of keys) {
+                        const cleanK = k.replace(/[\s_]/g, '');
+                        for (const rk of rowKeys) {
+                            // Validates: "소재지(지번)" -> "소재지" == "소재지"
+                            const cleanRK = rk.replace(/\(.*\)/g, '').replace(/\[.*\]/g, '').replace(/[\s_]/g, '');
+                            if (cleanRK === cleanK) {
+                                const val = row[rk];
+                                if (val !== undefined && val !== null && String(val).trim() !== '') return String(val).trim();
+                            }
+                        }
                     }
                     return undefined;
                 };
 
-                // Helper to parse amount (remove commas)
+                // Helper to parse amount (remove chars)
                 const parseAmt = (val: any) => {
                     if (!val) return 0;
                     if (typeof val === 'number') return val;
-                    // Handle "3,000" -> 3000, remove all non-numeric except dot/dash
-                    const cleanStr = String(val).replace(/,/g, '').trim();
+                    const cleanStr = String(val).replace(/,/g, '').replace(/만/g, '').replace(/원/g, '').trim();
                     return parseFloat(cleanStr) || 0;
                 };
 
+                // Helper to detect unit (percent vs money)
+                const getUnit = (val: any): 'money' | 'percent' => {
+                    if (typeof val === 'string' && val.includes('%')) return 'percent';
+                    return 'money';
+                };
+
+                // Helper to parse dates (YYYY-MM-DD or Excel serial)
+                const parseDate = (val: any) => {
+                    if (!val) return undefined;
+                    // Check if Excel serial date (number)
+                    if (typeof val === 'number') {
+                        const date = new Date((val - 25569) * 86400 * 1000); // Excel to JS date
+                        return date.toISOString().split('T')[0];
+                    }
+                    return String(val).trim();
+                };
+
+                // Debug: Show keys for first row
+                if (data.length > 0) {
+                    console.log('Excel Keys Detected:', Object.keys(data[0] as any));
+                    // alert(`Excel Keys: ${Object.keys(data[0] as any).join(', ')}`); // Optional: Enable if needed
+                }
+
                 for (const row of data as any[]) {
                     try {
+                        // VALIDATION: Skip rows without minimal identification (Name or Location/Address)
+                        const rawName = getVal(row, ['물건명', '상호명']);
+                        // Check for any location-related field to validate row existence
+                        // Prioritize precise address fields over generic ones to avoid picking up partial data (e.g. '321' from '소재지' vs full addr in '지번주소')
+                        const rawLoc = getVal(row, ['지번주소', '도로명주소', '소재지', '주소', '위치상권']);
+
+                        // If no name and no location usage, consider it garbage/empty row and skip
+                        if (!rawName && !rawLoc) {
+                            console.log('Skipping empty/unidentified row:', row);
+                            continue;
+                        }
+
                         // 1. Status Mapping
-                        let status = 'manage'; // Default
-                        const rawStatus = getVal(row, ['등급', '물건등급']);
-                        if (rawStatus === '보류') status = 'hold';
-                        else if (rawStatus === '완료' || rawStatus === '계약완료') status = 'complete';
-                        // else if (rawStatus === '추진' || rawStatus === '진행' || rawStatus === '계약진행') status = 'progress'; // Removed per request? No, keep standard. User didn't ask to remove.
-                        else if (rawStatus === '공동') status = 'common';
-                        // Default is manage (Active/General)
+                        const parsedStatus = String(getVal(row, ['상태', 'status', '물건상태', '물건등급']) || '');
+                        const statusMap: { [key: string]: string } = { '추진': 'progress', '관리': 'manage', '보류': 'hold', '공동': 'joint', '완료': 'complete' };
+                        const status = statusMap[parsedStatus] || parsedStatus || 'manage';
+                        const rawIndustryDetail = (getVal(row, ['업종', '소분류', '업종_소분류', '업종 소분류']) || '').trim();
+                        // For store_main.xlsx, user doesn't strictly have "업종", maybe "추천업종"?
+                        const recommended = getVal(row, ['추천업종']) || '';
 
-                        // 2. Operation Type Logic
-                        const ops = [];
-                        if (row['직영']) ops.push('직영');
-                        if (row['오토']) ops.push('오토');
-                        if (row['반오토']) ops.push('반오토');
+                        // Prioritize rawIndustryDetail if available, else recommended
+                        const targetDetail = rawIndustryDetail || recommended;
+                        let industryInfo = findIndustryByDetail([targetDetail]);
 
-                        // Special logic: "특수" checked -> means "위탁" AND "본사"
-                        if (row['특수']) {
-                            ops.push('특수'); // Keep "특수" label or...
-                            ops.push('위탁');
-                            ops.push('본사');
-                            hasSpecialWarning = true;
+                        // If finding failed, use logic for custom input
+                        if ((!industryInfo || !industryInfo.category) && targetDetail) {
+                            industryInfo = { category: '', sector: '' };
                         }
 
-                        // 3. Address & Detail Address
-                        // "위치컬럼은 상세주소에 입력" -> Append '위치' to '주소' or separate?
+                        // 3. Address
+                        // User provided "위치상권". Usually handled as location memo or address.
                         // "소재지의 경우 db에 작성... 지도 매핑 안됨" -> Just save string.
-                        const rawAddr = getVal(row, ['주소', '소재지']) || '';
-                        const rawLocation = getVal(row, ['위치', '상세주소']) || '';
-                        const fullAddress = `${rawAddr} ${rawLocation}`.trim();
+                        // Added '소재지' to the list as requested, but put '지번주소' first
+                        const rawAddr = getVal(row, ['지번주소', '도로명주소', '소재지', '주소', '위치상권']) || '';
+                        const fullAddress = rawAddr;
 
-                        const rawIndustryDetail = (getVal(row, ['업종', '소분류']) || '').trim();
-                        let industryInfo = findIndustryByDetail([rawIndustryDetail]); // Auto-find Sector/Category
-
-                        // Special Handling for "기타" using "종류" column
-                        if (rawIndustryDetail === '기타' || !industryInfo.category) {
-                            const rawKind = (getVal(row, ['종류']) || '').trim();
-
-                            const KIND_MAPPING: Record<string, { category: string, sector: string }> = {
-                                '휴게음료점': { category: '요식업', sector: '기타외식' },
-                                '일반음식점': { category: '요식업', sector: '기타외식' },
-                                '외식음식점': { category: '요식업', sector: '기타외식' },
-                                '주류점': { category: '요식업', sector: '주점' },
-                                '유흥주점': { category: '요식업', sector: '주점' },
-                                '서비스점': { category: '서비스업', sector: '기타서비스' },
-                                '판매점': { category: '유통업', sector: '기타도소매' },
-                                '오락스포츠': { category: '서비스업', sector: '기타서비스' },
-                                '특수상권': { category: '유통업', sector: '기타도소매' },
-                                '기타': { category: '서비스업', sector: '기타서비스' }
-                            };
-
-                            if (rawKind && KIND_MAPPING[rawKind]) {
-                                industryInfo = KIND_MAPPING[rawKind];
-                            }
-                        }
-
-                        // Geocoding (Add delay to prevent rate limit)
+                        // Geocoding
                         let coords = null;
                         if (fullAddress && window.kakao && window.kakao.maps && window.kakao.maps.services) {
                             try {
@@ -957,95 +972,166 @@ function PropertiesPageContent() {
                                         }
                                     });
                                 });
-                                // Rate limit delay (100ms)
-                                await new Promise(r => setTimeout(r, 100));
+                                await new Promise(r => setTimeout(r, 50)); // Rate limit
                             } catch (e) {
                                 console.log('Geocoding failed for:', fullAddress);
                             }
                         }
 
-                        // 5. Floor
-                        // "층수컬럼이 매칭이안돼 전체층수만 들어가있음" -> '층수' might be missing in Excel row object if header has spaces?
-                        // User wrote: No. 등급 ... 총층수 층수 ...
-                        // Check for '층수 ' or ' 층수'?
-                        const floorVal = getVal(row, ['층수', '층수(해당건물)', '해당층']);
-                        const totalFloorVal = getVal(row, ['총층수', '층수(전체층수)', '전체층수']);
+                        // 4. Mappings from store_main.xlsx (User provided mapping)
+                        // Company Mapping
+                        let companyName = currentUser?.companyName;
+                        if (!companyName) {
+                            try {
+                                const localUser = JSON.parse(localStorage.getItem('user') || localStorage.getItem('currentUser') || '{}');
+                                companyName = localUser.companyName;
+                            } catch (e) { }
+                        }
 
+                        // Manager Mapping
+                        const rawManager = getVal(row, ['담당자']);
+                        let managerId = currentUser?.id || '';
+                        if (rawManager) {
+                            const foundMgr = managers.find(m => m.name === rawManager);
+                            if (foundMgr) managerId = foundMgr.id;
+                        }
+
+                        // Unit Detection
+                        const rentVal = getVal(row, ['월임대료']);
+                        const rentUnit = getUnit(rentVal);
+                        const matVal = getVal(row, ['재료비']);
+                        const matUnit = getUnit(matVal);
+                        const royVal = getVal(row, ['로열티']);
+                        const royUnit = getUnit(royVal);
                         const propertyPayload = {
-                            name: getVal(row, ['물건명']),
-                            status: status, // mapped status
+                            companyName: companyName,
+                            name: rawName || `${rawLoc} (${getVal(row, ['관리번호']) || 'No ID'})`, // Generating name
+                            status: status,
+
+                            grade: getVal(row, ['물건등급']),
+                            operationType: getVal(row, ['운영형태']),
+
+                            legacyId: getVal(row, ['관리번호']), // PK for sync
+
+                            // Industry
                             industryCategory: industryInfo?.category || '',
                             industrySector: industryInfo?.sector || '',
-                            industryDetail: rawIndustryDetail,
+                            industryDetail: targetDetail, // Always use the text
 
-                            address: fullAddress, // Combined Address
-                            coordinates: coords, // Geocoded Coordinates
+                            address: fullAddress,
+                            detailAddress: getVal(row, ['건물명호수', '상세주소']),
+                            coordinates: coords,
 
-                            featureMemo: getVal(row, ['특징', '특징메모']),
+                            // Basic Info
+                            area: getVal(row, ['면적_평', '실면적', '전용면적', '면적', '면적_m2']),
+                            currentFloor: getVal(row, ['해당층수', '해당층', '층수']), // Renamed from floor to currentFloor to match UI
+                            totalFloor: getVal(row, ['전체층수', '총층수', '전체층']),
+                            featureMemo: getVal(row, ['특징']),
+                            overviewMemo: getVal(row, ['물건개요_메모']),
 
-                            // People
+                            // Contact Info
                             storePhone: getVal(row, ['업소전화']),
-                            landlordName: getVal(row, ['물건주', '임대인이름']),
-                            landlordPhone: getVal(row, ['물건주번호', '임대인연락처', '임대인연락처 ']), // Space trap
-                            tenantName: getVal(row, ['임차인', '임차인이름']),
-                            tenantPhone: getVal(row, ['임차인번호', '임차인연락처']),
-                            otherContactName: getVal(row, ['관리인1', '기타이름']),
-                            otherContactPhone: getVal(row, ['관리인1번호', '기타연락처']),
+                            landlordName: getVal(row, ['물건주_이름']),
+                            landlordPhone: getVal(row, ['물건주_번호']),
+                            tenantName: getVal(row, ['임차인_이름']),
+                            tenantPhone: getVal(row, ['임차인_번호']),
+                            otherContactName: getVal(row, ['연락처추가_이름']),
+                            otherContactPhone: getVal(row, ['연락처추가_번호']),
+                            contactMemo: getVal(row, ['연락처_메모']),
 
-
-                            // Building Info
-                            totalFloor: String(totalFloorVal || ''),
-                            floor: String(floorVal || ''),
-                            area: String(getVal(row, ['실면적평', '면적', '실면적']) || ''),
-                            parking: String(getVal(row, ['주차']) || ''),
-                            openDate: String(getVal(row, ['개업일']) || ''),
-                            facilityInterior: getVal(row, ['시설인테리어', '시설/인테리어']),
-
-                            // Business Info
-                            operationType: ops.join(', '),
-                            mainCustomer: getVal(row, ['주요고객층']),
-                            peakTime: getVal(row, ['골든피크타임', '피크타임']),
-                            tableCount: getVal(row, ['테이블룸개수', '테이블/룸']),
-                            recommendedBusiness: getVal(row, ['추천업종']),
-
-                            // Contract Info
-                            leasePeriod: getVal(row, ['임대기간']),
-                            rentFluctuation: getVal(row, ['임대료변동']),
-                            docDefects: getVal(row, ['공부서류하자', '공부서류 하자']),
-                            transferNotice: getVal(row, ['양수도통보']),
-                            settlementDefects: getVal(row, ['화해조서공증', '화해조서']),
-                            lessorInfo: getVal(row, ['임대인정보']),
-                            partnershipRights: getVal(row, ['동업권리관계', '동업/권리']),
-
-                            // Financials (Ensure numbers)
+                            // Prices
                             deposit: parseAmt(getVal(row, ['보증금'])),
-                            monthlyRent: parseAmt(getVal(row, ['임대료', '월임대료'])),
-                            premium: parseAmt(getVal(row, ['권리금'])),
-                            maintenance: parseAmt(getVal(row, ['관리비'])),
-
-                            // Revenue & Expenses
-                            monthlyRevenue: parseAmt(getVal(row, ['월총매출'])),
-                            laborCost: parseAmt(getVal(row, ['인건비'])),
-                            materialCost: parseAmt(getVal(row, ['재료비'])),
-                            rentMaintenance: parseAmt(getVal(row, ['임대관리비'])),
-                            taxUtilities: parseAmt(getVal(row, ['제세공과금'])),
-                            maintenanceDepreciation: parseAmt(getVal(row, ['유지보수감가', '유지보수'])),
-                            promoMisc: parseAmt(getVal(row, ['홍보기타잡비', '기타경비', '홍보/기타'])),
-
-                            monthlyProfit: parseAmt(getVal(row, ['월예상수익', '월순수익'])),
-                            yieldPercent: parseAmt(getVal(row, ['월예상수익률', '수익률'])),
-                            revenueMemo: getVal(row, ['매출오픈여부', '매출/지출 메모']),
+                            monthlyRent: parseAmt(rentVal),
+                            rentUnit: rentUnit, // Set Unit
+                            premium: parseAmt(getVal(row, ['시설금', '권리금'])), // User says Crawled: 시설금 -> Local: 권리금
+                            maintenance: getVal(row, ['관리비']), // Changed to allow text input (e.g. "100만,실비-230만")
+                            briefingPrice: parseAmt(getVal(row, ['브리핑가액'])),
+                            vat: getVal(row, ['부가세']),
+                            totalPrice: parseAmt(getVal(row, ['금액_합계금'])),
+                            priceMemo: getVal(row, ['금액_메모']),
 
                             // Franchise
                             hqDeposit: parseAmt(getVal(row, ['본사보증금'])),
                             franchiseFee: parseAmt(getVal(row, ['가맹비'])),
                             educationFee: parseAmt(getVal(row, ['교육비'])),
                             renewal: parseAmt(getVal(row, ['리뉴얼'])),
-                            royalty: parseAmt(getVal(row, ['로열티', '로열티(월)'])),
+                            royalty: parseAmt(royVal),
+                            royaltyUnit: royUnit, // Set Unit
+                            franchiseTotal: parseAmt(getVal(row, ['가맹_합계금'])),
+                            franchiseMemo: getVal(row, ['가맹현황_메모']),
 
-                            isFavorite: false,
-                            processStatus: '접수',
-                            createdAt: new Date().toISOString()
+                            // Revenue/Expense
+                            monthlyRevenue: parseAmt(getVal(row, ['월_총매출'])),
+                            laborCost: parseAmt(getVal(row, ['인건비'])), // Renamed from personnelExpense to match UI
+                            materialCost: parseAmt(matVal),
+                            materialCostPercent: matUnit === 'percent' ? parseAmt(matVal) : 0, // Added to support percent input
+                            materialCostUnit: matUnit, // Set Unit
+                            rentMaintenance: parseAmt(getVal(row, ['임대관리비'])),
+                            taxUtilities: parseAmt(getVal(row, ['제세공과금'])), // Renamed from utilityCost
+                            maintenanceDepreciation: parseAmt(getVal(row, ['유지보수_감가'])), // Renamed from maintenanceCost
+                            promoMisc: parseAmt(getVal(row, ['홍보기타잡비'])), // Renamed from etcExpense
+                            totalExpense: parseAmt(getVal(row, ['월총경비'])),
+                            monthlyProfit: parseAmt(getVal(row, ['월예상수익'])),
+                            yieldPercent: parseAmt(getVal(row, ['월예상수익률'])),
+                            revenueOpen: getVal(row, ['매출오픈여부']),
+                            revenueMemo: getVal(row, ['매출현황_메모']),
+
+                            // Building/Facility
+                            facilityInterior: getVal(row, ['시설인테리어']),
+                            mainCustomer: getVal(row, ['주요고객층']),
+                            peakTime: getVal(row, ['골든피크타임']),
+                            tableCount: getVal(row, ['테이블룸개수']),
+                            recommendedBusiness: getVal(row, ['추천업종']),
+                            operationMemo: getVal(row, ['영업현황메모']),
+                            parking: getVal(row, ['주차']),
+                            openingDate: getVal(row, ['개업일', '오픈일']),
+                            locationMemo: getVal(row, ['위치상권']),
+
+                            // Lease/Legal
+                            leasePeriod: getVal(row, ['임대기간']),
+                            rentFluctuation: getVal(row, ['임대료_변동']),
+                            docDefects: getVal(row, ['공부서류하자']),
+                            transferNotice: getVal(row, ['양수도_통보']),
+                            settlementDefects: getVal(row, ['화해조서공증']),
+                            lessorInfo: getVal(row, ['임대인_정보']),
+                            partnershipRights: getVal(row, ['동업권리관계']),
+                            leaseMemo: getVal(row, ['임대차권리메모']),
+                            memo: getVal(row, ['물건메모']),
+
+                            // Metadata
+                            isFavorite: getVal(row, ['관심물건']) === 'O',
+                            managerName: getVal(row, ['담당자']), // Helper field
+                            managerId: (() => {
+                                const rawManager = getVal(row, ['담당자']);
+                                if (rawManager) {
+                                    const cleanRaw = rawManager.trim().normalize('NFC');
+                                    console.log(`Checking manager: '${cleanRaw}' (len=${cleanRaw.length}) vs Self: '${currentUser?.name}'`);
+
+                                    // 1. Prioritize finding in 'managers' list (Fresh DB ID)
+                                    // This fixes issues where localStorage currentUser.id is stale/mismatched
+                                    const foundMgr = managers.find(m => (m.name || '').trim().normalize('NFC') === cleanRaw);
+                                    if (foundMgr) {
+                                        console.log(`Matched in Managers List! ID: ${foundMgr.id}`);
+                                        return foundMgr.id;
+                                    }
+
+                                    // 2. Fallback: Check if Self (if not in managers list for some reason)
+                                    if (currentUser) {
+                                        const selfName = (currentUser.name || '').trim().normalize('NFC');
+                                        if (selfName === cleanRaw) {
+                                            console.log(`Matched Self (Fallback)! ID: ${currentUser.id}`);
+                                            return currentUser.id;
+                                        }
+                                    }
+
+                                    console.log(`Manager match failed for '${cleanRaw}'. Available:`, managers.map(m => m.name));
+                                }
+                                // 3. Neither -> Unassigned
+                                return '';
+                            })(),
+                            // Date
+                            createdAt: parseDate(getVal(row, ['등록일'])) || new Date().toISOString(),
+                            processStatus: getVal(row, ['진행상황']) || '접수'
                         };
 
                         const res = await fetch('/api/properties', {
@@ -1063,11 +1149,7 @@ function PropertiesPageContent() {
                     }
                 }
 
-                let msg = `업로드 완료: 성공 ${successCount}건, 실패 ${failCount}건`;
-                if (hasSpecialWarning) {
-                    msg += `\n\n[알림] '특수' 운영형태가 포함된 항목이 있습니다.\n위탁 및 본사 운영으로 자동 체크되었으니, 추후 상세 내용을 확인 후 수정해주세요.`;
-                }
-                alert(msg);
+                alert(`업로드 완료: 성공 ${successCount}건, 실패 ${failCount}건`);
                 fetchProperties();
 
             } catch (error) {
@@ -1727,6 +1809,23 @@ function PropertiesPageContent() {
                         )}
                     </div>
 
+                    <div className="hidden md:block">
+                        <button
+                            className={styles.actionBtn}
+                            onClick={() => fileInputRefExport.current?.click()}
+                            style={{ backgroundColor: '#1098AD', color: 'white' }}
+                        >
+                            <FileSpreadsheet size={16} />
+                            <span>엑셀 업로드</span>
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRefExport}
+                            onChange={handleExcelUpload}
+                            accept=".xlsx, .xls"
+                            style={{ display: 'none' }}
+                        />
+                    </div>
                     <div className="hidden md:block">
                         <Link href="/properties/register" className={`${styles.actionBtn} ${styles.primaryBtn}`}>
                             <Plus size={16} />

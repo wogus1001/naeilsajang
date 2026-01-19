@@ -23,27 +23,59 @@ async function handleBatchUpload(payload: any) {
     let createdCount = 0;
     let updatedCount = 0;
 
-    // 1. Resolve Managers (Cache Map: Name -> UUID)
+    // 1. Resolve Managers (Cache Map: Name/Email -> UUID)
+    const uniqueEmails = new Set<string>();
     const uniqueNames = new Set<string>();
+
     main.forEach((row: any) => {
-        const mName = row['담당자'];
-        if (mName && typeof mName === 'string' && mName.trim()) {
-            uniqueNames.add(mName.trim());
+        const mVal = row['담당자'];
+        if (mVal && typeof mVal === 'string' && mVal.trim()) {
+            const clean = mVal.trim();
+            if (clean.includes('@')) uniqueEmails.add(clean);
+            else uniqueNames.add(clean.normalize('NFC'));
         }
     });
 
-    const managerNameMap = new Map<string, string>();
+    const managerMap = new Map<string, { uuid: string, displayId: string }>(); // Key: Name/Email, Value: { UUID, DisplayID }
+
+    // Helper to get Display ID (matches api/users default)
+    const getDisplayId = (p: any) => {
+        return p.email?.endsWith('@example.com') ? p.email.split('@')[0] : p.email;
+    };
+
+    // Fetch by Email
+    if (uniqueEmails.size > 0) {
+        const { data: profiles } = await supabaseAdmin
+            .from('profiles')
+            .select('id, email')
+            .in('email', Array.from(uniqueEmails));
+
+        profiles?.forEach((p: any) => {
+            if (p.email) {
+                managerMap.set(p.email, {
+                    uuid: p.id,
+                    displayId: getDisplayId(p)
+                });
+            }
+        });
+    }
+
+    // Fetch by Name
     if (uniqueNames.size > 0) {
         const { data: profiles } = await supabaseAdmin
             .from('profiles')
-            .select('id, name')
+            .select('id, name, email')
             .in('name', Array.from(uniqueNames));
 
-        if (profiles) {
-            profiles.forEach((p: any) => {
-                if (p.name) managerNameMap.set(p.name, p.id);
-            });
-        }
+        profiles?.forEach((p: any) => {
+            if (p.name) {
+                // Store normalized name for consistent lookup
+                managerMap.set(p.name.normalize('NFC'), {
+                    uuid: p.id,
+                    displayId: getDisplayId(p)
+                });
+            }
+        });
     }
 
     // 2. Prepare Customer Upserts
@@ -85,11 +117,21 @@ async function handleBatchUpload(payload: any) {
         const legacyId = row['관리번호'];
         if (!legacyId) continue;
 
-        // Manager Resolution
-        let assignedManagerId = null;
-        const managerName = row['담당자'];
-        if (managerName && typeof managerName === 'string') {
-            assignedManagerId = managerNameMap.get(managerName.trim()) || null;
+        // Manager Resolution (UUID for DB, DisplayId for UI)
+        let assignedManagerUuid = null;
+        let assignedManagerDisplayId = null;
+
+        const managerVal = row['담당자'];
+        if (managerVal && typeof managerVal === 'string') {
+            const clean = managerVal.trim();
+            const found = clean.includes('@')
+                ? managerMap.get(clean)
+                : managerMap.get(clean.normalize('NFC'));
+
+            if (found) {
+                assignedManagerUuid = found.uuid;
+                assignedManagerDisplayId = found.displayId;
+            }
         }
 
         // Store Only (Target Type filtering requested by user, but user said "Currently all targets are Store", so we just process all as Store?
@@ -123,7 +165,7 @@ async function handleBatchUpload(payload: any) {
             mobile: row['핸드폰'],
             company_id: uploaderCompanyId, // Assign resolved company ID
             is_favorite: Boolean(row['관심고객']), // Any non-empty value is true? 'O', '관심고객', etc.
-            manager_id: assignedManagerId,
+            manager_id: assignedManagerUuid, // UUID for DB constraint
 
             // Explicit Columns added recently
             memo_interest: row['관심내용'],
@@ -163,6 +205,7 @@ async function handleBatchUpload(payload: any) {
                 wantedRegion: row['점포_찾는지역'], // Regional preference
                 budget: row['예산'],
                 memoSituation: row['고객상황'], // '고객상황' -> memoSituation
+                managerId: assignedManagerDisplayId, // Legacy ID for UI Dropdown match!
 
                 // Store raw values in JSON too just in case
                 excel_target_type: row['타겟타입'] || '점포',

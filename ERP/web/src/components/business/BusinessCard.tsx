@@ -28,6 +28,7 @@ interface BusinessCardData {
 
     // System fields
     managerId?: string; // The user who owns this card
+    manager_id?: string; // UUID from DB
     userCompanyName?: string; // The segregation key
     isFavorite?: boolean;
 
@@ -136,7 +137,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                                 memo: found.memo || '',
                                 companyAddress: found.companyAddress || '',
                                 homeAddress: found.homeAddress || '',
-                                managerId: found.managerId || ''
+                                managerId: found.managerId || '',
+                                manager_id: found.manager_id // Copy UUID from DB if exists
                             });
 
                             if (found.category && (!categories.includes(found.category) || found.category === '기타')) {
@@ -155,6 +157,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
         };
         loadData();
     }, [id]);
+
+
 
     // Fetch Property Detail
     useEffect(() => {
@@ -787,6 +791,28 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
         }
     };
 
+    const getSelectedManagerId = () => {
+        // 1. Exact Match on Legacy ID
+        if (formData.managerId && managers.some((m: any) => m.id === formData.managerId)) return formData.managerId;
+
+        // 2. Exact Match via UUID field (if populated)
+        // Check finding by manager_id (from DB column)
+        const uuidToFind = formData.manager_id;
+        if (uuidToFind) {
+            const match = managers.find((m: any) => m.uuid === uuidToFind);
+            if (match) return match.id;
+        }
+
+        // 3. Fallback: If managerId LOOKS like a UUID (approx len check), try matching it against manager UUIDs
+        // This handles data where UUID was saved into the managerId field
+        if (formData.managerId && formData.managerId.length > 30) {
+            const match = managers.find((m: any) => m.uuid === formData.managerId);
+            if (match) return match.id;
+        }
+
+        return '';
+    };
+
     return (
         <div className={styles.container} style={{ height: '100%', border: 'none', background: 'transparent', padding: isModal ? 0 : 16 }}>
             {/* Header */}
@@ -847,7 +873,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                                 <div className={styles.inputWrapper}>
                                     <select
                                         className={styles.select}
-                                        value={formData.managerId || ''}
+                                        value={getSelectedManagerId()}
                                         onChange={(e) => handleChange('managerId', e.target.value)}
                                     >
                                         <option value="">(선택)</option>
