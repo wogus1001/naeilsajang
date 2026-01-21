@@ -181,7 +181,7 @@ export async function POST(request: Request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
         const body = await request.json();
-        const { main = [], work = [], price = [], meta = {} } = body;
+        const { main = [], work = [], price = [], contracts = [], meta = {} } = body;
         const { userCompanyName, managerId } = meta;
 
         // 1. Fetch Existing Properties
@@ -205,6 +205,39 @@ export async function POST(request: Request) {
         let mainCount = 0;
         const upsertPayloads: any[] = [];
         const processedLegacyIds = new Set<string>(); // Track processed IDs
+
+        // [Manager Logic] Prepare Company & Colleague Map
+        let uploaderCompanyId: string | null = null;
+        const managerNameMap = new Map<string, string>(); // Name -> UUID
+
+        if (managerId) {
+            // Get Uploader's Company
+            const { data: uploaderProfile } = await supabaseAdmin
+                .from('profiles')
+                .select('company_id')
+                .eq('id', managerId)
+                .single();
+
+            if (uploaderProfile?.company_id) {
+                uploaderCompanyId = uploaderProfile.company_id;
+
+                // Fetch all colleagues in the same company
+                const { data: colleagues } = await supabaseAdmin
+                    .from('profiles')
+                    .select('id, name')
+                    .eq('company_id', uploaderCompanyId);
+
+                colleagues?.forEach((col: any) => {
+                    if (col.name) {
+                        const n = col.name.trim().normalize('NFC');
+                        managerNameMap.set(n, col.id);
+                        // Also map without spaces for fuzzy match
+                        managerNameMap.set(n.replace(/\s+/g, ''), col.id);
+                    }
+                });
+            }
+        }
+
         const { companyId: defaultCompanyId } = await resolveIds(userCompanyName, null, supabaseAdmin);
 
         for (const row of main) {
@@ -218,6 +251,30 @@ export async function POST(request: Request) {
 
             const rowCompany = row['업체명'] || userCompanyName;
             const { companyId } = await resolveIds(rowCompany, null, supabaseAdmin);
+
+            // [Manager Logic] Determine Manager
+            let assignedManagerId = null; // Default: Match fail -> Unassigned
+            const paramManagerName = getVal(row, ['담당자', '작업자', 'Manager']);
+
+            if (paramManagerName) {
+                const cleanParams = String(paramManagerName).trim().normalize('NFC');
+
+                // 1. Try exact match (normalized)
+                if (managerNameMap.has(cleanParams)) {
+                    assignedManagerId = managerNameMap.get(cleanParams);
+                }
+                // 2. Try match without spaces
+                else {
+                    const noSpace = cleanParams.replace(/\s+/g, '');
+                    if (managerNameMap.has(noSpace)) {
+                        assignedManagerId = managerNameMap.get(noSpace);
+                    }
+                }
+            } else {
+                // If column is empty, what is the policy?
+                // User said "If no match... unassigned". Empty implies no match.
+                // Keeping it null.
+            }
 
             // --- MAPPING LOGIC START ---
 
@@ -351,7 +408,7 @@ export async function POST(request: Request) {
             const corePayload = {
                 id: newId,
                 company_id: companyId || defaultCompanyId,
-                manager_id: managerId, // Uploader as default manager
+                manager_id: assignedManagerId, // Updated: Uses logic-based ID or null
                 name: finalData.name,
 
                 // CORE COLUMNS (MUST be populated here to be visible in frontend)
@@ -433,6 +490,41 @@ export async function POST(request: Request) {
             priceCount++;
         }
 
+        // 5. Process Contract History
+        let contractCount = 0;
+        for (const row of contracts) {
+            let legacyIdRaw = getVal(row, ['관리ID', '관리번호', 'ID']);
+            const legacyId = legacyIdRaw ? String(legacyIdRaw).trim() : '';
+            if (!legacyId || !propMap.has(legacyId)) continue;
+
+            const target = propMap.get(legacyId)!;
+            const currentData = propsToUpdate.get(target.id) || target.data;
+            const history = currentData.contractHistory || [];
+
+            // Helper for number parsing
+            const safeNum = (v: any) => {
+                const s = String(v || '').replace(/,/g, '').trim();
+                return parseInt(s, 10) || 0;
+            };
+
+            history.push({
+                id: Date.now().toString() + Math.random().toString().substr(2, 5),
+                contractDate: getVal(row, ['계약일', '날짜']) || new Date().toISOString().split('T')[0],
+                type: getVal(row, ['종류', '구분']) || '매매',
+                deposit: safeNum(getVal(row, ['보증금'])),
+                monthlyRent: safeNum(getVal(row, ['임대료', '월세'])),
+                contractorName: getVal(row, ['계약자', '이름']) || '',
+                contractorPhone: getVal(row, ['전화번호', '연락처']) || '',
+                expirationDate: getVal(row, ['만기일']) || '',
+                premium: safeNum(getVal(row, ['권리금'])),
+                details: getVal(row, ['계약정보', '비고', '상세']) || ''
+            });
+
+            currentData.contractHistory = history;
+            propsToUpdate.set(target.id, currentData);
+            contractCount++;
+        }
+
         // 5. Save History Updates
         const updatePromises = Array.from(propsToUpdate.entries()).map(async ([id, data]) => {
             return supabaseAdmin
@@ -447,6 +539,7 @@ export async function POST(request: Request) {
             success: true,
             workCount,
             priceCount,
+            contractCount,
             processedProperties: Array.from(processedLegacyIds).map(lid => {
                 const val = propMap.get(lid);
                 return val ? { manageId: lid, id: val.id, name: val.data.name } : null;

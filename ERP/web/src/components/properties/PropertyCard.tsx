@@ -145,7 +145,8 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                 ...property,
                                 rentUnit: property.rentUnit || 'money', // Default to money
                                 managerId: user.id || property.managerId,
-                                managerName: user.name || property.managerName
+                                managerName: user.name || property.managerName,
+                                companyName: user.companyName || property.companyName // Also default companyName if possible
                             };
                         }
                     }
@@ -178,6 +179,22 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
     const [mapConstants, setMapConstants] = useState<{ [key: string]: any } | null>(null);
     const [directReportPreview, setDirectReportPreview] = useState<number>(0);
     const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
+    const [userCompanyName, setUserCompanyName] = useState<string>('');
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    const user = parsed.user || parsed;
+                    if (user.companyName) setUserCompanyName(user.companyName);
+                }
+            } catch (e) {
+                console.error('Failed to load user company', e);
+            }
+        }
+    }, []);
 
 
     // Init Map Constants safely
@@ -4284,7 +4301,7 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                 isOpen={isPersonSelectorOpen}
                 onClose={() => setIsPersonSelectorOpen(false)}
                 onSelect={handlePersonSelect}
-                companyName={formData.companyName || ''}
+                companyName={formData.companyName || userCompanyName || ''}
                 initialTab={personSelectorMode === 'promotedCustomer' ? initialPersonTab : (workHistoryForm.targetType === 'businessCard' ? 'businessCard' : 'customer')}
             />
 

@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.5] - 2026-01-21
+
+### Added (추가됨)
+- **Contract History Batch Upload (계약 내역 일괄 업로드)**
+  - Support for uploading contract history via Excel (`store_contracts_v2.xlsx`) in the Property Upload Modal.
+    - 매물 상세의 '계약' 탭에서 엑셀 파일로 계약 내역을 일괄 등록하는 기능을 추가했습니다.
+
+### Changed (변경됨)
+- **Customer Classification Input (고객 분류 입력 방식 변경)**
+  - Changed the 'Classification' field in Customer Card from a dropdown to a text input for flexible entry.
+    - 고객 카드의 '분류' 필드를 고정된 드롭다운(A/B/C 등)에서 자유롭게 입력 가능한 텍스트 필드로 변경했습니다.
+
+### Fixed (수정됨)
+- **Customer Search Scope (고객 검색 범위 수정)**
+  - Fixed an issue where the "Add Customer" search would include customers from other companies when the property context was incomplete.
+    - 매물 정보가 불완전할 때 타사 고객까지 검색되던 문제를 수정하여, 항상 로그인한 사용자의 회사 소속 고객만 조회되도록 조치했습니다.
+
 ## [v1.1.4] - 2026-01-21
 
 ### Added (추가됨)

@@ -18,14 +18,15 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
         price: File | null;
         photos: FileList | null; // Add photos state
         docFolder: FileList | null; // Add docFolder state
-    }>({ main: null, work: null, price: null, photos: null, docFolder: null });
+        contracts: File | null; // Add contracts state
+    }>({ main: null, work: null, price: null, photos: null, docFolder: null, contracts: null });
 
     const [loading, setLoading] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
 
     if (!isOpen) return null;
 
-    const handleFileChange = (type: 'main' | 'work' | 'price') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (type: 'main' | 'work' | 'price' | 'contracts') => (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setFiles(prev => ({ ...prev, [type]: e.target.files![0] }));
         }
@@ -64,7 +65,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
     };
 
     const handleUpload = async () => {
-        if (!files.main && !files.work && !files.price) {
+        if (!files.main && !files.work && !files.price && !files.contracts) {
             alert('적어도 하나의 파일을 선택해주세요.');
             return;
         }
@@ -78,8 +79,9 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
             const mainData = files.main ? await parseExcel(files.main) : [];
             const workData = files.work ? await parseExcel(files.work) : [];
             const priceData = files.price ? await parseExcel(files.price) : [];
+            const contractData = files.contracts ? await parseExcel(files.contracts) : [];
 
-            setLogs(prev => [...prev, `파싱 완료: 메인 ${mainData.length}건, 작업 ${workData.length}건, 가격 ${priceData.length}건`, '서버 전송 중...']);
+            setLogs(prev => [...prev, `파싱 완료: 메인 ${mainData.length}건, 작업 ${workData.length}건, 가격 ${priceData.length}건, 계약 ${contractData.length}건`, '서버 전송 중...']);
 
             // Get User Info for meta
             const userStr = localStorage.getItem('user');
@@ -96,6 +98,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                 main: mainData,
                 work: workData,
                 price: priceData,
+                contracts: contractData, // Add contracts payload
                 meta: {
                     userCompanyName,
                     managerId: managerIdVal
@@ -110,8 +113,8 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
 
             if (res.ok) {
                 const result = await res.json();
-                setLogs(prev => [...prev, '업로드 성공!', `- 점포 처리: ${result.mainCount}건`, `- 작업내역 추가: ${result.workCount}건`, `- 가격내역 추가: ${result.priceCount}건`]);
-                alert(`업로드 완료\n- 점포: ${result.mainCount}\n- 작업: ${result.workCount}\n- 가격: ${result.priceCount}`);
+                setLogs(prev => [...prev, '업로드 성공!', `- 점포 처리: ${result.mainCount}건`, `- 작업내역 추가: ${result.workCount}건`, `- 가격내역 추가: ${result.priceCount}건`, `- 계약내역 추가: ${result.contractCount || 0}건`]);
+                alert(`업로드 완료\n- 점포: ${result.mainCount}\n- 작업: ${result.workCount}\n- 가격: ${result.priceCount}\n- 계약: ${result.contractCount || 0}`);
 
                 // --- IMAGE UPLOAD LOGIC ---
                 if (files.photos && result.processedProperties && result.processedProperties.length > 0) {
@@ -247,15 +250,21 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                                     if (file) {
                                         setLogs(prev => [...prev, `[${manageId}] 문서 매칭: ${fileName}`]);
 
+                                        // Sanitize filename: remove spaces, special chars
                                         const ext = fileName.split('.').pop() || 'unknown';
+
+                                        // Use purely ASCII name for storage path to avoid "Invalid key" errors with Supabase
                                         const timestamp = Date.now();
-                                        // Path: properties/{propertyId}/{timestamp}_{filename}
-                                        const storagePath = `properties/${prop.id}/${timestamp}_${fileName}`;
+                                        const randomSuffix = Math.random().toString(36).substring(2, 8);
+                                        const safetyStorageName = `${timestamp}_${randomSuffix}.${ext}`;
+
+                                        // Path: properties/{propertyId}/{ascii_name}
+                                        const storagePath = `properties/${prop.id}/${safetyStorageName}`;
 
                                         const formData = new FormData();
                                         formData.append('file', file);
                                         formData.append('path', storagePath);
-                                        formData.append('bucket', 'property-documents'); // Ensure this bucket exists or use general one
+                                        formData.append('bucket', 'property-documents');
 
                                         try {
                                             const uploadRes = await fetch('/api/upload', {
@@ -269,10 +278,10 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                                                 // Create metadata
                                                 const newDoc = {
                                                     id: timestamp.toString() + Math.random().toString().substr(2, 5),
-                                                    date: new Date().toISOString().split('T')[0], // Use current date for consistency or parse fileDate
+                                                    date: new Date().toISOString().split('T')[0],
                                                     uploader: uploader || 'System',
                                                     type: ext,
-                                                    name: fileName,
+                                                    name: fileName, // Display original name
                                                     size: file.size,
                                                     url: publicUrl,
                                                     path: storagePath
@@ -288,10 +297,14 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                                                 }).eq('id', prop.id);
 
                                                 docUploadCount++;
+                                            } else {
+                                                const errText = await uploadRes.text();
+                                                console.error(`Doc upload failed: ${fileName}`, errText);
+                                                setLogs(prev => [...prev, `[문서실패] ${fileName} (${uploadRes.status}): ${errText.substring(0, 50)}`]);
                                             }
-                                        } catch (err) {
-                                            console.error(`Doc upload failed: ${fileName}`, err);
-                                            setLogs(prev => [...prev, `[문서실패] ${fileName}`]);
+                                        } catch (err: any) {
+                                            console.error(`Doc upload error: ${fileName}`, err);
+                                            setLogs(prev => [...prev, `[문서오류] ${fileName}: ${err.message}`]);
                                         }
                                     }
                                 }
@@ -476,6 +489,16 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                             {files.price && <Check size={14} color="#51cf66" />}
                         </div>
                         <input type="file" accept=".xlsx, .xls" onChange={handleFileChange('price')} style={{ fontSize: 12 }} />
+                    </div>
+
+                    {/* Contract History */}
+                    <div style={{ border: '1px solid #dee2e6', borderRadius: 8, padding: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <FileSpreadsheet size={16} color="#845ef7" />
+                            고객 계약 내역 (store_contracts_v2.xlsx)
+                            {files.contracts && <Check size={14} color="#51cf66" />}
+                        </div>
+                        <input type="file" accept=".xlsx, .xls" onChange={handleFileChange('contracts')} style={{ fontSize: 12 }} />
                     </div>
 
                     {/* Image Folder */}

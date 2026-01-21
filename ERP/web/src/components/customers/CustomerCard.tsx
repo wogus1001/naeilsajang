@@ -770,13 +770,12 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                         <div className={styles.formRow}>
                             <div className={styles.label}>분류</div>
                             <div className={styles.inputWrapper}>
-                                <select className={styles.select} value={formData.class} onChange={(e) => handleChange('class', e.target.value)}>
-                                    <option value="A">A급</option>
-                                    <option value="B">B급</option>
-                                    <option value="C">C급</option>
-                                    <option value="D">D급</option>
-                                    <option value="F">F급</option>
-                                </select>
+                                <input
+                                    className={styles.input}
+                                    value={formData.class}
+                                    onChange={(e) => handleChange('class', e.target.value)}
+                                    placeholder="분류 입력"
+                                />
                             </div>
                         </div>
                         <div className={styles.formRow}>
