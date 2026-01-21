@@ -3278,7 +3278,7 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                 {/* Right Side: Tabs */}
                 <div className={styles.rightPanel}>
                     <div className={styles.tabs}>
-                        {['priceWork', 'revenue', 'photos', 'contracts', 'reports', 'transfer', 'docs'].map(tab => (
+                        {['priceWork', 'revenue', 'photos', 'contracts', 'reports', 'docs', 'transfer'].map(tab => (
                             <button
                                 key={tab}
                                 className={`${styles.tabBtn} ${activeTab === tab ? styles.activeTab : ''}`}
