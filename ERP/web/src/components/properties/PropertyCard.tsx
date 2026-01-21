@@ -3066,45 +3066,7 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                         </div>
                                     </div>
 
-                                    {/* Monthly Revenue History Table */}
-                                    {Array.isArray(formData.revenueHistory) && formData.revenueHistory.length > 0 && (
-                                        <div className={styles.fieldRow} style={{ marginTop: 12 }}>
-                                            <div className={styles.fieldLabel} style={{ height: 'auto', minHeight: 40 }}>월별매출현황</div>
-                                            <div className={styles.fieldValue} style={{ gridColumn: 'span 3', overflowX: 'auto', padding: 0 }}>
-                                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                                                    <thead>
-                                                        <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
-                                                            <th style={{ padding: '6px' }}>날짜</th>
-                                                            <th style={{ padding: '6px' }}>매출액</th>
-                                                            <th style={{ padding: '6px' }}>비고</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {formData.revenueHistory.map((row: any[], i: number) => {
-                                                            // Expecting row format: [?, ?, 'YYYY-MM', ..., 'Amount', ?] based on user sample
-                                                            // Trying to allow flexibility. If row is array:
-                                                            if (!Array.isArray(row)) return null;
-                                                            // Sample: ['', '1', '2017-01', '현금매출', '%', '카드매출', '%', '2,585 만원', '17']
-                                                            // Index 2 = Date
-                                                            // Index 7 = Amount (2,585 만원)
-                                                            // Let's try to grab these. 
-                                                            const date = row[2] || '-';
-                                                            const amount = row[7] || '-';
-                                                            const other = row.slice(3, 7).filter(x => x && x !== '%' && x !== '현금매출' && x !== '카드매출').join(' '); // Try to find other useful info?
 
-                                                            return (
-                                                                <tr key={i} style={{ borderBottom: '1px solid #f1f3f5' }}>
-                                                                    <td style={{ padding: '6px', textAlign: 'center' }}>{date}</td>
-                                                                    <td style={{ padding: '6px', textAlign: 'right', fontWeight: 'bold', color: '#4C6EF5' }}>{amount}</td>
-                                                                    <td style={{ padding: '6px', textAlign: 'center', color: '#868e96' }}>{other}</td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         )}
@@ -3443,6 +3405,10 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                 <tr><td colSpan={7} style={{ textAlign: 'center', padding: 20 }}>등록된 매출 데이터가 없습니다.</td></tr>
                                             ) : (
                                                 formData.revenueHistory.map((item: any) => {
+                                                    // Robustness check: Ensure item is an object and has required fields. 
+                                                    // If it's a raw array (from old bug), skip it or render placeholder.
+                                                    if (!item || typeof item !== 'object' || Array.isArray(item) || !item.date) return null;
+
                                                     const cashPct = item.total > 0 ? Math.round((item.cash / item.total) * 100) : 0;
                                                     const cardPct = item.total > 0 ? Math.round((item.card / item.total) * 100) : 0;
                                                     return (
@@ -3480,6 +3446,7 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                 </div>
 
                                 <div className={styles.paneHeader}>
+
                                     <h3>월별매출그래프</h3>
                                 </div>
                                 <div style={{ width: '100%', height: 300 }}>

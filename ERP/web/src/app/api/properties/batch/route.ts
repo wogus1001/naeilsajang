@@ -141,6 +141,42 @@ const parsePythonList = (str: any): any[] => {
     }
 };
 
+// Helper: Parse and Transform Excel Revenue List to Structured RevenueItems
+const parseAndTransformRevenue = (str: any): any[] => {
+    const rawList = parsePythonList(str);
+    if (!rawList || rawList.length === 0) return [];
+
+    return rawList.map((row: any) => {
+        if (!Array.isArray(row) || row.length < 8) return null;
+
+        // Date: Index 2
+        const date = row[2];
+        if (!date) return null;
+
+        // Helper to safe parse amount
+        const safeParse = (val: any) => {
+            if (!val) return 0;
+            const s = String(val).replace(/,/g, '').replace(/만원/g, '').trim();
+            const n = parseInt(s, 10);
+            return isNaN(n) ? 0 : n;
+        };
+
+        // Heuristic: If index 3/5 are text (like '현금매출'), they parse to 0.
+        // If they are numbers, they parse to numbers.
+        const cash = safeParse(row[3]);
+        const card = safeParse(row[5]);
+        const total = safeParse(row[7]);
+
+        return {
+            id: Date.now().toString() + Math.random().toString().substr(2, 5), // Generate unique ID
+            date: date,
+            cash: cash,
+            card: card,
+            total: total
+        };
+    }).filter(item => item !== null);
+};
+
 export async function POST(request: Request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
@@ -168,6 +204,7 @@ export async function POST(request: Request) {
         // 2. Process Main Data (Upsert)
         let mainCount = 0;
         const upsertPayloads: any[] = [];
+        const processedLegacyIds = new Set<string>(); // Track processed IDs
         const { companyId: defaultCompanyId } = await resolveIds(userCompanyName, null, supabaseAdmin);
 
         for (const row of main) {
@@ -213,6 +250,9 @@ export async function POST(request: Request) {
                 totalFloor: getVal(row, ['총층', '전체층']),
                 currentFloor: getVal(row, ['층', '층수', '해당층']), // Aliased to floor
 
+                // Identification
+                manageId: getVal(row, ['관리ID', '관리번호', 'No', 'ID']),
+
                 // New Fields from User Feedback
                 processStatus: getVal(row, ['진행상황', '진행상태', '상태메모']),
                 operationType: getVal(row, ['운영형태', '운영방식']),
@@ -247,7 +287,8 @@ export async function POST(request: Request) {
                 promoMisc: parseAmt(getVal(row, ['기타경비', '기타지출', '홍보기타잡비'])),
                 revenueMemo: getVal(row, ['매출메모', '매출특이사항', '매출현황_메모']),
                 revenueOpen: getVal(row, ['매출오픈', '매출공개', '매출오픈여부']),
-                revenueHistory: parsePythonList(getVal(row, ['월별매출현황'])), // New Mapping
+                monthlyRevenueHistory: parsePythonList(getVal(row, ['월별매출현황'])), // Keep raw data
+                revenueHistory: parseAndTransformRevenue(getVal(row, ['월별매출현황'])), // Structured data for main table
 
                 // --- OPERATION STATUS (Green) ---
                 facilityInterior: getVal(row, ['시설', '인테리어', '시설/인테리어', '시설상태', '시설인테리어']),
@@ -280,6 +321,7 @@ export async function POST(request: Request) {
                 featureMemo: getVal(row, ['특징', '물건특징', '장점', 'Feature']),
                 overviewMemo: getVal(row, ['메모', '상세내역', '비고', '기타', 'Note', '물건개요_메모']),
                 memo: getVal(row, ['물건메모', '상세메모', 'Memo', '메모사항']),
+                consultingReport: getVal(row, ['컨설팅리포트', '컨설팅제안서', '리포트']), // New mapping provided by user
             };
 
             // Remove undefined keys so we don't overwrite existing valid data
@@ -329,6 +371,7 @@ export async function POST(request: Request) {
 
             upsertPayloads.push(corePayload);
             propMap.set(legacyId, { id: corePayload.id, data: finalData });
+            processedLegacyIds.add(legacyId); // Mark as processed
             mainCount++;
         }
 
@@ -402,14 +445,15 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             success: true,
-            mainCount,
             workCount,
-            priceCount
+            priceCount,
+            processedProperties: Array.from(processedLegacyIds).map(lid => {
+                const val = propMap.get(lid);
+                return val ? { manageId: lid, id: val.id, name: val.data.name } : null;
+            }).filter(Boolean)
         });
-
     } catch (error: any) {
         console.error('Batch Upload Error:', error);
         return NextResponse.json({ error: error.message || 'Server Error' }, { status: 500 });
     }
 }
-

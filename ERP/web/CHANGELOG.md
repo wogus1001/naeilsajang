@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.4] - 2026-01-21
+
+### Added (추가됨)
+- **Batch Upload Image Integration (일괄 업로드 사진 연동)**
+  - Added "Photos Folder" upload support to the Batch Upload Modal.
+    - 일괄 업로드 창에 '사진 저장 폴더' 선택 기능을 추가하여, 엑셀과 함께(또는 사진만 단독으로) 로컬 폴더의 사진을 매물에 자동 연동할 수 있게 되었습니다.
+  - Implemented Server-side Proxy (`/api/upload`) to bypass client-side RLS restrictions for reliable uploads.
+    - 클라이언트 권한 문제(RLS) 해결을 위해 서버 사이드 프록시 업로드 방식을 도입하여 안정성을 확보했습니다.
+
+- **Consulting Report Integration (컨설팅 리포트 연동)**
+  - Mapped Excel column `컨설팅리포트` to populate the "Consulting Proposal" field in the Report tab automatically.
+    - 엑셀의 `컨설팅리포트` 컬럼이 리포트 탭의 제안서 작성란에 자동 매핑되도록 기능을 추가했습니다.
+
+### Fixed (수정됨)
+- **Revenue History Data Parsing (매출 내역 데이터 파싱)**
+  - Fixed `TypeError` caused by unstructured Excel data in `revenueHistory`. Now parses list-type data correctly.
+    - `revenueHistory` 데이터 구조 불일치로 인한 오류를 수정하고, 엑셀의 리스트형 매출 데이터를 차트/테이블에 맞게 파싱하도록 개선했습니다.
+
 ## [v1.1.1] - 2026-01-19
 
 ### Fixed (수정됨)

@@ -61,6 +61,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const company = searchParams.get('company');
+    const min = searchParams.get('min') === 'true';
 
     try {
         if (id) {
@@ -83,6 +84,14 @@ export async function GET(request: Request) {
 
         const { data: properties, error } = await query;
         if (error) throw error;
+
+        if (min) {
+            return NextResponse.json(properties.map((p: any) => ({
+                id: p.id,
+                manageId: p.data?.manageId || p.data?.legacyId || p.data?.['관리번호'],
+                name: p.data?.name || p.name
+            })));
+        }
 
         return NextResponse.json(properties.map(transformProperty));
 
