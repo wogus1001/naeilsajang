@@ -128,6 +128,19 @@ async function resolveIds(legacyCompany: string | null, legacyManager: string | 
     return { companyId, managerId };
 }
 
+// Helper to parse Python-style list string from Excel
+const parsePythonList = (str: any): any[] => {
+    if (!str || typeof str !== 'string') return [];
+    try {
+        // Replace Python's None with null, single quotes with double quotes
+        let jsonStr = str.replace(/'/g, '"').replace(/None/g, 'null');
+        return JSON.parse(jsonStr);
+    } catch (e) {
+        console.warn('Failed to parse Python list:', str);
+        return [];
+    }
+};
+
 export async function POST(request: Request) {
     const supabaseAdmin = getSupabaseAdmin();
     try {
@@ -234,6 +247,7 @@ export async function POST(request: Request) {
                 promoMisc: parseAmt(getVal(row, ['기타경비', '기타지출', '홍보기타잡비'])),
                 revenueMemo: getVal(row, ['매출메모', '매출특이사항', '매출현황_메모']),
                 revenueOpen: getVal(row, ['매출오픈', '매출공개', '매출오픈여부']),
+                revenueHistory: parsePythonList(getVal(row, ['월별매출현황'])), // New Mapping
 
                 // --- OPERATION STATUS (Green) ---
                 facilityInterior: getVal(row, ['시설', '인테리어', '시설/인테리어', '시설상태', '시설인테리어']),
