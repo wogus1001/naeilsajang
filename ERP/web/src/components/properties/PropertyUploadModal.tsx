@@ -17,7 +17,8 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
         work: File | null;
         price: File | null;
         photos: FileList | null; // Add photos state
-    }>({ main: null, work: null, price: null, photos: null });
+        docFolder: FileList | null; // Add docFolder state
+    }>({ main: null, work: null, price: null, photos: null, docFolder: null });
 
     const [loading, setLoading] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
@@ -33,6 +34,12 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
     const handleFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             setFiles(prev => ({ ...prev, photos: e.target.files }));
+        }
+    };
+
+    const handleDocFolderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setFiles(prev => ({ ...prev, docFolder: e.target.files }));
         }
     };
 
@@ -170,6 +177,127 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                             }
                         }
                         alert(`사진 업로드 완료: 총 ${uploadCount}장`);
+                    }
+                }
+
+                // --- DOCUMENT UPLOAD LOGIC ---
+                if (files.docFolder && result.processedProperties && result.processedProperties.length > 0) {
+                    if (confirm('이어서 선택된 폴더의 관련문서를 업로드하시겠습니까?')) {
+                        setLogs(prev => [...prev, '--- 문서 업로드 시작 ---']);
+                        const supabase = getSupabase();
+                        let docUploadCount = 0;
+                        const processedMap = new Map(result.processedProperties.map((p: any) => [String(p.manageId).trim(), p]));
+
+                        // Use mainData to find document info
+                        const mainData = files.main ? await parseExcel(files.main) : [];
+
+                        // Group files by parent folder name (which should be ID)
+                        const fileMap = new Map<string, File>(); // Key: "folderName/fileName" -> File
+                        Array.from(files.docFolder).forEach(file => {
+                            const pathParts = file.webkitRelativePath.split('/');
+                            if (pathParts.length >= 3) {
+                                // path: root/10006/filename -> we want key: "10006/filename"
+                                const key = `${pathParts[pathParts.length - 2]}/${pathParts[pathParts.length - 1]}`;
+                                fileMap.set(key, file);
+                            }
+                        });
+
+
+                        for (const row of mainData) {
+                            const rowAny = row as any;
+                            // Use flexible key access for '관련문서'
+                            const docRaw = rowAny['관련문서'];
+                            if (!docRaw) continue;
+
+                            // Parse relevant documents
+                            let docList: any[] = [];
+                            try {
+                                if (typeof docRaw === 'string') {
+                                    // Handle stringified array like "[['', '1', ...]]"
+                                    const cleaned = docRaw.replace(/'/g, '"'); // Replace single quotes if any
+                                    docList = JSON.parse(cleaned);
+                                } else if (Array.isArray(docRaw)) {
+                                    docList = docRaw;
+                                }
+                            } catch (e) {
+                                console.warn('Failed to parse doc column', docRaw);
+                                continue;
+                            }
+
+                            const manageId = String(rowAny['관리번호'] || rowAny['manageId'] || '').trim();
+                            if (!processedMap.has(manageId)) continue;
+                            const prop: any = processedMap.get(manageId);
+
+                            if (Array.isArray(docList)) {
+                                for (const item of docList) {
+                                    if (!Array.isArray(item) || item.length < 6) continue;
+
+                                    // Structure: ['', '1', '2026-01-15 (목)', '손태호', '종류', 'filename.png', ...]
+                                    const fileDate = item[2];
+                                    const uploader = item[3];
+                                    const type = item[4]; // '종류'?
+                                    const fileName = item[5];
+
+                                    if (!fileName) continue;
+
+                                    // Find file in selected folder: Look for "manageId/fileName"
+                                    const fileKey = `${manageId}/${fileName}`;
+                                    const file = fileMap.get(fileKey);
+
+                                    if (file) {
+                                        setLogs(prev => [...prev, `[${manageId}] 문서 매칭: ${fileName}`]);
+
+                                        const ext = fileName.split('.').pop() || 'unknown';
+                                        const timestamp = Date.now();
+                                        // Path: properties/{propertyId}/{timestamp}_{filename}
+                                        const storagePath = `properties/${prop.id}/${timestamp}_${fileName}`;
+
+                                        const formData = new FormData();
+                                        formData.append('file', file);
+                                        formData.append('path', storagePath);
+                                        formData.append('bucket', 'property-documents'); // Ensure this bucket exists or use general one
+
+                                        try {
+                                            const uploadRes = await fetch('/api/upload', {
+                                                method: 'POST',
+                                                body: formData
+                                            });
+
+                                            if (uploadRes.ok) {
+                                                const { publicUrl } = await uploadRes.json();
+
+                                                // Create metadata
+                                                const newDoc = {
+                                                    id: timestamp.toString() + Math.random().toString().substr(2, 5),
+                                                    date: new Date().toISOString().split('T')[0], // Use current date for consistency or parse fileDate
+                                                    uploader: uploader || 'System',
+                                                    type: ext,
+                                                    name: fileName,
+                                                    size: file.size,
+                                                    url: publicUrl,
+                                                    path: storagePath
+                                                };
+
+                                                // Update Property
+                                                const { data: currentProp } = await supabase.from('properties').select('data').eq('id', prop.id).single();
+                                                const currentDocs = currentProp?.data?.documents || [];
+                                                const updatedDocs = [...currentDocs, newDoc];
+
+                                                await supabase.from('properties').update({
+                                                    data: { ...currentProp?.data, documents: updatedDocs }
+                                                }).eq('id', prop.id);
+
+                                                docUploadCount++;
+                                            }
+                                        } catch (err) {
+                                            console.error(`Doc upload failed: ${fileName}`, err);
+                                            setLogs(prev => [...prev, `[문서실패] ${fileName}`]);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        alert(`문서 업로드 완료: 총 ${docUploadCount}개 성공`);
                     }
                 }
 
@@ -362,6 +490,20 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                         </div>
                         {/* @ts-ignore */}
                         <input type="file" webkitdirectory="" directory="" multiple onChange={handleFolderChange} style={{ fontSize: 12 }} />
+                    </div>
+
+                    {/* Document Folder */}
+                    <div style={{ border: '1px solid #dee2e6', borderRadius: 8, padding: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Upload size={16} color="#40C057" />
+                            문서 저장 폴더 (documents)
+                            {files.docFolder && <Check size={14} color="#51cf66" />}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#868e96', marginBottom: 6 }}>
+                            * 'documents' 폴더를 통째로 선택하세요 (하위에 번호별 폴더 포함)
+                        </div>
+                        {/* @ts-ignore */}
+                        <input type="file" webkitdirectory="" directory="" multiple onChange={handleDocFolderChange} style={{ fontSize: 12 }} />
                     </div>
                 </div>
 
