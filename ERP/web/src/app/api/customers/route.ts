@@ -43,14 +43,16 @@ function transformCustomer(row: any) {
         wantedFeature: core.wanted_feature,
 
         // Range Fields
-        wantedDepositMin: core.wanted_deposit_min,
-        wantedDepositMax: core.wanted_deposit_max,
-        wantedRentMin: core.wanted_rent_min,
-        wantedRentMax: core.wanted_rent_max,
-        wantedAreaMin: core.wanted_area_min,
-        wantedAreaMax: core.wanted_area_max,
-        wantedFloorMin: core.wanted_floor_min,
-        wantedFloorMax: core.wanted_floor_max,
+        // Range Fields (DB Column || JSONB Data fallback)
+        // Use || instead of ?? because DB columns might be empty string '' which ?? treats as valid
+        wantedDepositMin: core.wanted_deposit_min || data?.wantedDepositMin,
+        wantedDepositMax: core.wanted_deposit_max || data?.wantedDepositMax,
+        wantedRentMin: core.wanted_rent_min || data?.wantedRentMin,
+        wantedRentMax: core.wanted_rent_max || data?.wantedRentMax,
+        wantedAreaMin: core.wanted_area_min || data?.wantedAreaMin,
+        wantedAreaMax: core.wanted_area_max || data?.wantedAreaMax,
+        wantedFloorMin: core.wanted_floor_min || data?.wantedFloorMin,
+        wantedFloorMax: core.wanted_floor_max || data?.wantedFloorMax,
 
         // Ensure legacy fields if needed by frontend
         createdAt: core.created_at,
@@ -58,7 +60,10 @@ function transformCustomer(row: any) {
 
         // Safeguard JSONB arrays
         history: data?.history || [],
-        promotedProperties: data?.promotedProperties || []
+        promotedProperties: data?.promotedProperties || [],
+
+        // Map isFavorite
+        isFavorite: core.is_favorite
     };
 }
 

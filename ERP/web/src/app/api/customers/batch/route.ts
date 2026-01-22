@@ -134,87 +134,182 @@ async function handleBatchUpload(payload: any) {
             }
         }
 
-        // Store Only (Target Type filtering requested by user, but user said "Currently all targets are Store", so we just process all as Store?
-        // User said: "customer_main.xlsx 파일에서 우리는 현재 타겟타입이 모두 점포고객으로 되어있기때문에... 업로드 할 필요가 없어"
-        // Meaning: Ignore Hotel/Apt/Bldg columns. Just map Store columns.
+        // Helper for Fuzzy Key Matching (Trimmed)
+        const getValue = (obj: any, target: string) => {
+            if (!obj) return undefined;
+            if (obj[target] !== undefined) return obj[target];
+            const found = Object.keys(obj).find(k => k.trim() === target.trim());
+            return found ? obj[found] : undefined;
+        };
 
-        // Map Store Columns
-        const wantedArea = row['점포_면적'] ? String(row['점포_면적']) : '';
-        const wantedDeposit = row['점포_보증금'] ? String(row['점포_보증금']) : '';
-        const wantedRent = row['점포_임대료'] ? String(row['점포_임대료']) : '';
-        const wantedFloor = row['점포_층'] ? String(row['점포_층']) : '';
+        // Property Type Processing
+        // Property Type Processing
+        const targetTypeRaw = String(
+            getValue(row, '타겟타입') ||
+            getValue(row, '물건종류') ||
+            getValue(row, '분류') ||
+            getValue(row, '구분') ||
+            '점포'
+        ).trim();
+        let propertyType = 'store';
+        if (targetTypeRaw.includes('빌딩')) propertyType = 'building';
+        else if (targetTypeRaw.includes('호텔')) propertyType = 'hotel';
+        else if (targetTypeRaw.includes('아파트')) propertyType = 'apartment';
+        else if (targetTypeRaw.includes('부동산')) propertyType = 'estate';
 
-        // New explicit columns (from add_customer_columns.sql)
-        // wanted_deposit_min/max, rent, area, floor...
-        // We put the raw string into the Min field if it's not a range, or put in Data?
-        // Let's put in explicit Min fields as valid text for now, and also keeping strict logic if we had range parser.
-        // For now, mapping directly to 'Min' columns for storage, even if it's "100" (single value).
-        // It acts as the primary field for display.
+        // Common Fields Logic (Defaults)
+        let wantedItem = '';
+        let wantedIndustry = '';
+        let wantedAreaLabel = ''; // Region
+        let wantedFeature = '';
 
-        // Progress Steps (Split comma)
-        let pSteps: string[] = [];
-        if (row['진행']) {
-            pSteps = String(row['진행']).split(',').map(s => s.trim()).filter(Boolean);
+        // Dynamic Range Fields for JSONB
+        let ranges: any = {};
+
+        if (propertyType === 'store') {
+            wantedItem = String(getValue(row, '점포_찾는물건') || '');
+            wantedIndustry = String(getValue(row, '점포_찾는업종') || '');
+            wantedAreaLabel = String(getValue(row, '점포_찾는지역') || '');
+            wantedFeature = String(getValue(row, '점포_특징') || '');
+        } else if (propertyType === 'building') {
+            ranges.wantedLandAreaMin = parseRange(getValue(row, '빌딩_대지면적')).min;
+            ranges.wantedLandAreaMax = parseRange(getValue(row, '빌딩_대지면적')).max;
+            ranges.wantedTotalAreaMin = parseRange(getValue(row, '빌딩_연면적')).min;
+            ranges.wantedTotalAreaMax = parseRange(getValue(row, '빌딩_연면적')).max;
+            ranges.wantedYieldMin = parseRange(getValue(row, '빌딩_연수익률')).min;
+            ranges.wantedYieldMax = parseRange(getValue(row, '빌딩_연수익률')).max;
+            ranges.wantedSalePriceMin = parseRange(getValue(row, '빌딩_매매가')).min;
+            ranges.wantedSalePriceMax = parseRange(getValue(row, '빌딩_매매가')).max;
+
+            wantedItem = String(getValue(row, '빌딩_찾는물건') || '');
+            wantedIndustry = String(getValue(row, '빌딩_찾는종류') || getValue(row, '빌딩_찾는업종') || getValue(row, '찾는업종') || '');
+            wantedAreaLabel = String(getValue(row, '빌딩_찾는지역') || '');
+            wantedFeature = String(getValue(row, '빌딩_특징') || '');
+        } else if (propertyType === 'hotel') {
+            ranges.wantedLandAreaMin = parseRange(getValue(row, '호텔_대지면적')).min;
+            ranges.wantedLandAreaMax = parseRange(getValue(row, '호텔_대지면적')).max;
+            ranges.wantedTotalAreaMin = parseRange(getValue(row, '호텔_연면적')).min;
+            ranges.wantedTotalAreaMax = parseRange(getValue(row, '호텔_연면적')).max;
+            ranges.wantedRentMin = parseRange(getValue(row, '호텔_연수익률')).min;
+            ranges.wantedRentMax = parseRange(getValue(row, '호텔_연수익률')).max;
+            ranges.wantedDepositMin = parseRange(getValue(row, '호텔_매매가')).min;
+            ranges.wantedDepositMax = parseRange(getValue(row, '호텔_매매가')).max;
+
+            ranges.wantedSalePriceMin = parseRange(getValue(row, '호텔_매매가')).min;
+            ranges.wantedSalePriceMax = parseRange(getValue(row, '호텔_매매가')).max;
+            ranges.wantedYieldMin = parseRange(getValue(row, '호텔_연수익률')).min;
+            ranges.wantedYieldMax = parseRange(getValue(row, '호텔_연수익률')).max;
+
+            wantedItem = String(getValue(row, '호텔_찾는물건') || '');
+            wantedIndustry = String(getValue(row, '호텔_찾는종류') || '');
+            wantedAreaLabel = String(getValue(row, '호텔_찾는지역') || '');
+            wantedFeature = String(getValue(row, '호텔_특징') || '');
+        } else if (propertyType === 'apartment') {
+            ranges.wantedSupplyAreaMin = parseRange(getValue(row, '아파트_공급면적')).min;
+            ranges.wantedSupplyAreaMax = parseRange(getValue(row, '아파트_공급면적')).max;
+            ranges.wantedDepositMin = parseRange(getValue(row, '아파트_보증금') || getValue(row, '부동산_보증금') || getValue(row, '보증금')).min;
+            ranges.wantedDepositMax = parseRange(getValue(row, '아파트_보증금') || getValue(row, '부동산_보증금') || getValue(row, '보증금')).max;
+            ranges.wantedRentMin = parseRange(getValue(row, '아파트_임대료') || getValue(row, '부동산_임대료') || getValue(row, '임대료')).min;
+            ranges.wantedRentMax = parseRange(getValue(row, '아파트_임대료') || getValue(row, '부동산_임대료') || getValue(row, '임대료')).max;
+            ranges.wantedSalePriceMin = parseRange(getValue(row, '아파트_매매가')).min;
+            ranges.wantedSalePriceMax = parseRange(getValue(row, '아파트_매매가')).max;
+
+            wantedItem = String(getValue(row, '아파트_찾는물건') || '');
+            wantedIndustry = String(getValue(row, '아파트_단지명') || getValue(row, '아파트_찾는업종') || '');
+            wantedAreaLabel = String(getValue(row, '아파트_찾는지역') || '');
+            wantedFeature = String(getValue(row, '아파트_특징') || '');
+        } else if (propertyType === 'estate') {
+            ranges.wantedLandAreaMin = parseRange(getValue(row, '부동산_대지면적')).min;
+            ranges.wantedLandAreaMax = parseRange(getValue(row, '부동산_대지면적')).max;
+            ranges.wantedTotalAreaMin = parseRange(getValue(row, '부동산_연면적')).min;
+            ranges.wantedTotalAreaMax = parseRange(getValue(row, '부동산_연면적')).max;
+            ranges.wantedDepositMin = parseRange(getValue(row, '부동산_보증금') || getValue(row, '보증금')).min;
+            ranges.wantedDepositMax = parseRange(getValue(row, '부동산_보증금') || getValue(row, '보증금')).max;
+            ranges.wantedRentMin = parseRange(getValue(row, '부동산_임대료') || getValue(row, '임대료')).min;
+            ranges.wantedRentMax = parseRange(getValue(row, '부동산_임대료') || getValue(row, '임대료')).max;
+
+            wantedItem = String(getValue(row, '부동산_찾는물건') || '');
+            wantedIndustry = String(getValue(row, '부동산_찾는종류') || '');
+            wantedAreaLabel = String(getValue(row, '부동산_찾는지역') || '');
+            wantedFeature = String(getValue(row, '부동산_특징') || '');
         }
+
+        // Store Columns
+        const wantedStoreArea = (propertyType === 'store') ? getValue(row, '점포_면적') : '';
+        const wantedStoreDeposit = (propertyType === 'store') ? getValue(row, '점포_보증금') : '';
+        const wantedStoreRent = (propertyType === 'store') ? getValue(row, '점포_임대료') : '';
+        const wantedStoreFloor = (propertyType === 'store') ? getValue(row, '점포_층') : '';
+
+        // Progress Steps
+        let pSteps: string[] = [];
+        const rawProgress = getValue(row, '진행');
+        if (rawProgress) {
+            pSteps = String(rawProgress).split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        // Favorite Logic
+        const isFavorite = getValue(row, '관심고객') ? true : false;
+
+        // Memo Situation mapping (Renamed from customerSituation to memoSituation)
+        const memoSituation = getValue(row, '고객상황');
 
         const customerData = {
             id: String(legacyId), // Use '관리번호' as ID
-            name: row['고객명'] || row['이름'],
-            grade: mapStatus(row['고객등급']), // Map from '고객등급'
+            name: getValue(row, '고객명') || getValue(row, '이름'),
+            grade: mapStatus(getValue(row, '고객등급')), // Map from '고객등급'
 
-            mobile: row['핸드폰'],
+            mobile: getValue(row, '핸드폰'),
             company_id: uploaderCompanyId, // Assign resolved company ID
-            is_favorite: Boolean(row['관심고객']), // Any non-empty value is true? 'O', '관심고객', etc.
+            is_favorite: isFavorite,
             manager_id: assignedManagerUuid, // UUID for DB constraint
 
-            // Explicit Columns added recently
-            memo_interest: row['관심내용'],
-            memo_history: row['진행내역'], // Note: Excel '진행내역' vs 'customer_work_history.xlsx'? 
-            // Usually Excel '진행내역' is a summary.
+            // Explicit Columns
+            memo_interest: getValue(row, '관심내용'),
+            memo_history: getValue(row, '진행내역'),
             progress_steps: pSteps,
-            wanted_feature: row['점포_특징'],
+            wanted_feature: wantedFeature, // Mapped based on type
 
-            // Range Columns (Mapping single Excel cols to Min for storage)
-            wanted_area_min: parseRange(row['점포_면적']).min,
-            wanted_area_max: parseRange(row['점포_면적']).max,
-            wanted_deposit_min: parseRange(row['점포_보증금']).min,
-            wanted_deposit_max: parseRange(row['점포_보증금']).max,
-            wanted_rent_min: parseRange(row['점포_임대료']).min,
-            wanted_rent_max: parseRange(row['점포_임대료']).max,
-            wanted_floor_min: parseRange(row['점포_층']).min,
-            wanted_floor_max: parseRange(row['점포_층']).max,
+            // Range Columns (DB Columns - Only populate relevant ones for Store)
+            wanted_area_min: parseRange(wantedStoreArea).min,
+            wanted_area_max: parseRange(wantedStoreArea).max,
+            wanted_deposit_min: parseRange(wantedStoreDeposit).min,
+            wanted_deposit_max: parseRange(wantedStoreDeposit).max,
+            wanted_rent_min: parseRange(wantedStoreRent).min,
+            wanted_rent_max: parseRange(wantedStoreRent).max,
+            wanted_floor_min: parseRange(wantedStoreFloor).min,
+            wanted_floor_max: parseRange(wantedStoreFloor).max,
 
             // JSONB Data
             data: {
-                status: row['진행상태'],
-                gender: (row['성별'] && String(row['성별']).includes('여')) ? 'F' : 'M', // Moved to JSONB
-                class: String(row['분류'] || 'C').replace('급', '').trim(), // 'D급' -> 'D'
-                address: row['주소'] || '',
-                feature: row['특징_메인'], // Main Feature
+                status: getValue(row, '진행상태'),
+                gender: (getValue(row, '성별') && String(getValue(row, '성별')).includes('여')) ? 'F' : 'M',
+                class: String(getValue(row, '분류') || 'C').trim(), // Removed .replace('급', '')
+                address: getValue(row, '주소') || '',
+                feature: getValue(row, '특징_메인'), // Main Feature
+
+                // Mapped Common Fields
+                wantedItem,
+                wantedIndustry,
+                wantedArea: wantedAreaLabel,
+                budget: getValue(row, '예산'),
+                propertyType,
+
+                // Dynamic Ranges
+                ...ranges,
 
                 // Contact Info
-                companyPhone: row['회사전화'],
-                homePhone: row['자택전화'],
-                otherPhone: row['기타전화'],
-                fax: row['팩스'],
-                email: row['이메일'],
+                companyPhone: getValue(row, '회사전화'),
+                homePhone: getValue(row, '자택전화'),
+                otherPhone: getValue(row, '기타전화'),
+                fax: getValue(row, '팩스'),
+                email: getValue(row, '이메일'),
 
-                // Requirements
-                wantedItem: row['점포_찾는물건'],
-                wantedIndustry: row['점포_찾는업종'],
-                wantedRegion: row['점포_찾는지역'], // Regional preference
-                budget: row['예산'],
-                memoSituation: row['고객상황'], // '고객상황' -> memoSituation
-                managerId: assignedManagerDisplayId, // Legacy ID for UI Dropdown match!
-
-                // Store raw values in JSON too just in case
-                excel_target_type: row['타겟타입'] || '점포',
-                excel_reg_date: row['등록일'],
-            } as any,
-
-            created_at: row['등록일'] ? parseDate(row['등록일']) : now,
+                memoSituation: memoSituation // Renamed from customerSituation
+            },
+            created_at: getValue(row, '등록일') ? parseDate(getValue(row, '등록일')) : now,
             updated_at: now
         };
+
 
         customersToUpsert.push(customerData);
     }
@@ -285,7 +380,8 @@ async function handleBatchUpload(payload: any) {
             itemName: p['물건명'], // Mapped to itemName
             name: p['물건명'], // Compatible key
             type: p['종류'], // '테이크아웃커피' etc
-            amount: p['금액'],
+            totalPrice: String(p['금액']).replace(/,/g, ''), // Remove commas for Number() conversion
+            amount: String(p['금액']).replace(/,/g, ''),
             address: p['주소'],
             industrySector: p['물건종류'], // '점포', '호텔' etc
             isSynced: false // Mark as unsynced (from Excel)

@@ -52,6 +52,19 @@ interface Customer {
     wantedDepositMin: string;
     wantedDepositMax: string;
 
+    // Extended Fields for Property Types
+    propertyType: 'store' | 'building' | 'hotel' | 'apartment' | 'estate';
+    wantedLandAreaMin?: string; // 대지면적
+    wantedLandAreaMax?: string;
+    wantedTotalAreaMin?: string; // 연면적
+    wantedTotalAreaMax?: string;
+    wantedYieldMin?: string; // 수익률
+    wantedYieldMax?: string;
+    wantedSalePriceMin?: string; // 매매가
+    wantedSalePriceMax?: string;
+    wantedSupplyAreaMin?: string; // 공급면적
+    wantedSupplyAreaMax?: string;
+
     progressSteps: string[]; // Added new field
 
     history: any[];
@@ -92,6 +105,13 @@ const INITIAL_DATA: Customer = {
     wantedFloorMin: '', wantedFloorMax: '',
     wantedRentMin: '', wantedRentMax: '',
     wantedDepositMin: '', wantedDepositMax: '',
+
+    propertyType: 'store',
+    wantedLandAreaMin: '', wantedLandAreaMax: '',
+    wantedTotalAreaMin: '', wantedTotalAreaMax: '',
+    wantedYieldMin: '', wantedYieldMax: '',
+    wantedSalePriceMin: '', wantedSalePriceMax: '',
+    wantedSupplyAreaMin: '', wantedSupplyAreaMax: '',
 
     history: [],
     promotedProperties: []
@@ -795,7 +815,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                         <div className={styles.formRow}>
                             <div className={styles.label}>진행내역</div>
                             <div className={styles.inputWrapper}>
-                                <textarea className={styles.textarea} value={formData.memoHistory} onChange={(e) => handleChange('memoHistory', e.target.value)} />
+                                <textarea className={styles.textarea} value={formData.memoHistory || ''} onChange={(e) => handleChange('memoHistory', e.target.value)} />
                             </div>
                         </div>
 
@@ -847,13 +867,13 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                         <div className={styles.formRow}>
                             <div className={styles.label}>고객상황</div>
                             <div className={styles.inputWrapper}>
-                                <textarea className={styles.textarea} value={formData.memoSituation} onChange={(e) => handleChange('memoSituation', e.target.value)} />
+                                <textarea className={styles.textarea} value={formData.memoSituation || ''} onChange={(e) => handleChange('memoSituation', e.target.value)} />
                             </div>
                         </div>
                         <div className={styles.formRow}>
                             <div className={styles.label}>관심내용</div>
                             <div className={styles.inputWrapper}>
-                                <textarea className={styles.textarea} value={formData.memoInterest} onChange={(e) => handleChange('memoInterest', e.target.value)} />
+                                <textarea className={styles.textarea} value={formData.memoInterest || ''} onChange={(e) => handleChange('memoInterest', e.target.value)} />
                             </div>
                         </div>
                         <div className={styles.formRow}>
@@ -910,49 +930,425 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             </div>
                         </div>
                         <div className={styles.formRow}>
-                            <div className={styles.label}>보증금</div>
-                            <div className={styles.inputWrapper}>
-                                <div className={styles.rangeWrapper}>
-                                    <input className={styles.rangeInput} value={formData.wantedDepositMin || ''} onChange={(e) => handleChange('wantedDepositMin', e.target.value)} />
-                                    <span>~</span>
-                                    <input className={styles.rangeInput} value={formData.wantedDepositMax || ''} onChange={(e) => handleChange('wantedDepositMax', e.target.value)} />
-                                </div>
-                            </div>
-                        </div>
-                        <div className={styles.formRow}>
-                            <div className={styles.label}>면적</div>
-                            <div className={styles.inputWrapper}>
-                                <div className={styles.rangeWrapper}>
-                                    <input className={styles.rangeInput} value={formData.wantedAreaMin || ''} onChange={(e) => handleChange('wantedAreaMin', e.target.value)} placeholder="최소(평)" />
-                                    <span>~</span>
-                                    <input className={styles.rangeInput} value={formData.wantedAreaMax || ''} onChange={(e) => handleChange('wantedAreaMax', e.target.value)} placeholder="최대(평)" />
-                                </div>
-                            </div>
-                        </div>
-                        <div className={styles.formRow}>
-                            <div className={styles.label}>층수</div>
-                            <div className={styles.inputWrapper}>
-                                <div className={styles.rangeWrapper}>
-                                    <input className={styles.rangeInput} value={formData.wantedFloorMin || ''} onChange={(e) => handleChange('wantedFloorMin', e.target.value)} placeholder="최소(층)" />
-                                    <span>~</span>
-                                    <input className={styles.rangeInput} value={formData.wantedFloorMax || ''} onChange={(e) => handleChange('wantedFloorMax', e.target.value)} placeholder="최대(층)" />
-                                </div>
-                            </div>
-                        </div>
-                        <div className={styles.formRow}>
-                            <div className={styles.label}>임대료(월세)</div>
-                            <div className={styles.inputWrapper}>
-                                <div className={styles.rangeWrapper}>
-                                    <input className={styles.rangeInput} value={formData.wantedRentMin || ''} onChange={(e) => handleChange('wantedRentMin', e.target.value)} />
-                                    <span>~</span>
-                                    <input className={styles.rangeInput} value={formData.wantedRentMax || ''} onChange={(e) => handleChange('wantedRentMax', e.target.value)} />
-                                </div>
-                            </div>
-                        </div>
-                        <div className={styles.formRow}>
                             <div className={styles.label}>특징</div>
                             <div className={styles.inputWrapper}>
                                 <input className={styles.input} value={formData.wantedFeature || ''} onChange={(e) => handleChange('wantedFeature', e.target.value)} />
+                            </div>
+                        </div>
+
+
+
+                        {/* Dynamic Range Inputs */}
+                        {(formData.propertyType === 'store' || !formData.propertyType) && (
+                            <>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>면적</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input
+                                                    className={styles.rangeInput}
+                                                    value={formData.wantedAreaMin || ''}
+                                                    onChange={(e) => handleChange('wantedAreaMin', e.target.value)}
+                                                    placeholder="최소"
+                                                    style={{ width: '100%', paddingRight: 30 }}
+                                                />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input
+                                                    className={styles.rangeInput}
+                                                    value={formData.wantedAreaMax || ''}
+                                                    onChange={(e) => handleChange('wantedAreaMax', e.target.value)}
+                                                    placeholder="최대"
+                                                    style={{ width: '100%', paddingRight: 30 }}
+                                                />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>층수</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input
+                                                    className={styles.rangeInput}
+                                                    value={formData.wantedFloorMin || ''}
+                                                    onChange={(e) => handleChange('wantedFloorMin', e.target.value)}
+                                                    placeholder="최소"
+                                                    style={{ width: '100%', paddingRight: 30 }}
+                                                />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>층</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input
+                                                    className={styles.rangeInput}
+                                                    value={formData.wantedFloorMax || ''}
+                                                    onChange={(e) => handleChange('wantedFloorMax', e.target.value)}
+                                                    placeholder="최대"
+                                                    style={{ width: '100%', paddingRight: 30 }}
+                                                />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>층</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>임대료(월세)</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input
+                                                    className={styles.rangeInput}
+                                                    value={formData.wantedRentMin || ''}
+                                                    onChange={(e) => handleChange('wantedRentMin', e.target.value)}
+                                                    style={{ width: '100%', paddingRight: 40 }}
+                                                />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input
+                                                    className={styles.rangeInput}
+                                                    value={formData.wantedRentMax || ''}
+                                                    onChange={(e) => handleChange('wantedRentMax', e.target.value)}
+                                                    style={{ width: '100%', paddingRight: 40 }}
+                                                />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>보증금</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input
+                                                    className={styles.rangeInput}
+                                                    value={formData.wantedDepositMin || ''}
+                                                    onChange={(e) => handleChange('wantedDepositMin', e.target.value)}
+                                                    style={{ width: '100%', paddingRight: 40 }}
+                                                />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input
+                                                    className={styles.rangeInput}
+                                                    value={formData.wantedDepositMax || ''}
+                                                    onChange={(e) => handleChange('wantedDepositMax', e.target.value)}
+                                                    style={{ width: '100%', paddingRight: 40 }}
+                                                />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {formData.propertyType === 'building' && (
+                            <>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>대지면적</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedLandAreaMin || ''} onChange={(e) => handleChange('wantedLandAreaMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedLandAreaMax || ''} onChange={(e) => handleChange('wantedLandAreaMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>연면적</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedTotalAreaMin || ''} onChange={(e) => handleChange('wantedTotalAreaMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedTotalAreaMax || ''} onChange={(e) => handleChange('wantedTotalAreaMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>연수익률</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedYieldMin || ''} onChange={(e) => handleChange('wantedYieldMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>%</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedYieldMax || ''} onChange={(e) => handleChange('wantedYieldMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>매매가</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedSalePriceMin || ''} onChange={(e) => handleChange('wantedSalePriceMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedSalePriceMax || ''} onChange={(e) => handleChange('wantedSalePriceMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {formData.propertyType === 'hotel' && (
+                            <>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>대지면적</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedLandAreaMin || ''} onChange={(e) => handleChange('wantedLandAreaMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedLandAreaMax || ''} onChange={(e) => handleChange('wantedLandAreaMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>연면적</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedTotalAreaMin || ''} onChange={(e) => handleChange('wantedTotalAreaMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedTotalAreaMax || ''} onChange={(e) => handleChange('wantedTotalAreaMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>임대료</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedRentMin || ''} onChange={(e) => handleChange('wantedRentMin', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedRentMax || ''} onChange={(e) => handleChange('wantedRentMax', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>보증금</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedDepositMin || ''} onChange={(e) => handleChange('wantedDepositMin', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedDepositMax || ''} onChange={(e) => handleChange('wantedDepositMax', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {formData.propertyType === 'apartment' && (
+                            <>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>공급면적</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedSupplyAreaMin || ''} onChange={(e) => handleChange('wantedSupplyAreaMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedSupplyAreaMax || ''} onChange={(e) => handleChange('wantedSupplyAreaMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>보증금</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedDepositMin || ''} onChange={(e) => handleChange('wantedDepositMin', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedDepositMax || ''} onChange={(e) => handleChange('wantedDepositMax', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>임대료</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedRentMin || ''} onChange={(e) => handleChange('wantedRentMin', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedRentMax || ''} onChange={(e) => handleChange('wantedRentMax', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>매매가</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedSalePriceMin || ''} onChange={(e) => handleChange('wantedSalePriceMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedSalePriceMax || ''} onChange={(e) => handleChange('wantedSalePriceMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {formData.propertyType === 'estate' && (
+                            <>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>대지면적</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedLandAreaMin || ''} onChange={(e) => handleChange('wantedLandAreaMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedLandAreaMax || ''} onChange={(e) => handleChange('wantedLandAreaMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>연면적</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedTotalAreaMin || ''} onChange={(e) => handleChange('wantedTotalAreaMin', e.target.value)} placeholder="최소" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedTotalAreaMax || ''} onChange={(e) => handleChange('wantedTotalAreaMax', e.target.value)} placeholder="최대" style={{ width: '100%', paddingRight: 30 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>평</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>보증금</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedDepositMin || ''} onChange={(e) => handleChange('wantedDepositMin', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedDepositMax || ''} onChange={(e) => handleChange('wantedDepositMax', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={styles.formRow}>
+                                    <div className={styles.label}>임대료</div>
+                                    <div className={styles.inputWrapper}>
+                                        <div className={styles.rangeWrapper}>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedRentMin || ''} onChange={(e) => handleChange('wantedRentMin', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                            <span style={{ margin: '0 8px' }}>~</span>
+                                            <div style={{ position: 'relative', flex: 1 }}>
+                                                <input className={styles.rangeInput} value={formData.wantedRentMax || ''} onChange={(e) => handleChange('wantedRentMax', e.target.value)} style={{ width: '100%', paddingRight: 40 }} />
+                                                <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#adb5bd', fontSize: 13, pointerEvents: 'none' }}>만원</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Property Type Selection */}
+                        <div className={styles.formRow}>
+                            <div className={styles.label}>물건종류</div>
+                            <div className={styles.inputWrapper} style={{ display: 'flex', gap: 12 }}>
+                                {['store', 'building', 'hotel', 'apartment', 'estate'].map(type => (
+                                    <label key={type} className={styles.radioLabel}>
+                                        <input
+                                            type="radio"
+                                            name="propertyType"
+                                            checked={(formData.propertyType || 'store') === type}
+                                            onChange={() => handleChange('propertyType', type)}
+                                        />
+                                        {type === 'store' ? '점포' :
+                                            type === 'building' ? '빌딩' :
+                                                type === 'hotel' ? '호텔' :
+                                                    type === 'apartment' ? '아파트' : '부동산'}
+                                    </label>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -972,7 +1368,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                 <thead>
                                     <tr>
                                         <th style={{ width: 50 }}>No</th>
-                                        <th style={{ width: 100 }}>날짜</th>
+                                        <th style={{ width: 100, whiteSpace: 'nowrap' }}>날짜</th>
                                         <th style={{ width: 80 }}>작업자</th>
                                         <th style={{ width: 120 }}>관련물건</th>
                                         <th>내역</th>
@@ -988,7 +1384,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                         formData.history.map((item: any, i) => (
                                             <tr key={i} onClick={() => { setEditingHistoryIndex(i); setIsWorkModalOpen(true); }} style={{ cursor: 'pointer' }}>
                                                 <td>{i + 1}</td>
-                                                <td>{item.date}</td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{item.date}</td>
                                                 <td>{item.manager || item.worker}</td>
                                                 <td
                                                     style={{
@@ -1044,11 +1440,11 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                             <table className={styles.historyTable}>
                                 <thead>
                                     <tr>
-                                        <th style={{ width: 40 }}>선택</th>
+                                        <th style={{ width: 40, whiteSpace: 'nowrap' }}>선택</th>
                                         <th style={{ width: 40 }}>No</th>
-                                        <th style={{ width: 90 }}>날짜</th>
+                                        <th style={{ width: 90, whiteSpace: 'nowrap' }}>날짜</th>
                                         <th>물건명</th>
-                                        <th style={{ width: 60 }}>업종</th>
+                                        <th style={{ width: 50 }}>업종</th>
                                         <th style={{ width: 80 }}>금액</th>
                                         <th style={{ width: 120 }}>주소</th>
                                     </tr>
@@ -1069,11 +1465,19 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                                                     />
                                                 </td>
                                                 <td>{i + 1}</td>
-                                                <td>{item.addedDate || item.date || '-'}</td>
-                                                <td style={{ color: item.isSynced !== false ? '#228BE6' : 'inherit' }}>{item.name}</td>
-                                                <td>{item.industrySector || item.type}</td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{item.addedDate || item.date || '-'}</td>
+                                                <td style={{
+                                                    color: item.isSynced !== false ? '#228BE6' : 'inherit',
+                                                    maxWidth: '150px',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap'
+                                                }} title={item.name}>
+                                                    {item.name}
+                                                </td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{item.industrySector || item.type}</td>
                                                 <td style={{ textAlign: 'right' }}>
-                                                    {Number(item.totalPrice || (parseInt(item.premium || '0') + parseInt(item.deposit || '0'))).toLocaleString()}만
+                                                    {Number(item.totalPrice || (parseInt(item.premium || '0') + parseInt(item.deposit || '0'))).toLocaleString()}
                                                 </td>
                                                 <td style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.address}>
                                                     {item.address}

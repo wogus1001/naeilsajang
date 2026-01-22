@@ -3,6 +3,31 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.6] - 2026-01-22
+
+### Fixed (수정됨)
+- **Customer Batch Upload Mappings (고객 일괄 업로드 매핑 수정)**
+  - Fixed property type detection for 'Estate' (`부동산`) records by checking additional columns (`물건종류`, `분류`, `구분`).
+    - '부동산' 분류가 `타겟타입` 외에 다른 컬럼(`물건종류` 등)에 있을 경우에도 정확히 인식하도록 수정했습니다.
+  - Corrected column mappings for Deposit/Rent/Price/Yield across all property types (Building, Hotel, Apartment, Estate), adding robust fallbacks (e.g., checking `부동산_보증금` then `보증금`).
+    - 빌딩, 호텔, 아파트, 부동산 등 모든 물건 종류에 대해 보증금/임대료/매매가/수익률 컬럼 매핑을 수정하고, 컬럼명 변형(예: `부동산_보증금` vs `보증금`)에 대한 예외 처리를 추가했습니다.
+  - Resolved "Missing Data" issue where empty database columns (Store-specific) were overriding valid JSONB data for other property types.
+    - 점포 외 물건(호텔 등)의 데이터가 빈 점포용 DB 컬럼 값으로 덮어씌워져 보이지 않던 문제를 해결했습니다.
+  - Fixed 'NaN' error in Promoted Properties Price by stripping commas from the source Excel field.
+    - 추진물건 금액의 쉼표(,)로 인해 `NaN` 오류가 발생하는 문제를 수정했습니다.
+
+### Changed (변경됨)
+- **Customer Card UI (고객 카드 UI 개선)**
+  - **Unit Suffixes**: Added unit indicators (평, 층, 만원, %) inside input fields for all property types.
+    - 모든 물건 종류의 입력 필드 내부에 단위(평, 층, 만원 등)를 표시하여 가독성을 높였습니다.
+  - **Table Formatting**: Enforced single-line display for Date and Selection columns in History and Promoted Properties tables.
+    - 고객 내역 및 추진물건 테이블의 날짜/선택 컬럼이 줄바꿈 없이 한 줄로 나오도록 고정했습니다.
+  - **Promoted Properties Display**:
+    - Truncated long Item Names with ellipsis and added hover tooltip.
+      - 추진물건명이 길 경우 말줄임표(...)로 표시하고, 마우스 오버 시 전체 이름을 확인할 수 있게 했습니다.
+    - Removed '万' suffix from Price display (numeric only).
+      - 추진물건 금액 표시에서 "만" 글자를 제거하고 숫자만 표시하도록 변경했습니다.
+
 ## [v1.1.5] - 2026-01-21
 
 ### Added (추가됨)
