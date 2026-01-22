@@ -3,6 +3,40 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.8] - 2026-01-22
+
+### Changed (변경됨)
+- **Promoted Customer Sync (추진 고객 동기화 방식 원복)**
+  - Reverted the "Real-time Query" approach back to **"Bidirectional Data Sync"** as per user request.
+    - 추진 고객/명함 리스트를 실시간 조회하는 방식에서, 다시 **물건 데이터에 직접 저장(복사)하는 동기화 방식**으로 원복했습니다.
+  - Restored logic in `customers/sync` and `business-cards/sync` to copy Promoted Data into `properties` table.
+    - 동기화 버튼 클릭 시 추진 내역이 물건 상세 정보에 확실하게 저장되도록 로직을 복구했습니다.
+
+### Fixed (수정됨)
+- **PropertyCard Runtime Error (물건 상세 런타임 오류 수정)**
+  - Fixed `id is not defined` error in `PropertyCard.tsx` by removing the unstable real-time fetch effect.
+    - 실시간 조회 코드 제거를 통해 특정 상황에서 발생하던 앱 크래시(ID 참조 오류)를 해결했습니다.
+
+## [v1.1.7] - 2026-01-22
+
+### Added (추가됨)
+- **Detailed Card Navigation (상세 카드 내비게이션)**
+  - Added 'First', 'Prev', 'Next', 'Last' (`<<`, `<`, `>`, `>>`) buttons to the footer of Business, Customer, and Property Cards.
+    - 명함, 고객, 점포 상세 카드 하단에 목록 이동 버튼을 추가하여 창을 닫지 않고 연속 열람이 가능해졌습니다.
+  - Integration with List Filters: Navigation respects current search terms and active filters.
+    - 현재 적용된 검색 및 필터 상태를 유지하며 목록 순서대로 이동합니다.
+- **Property Data Schema (점포 데이터 스키마)**
+  - Added `videoUrls` field (Array of Strings) to Property data structure.
+    - 점포 상세 정보에 동영상 URL을 최대 6개까지 저장할 수 있는 필드를 추가했습니다 (기존 JSON 데이터 확장).
+- **Property Related Videos (물건 관련 영상)**
+  - Added a video input section to the 'Related Documents' tab in Property Card.
+    - 관련문서 탭 하단에 유튜브 등 동영상 링크를 6개까지 등록하고 바로 열어볼 수 있는 섹션을 추가했습니다.
+
+### Fixed (수정됨)
+- **Business Card API Schema (명함 API 스키마 수정)**
+  - Fixed an issue where `homePhone` (자택전화) was missing in the API response mapping.
+    - 명함 상세 조회 시 자택전화 데이터가 누락되던 API 매핑 오류를 수정했습니다.
+
 ## [v1.1.6] - 2026-01-22
 
 ### Fixed (수정됨)

@@ -206,6 +206,7 @@ export async function GET(request: Request) {
 
         homeAddress: item.home_address,
         fax: item.fax,
+        homePhone: item.home_phone, // Map DB home_phone to Frontend homePhone
         homepage: item.homepage,
         gender: item.gender,
         isFavorite: item.is_favorite,
@@ -480,69 +481,78 @@ async function handleBatchUpload(payload: any) {
     // However, the prompt focus was "Differnet name -> Unassigned".
     // I'll stick to: Excel Name -> DB Match -> ID. Else NULL.
 
+    // Helper for robust key matching
+    const getVal = (row: any, keys: string[]) => {
+        for (const k of keys) {
+            if (row[k] !== undefined) return row[k];
+            if (row[k.trim()] !== undefined) return row[k.trim()];
+            // Try removing spaces
+            const noSpaceKey = k.replace(/\s+/g, '');
+            // Find key in row that matches noSpaceKey when row key has no spaces
+            const found = Object.keys(row).find(rk => rk.replace(/\s+/g, '') === noSpaceKey);
+            if (found) return row[found];
+        }
+        return null;
+    };
+
     for (const row of main) {
         const manageId = row['관리ID'] || row['성명'] + '_' + row['회사명']; // Fallback for manage_id if not present
         if (!manageId) continue; // Skip if no ID
 
         // Manager Logic
         let managerUuid = null;
-        const excelManagerName = row['담당자'];
+        const excelManagerName = getVal(row, ['담당자']);
         if (excelManagerName && typeof excelManagerName === 'string' && excelManagerName.trim()) {
             managerUuid = managerNameMap.get(excelManagerName.trim()) || null;
         } else {
-            // Excel '담당자' is empty.
-            // Option: Assign to Uploader? Or Null?
-            // "담당자 미지정상태로 하는거는 어때?" -> implies prefer NULL.
             managerUuid = null;
         }
 
-        // Combine phones if needed
-
         // Parse Registered Date
         let registeredAt = null;
-        if (row['등록일']) {
-            // ... date parsing logic (similar to frontend or trust frontend logic if it passed pure data)
-            // The frontend passed raw Excel JSON, so we need to parse here or in frontend.
-            // Wait, implementation plan said "Frontend: Parse all 3 files". 
-            // In the frontend code I wrote `mainData = XLSX.utils.sheet_to_json`. It returns raw keys.
-            // I should parse dates here carefully. 
-            // For simplicity, let's store as text for now if format is mixed, OR try to parse.
-            // The DB schema says `registered_at` is TIMESTAMP.
-            // Let's rely on flexible parsing or store null.
-            registeredAt = parseDate(row['등록일']);
+        const regVal = getVal(row, ['등록일']);
+        if (regVal) {
+            registeredAt = parseDate(regVal);
         }
 
         cardsToUpsert.push({
             manage_id: manageId,
             company_id: uploaderCompanyId, // Auto-assign to Uploader's company
-            name: row['이름'] || row['성명'],
-            category: row['분류'],
-            position: row['직급'],
-            company_name: row['회사명'],
-            company_address: row['회사주소'],
-            department: row['부서'],
-            home_address: row['자택주소'],
-            mobile: row['핸드폰'],
-            company_phone1: row['회사전화1'],
-            company_phone2: row['회사전화2'],
-            fax: row['팩스'],
-            home_phone: row['자택전화'],
-            homepage: row['홈페이지'],
-            email: row['이메일'],
-            etc_memo: row['기타메모'],
-            gender: (row['성별'] === '남' || row['성별'] === 'M') ? 'M' : (row['성별'] === '여' || row['성별'] === 'F') ? 'F' : null,
-            is_favorite: row['관심명함'] === 'O' || row['관심명함'] === true, // Check Excel convention
+            name: getVal(row, ['이름', '성명']),
+            category: getVal(row, ['분류']),
+            position: getVal(row, ['직급']),
+            company_name: getVal(row, ['회사명']),
+            company_address: getVal(row, ['회사주소']),
+            department: getVal(row, ['부서']),
+            home_address: getVal(row, ['자택주소']),
+            mobile: getVal(row, ['핸드폰', '휴대폰']),
+            company_phone1: getVal(row, ['회사전화1', '회사전화', '대표전화']),
+            company_phone2: getVal(row, ['회사전화2']),
+            fax: getVal(row, ['팩스']),
+            home_phone: getVal(row, ['자택전화', '자택 전화', '집전화', '자택']),
+            homepage: getVal(row, ['홈페이지']),
+            email: getVal(row, ['이메일']),
+            etc_memo: getVal(row, ['기타메모', '메모']),
+            gender: (getVal(row, ['성별']) === '남' || getVal(row, ['성별']) === 'M') ? 'M' : (getVal(row, ['성별']) === '여' || getVal(row, ['성별']) === 'F') ? 'F' : null,
+            is_favorite: getVal(row, ['관심명함']) === 'O' || getVal(row, ['관심명함']) === true,
             registered_at: registeredAt,
-            created_at: registeredAt || now, // Use Excel date for creation time too
+            created_at: registeredAt || now,
             manager_id: managerUuid,
             updated_at: now
         });
     }
 
     if (cardsToUpsert.length > 0) {
+        // Deduplicate cardsToUpsert based on manage_id (Last one wins)
+        const uniqueCardsMap = new Map();
+        cardsToUpsert.forEach(card => {
+            uniqueCardsMap.set(card.manage_id, card);
+        });
+        const uniqueCards = Array.from(uniqueCardsMap.values());
+
         const { error } = await supabaseAdmin
             .from('business_cards')
-            .upsert(cardsToUpsert, { onConflict: 'manage_id', ignoreDuplicates: false });
+            .upsert(uniqueCards, { onConflict: 'manage_id', ignoreDuplicates: false });
 
         if (error) {
             console.error('Upsert cards error:', error);

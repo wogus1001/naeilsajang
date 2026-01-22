@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './PropertyCard.module.css';
-import { User, Phone, MapPin, Building, DollarSign, FileText, Save, Trash2, Printer, Copy, Plus, Star, ChevronDown, ChevronUp, Search, X, Download } from 'lucide-react';
+import { User, Phone, MapPin, Building, DollarSign, FileText, Save, Trash2, Printer, Copy, Plus, Star, ChevronDown, ChevronUp, Search, X, Download, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import PersonSelectorModal from './PersonSelectorModal';
 import ConfirmModal from './ConfirmModal';
 import { useRouter } from 'next/navigation';
@@ -14,6 +14,8 @@ import { saveAs } from 'file-saver';
 
 // ... (previous imports)
 import { getSupabase } from '@/lib/supabase';
+import BusinessCard from '../business/BusinessCard';
+import Customer from '../customers/CustomerCard';
 
 interface RevenueItem {
     id: string;
@@ -82,6 +84,9 @@ interface PropertyCardProps {
     property: any;
     onClose: () => void;
     onRefresh?: () => void;
+    // Navigation Props
+    onNavigate?: (action: 'first' | 'prev' | 'next' | 'last') => void;
+    canNavigate?: { first: boolean; prev: boolean; next: boolean; last: boolean };
 }
 
 interface PriceHistoryItem {
@@ -117,7 +122,7 @@ interface PropertyDocument {
 
 
 
-export default function PropertyCard({ property, onClose, onRefresh }: PropertyCardProps) {
+export default function PropertyCard({ property, onClose, onRefresh, onNavigate, canNavigate }: PropertyCardProps) {
     useKakaoLoader({
         appkey: "26c1197bae99e17f8c1f3e688e22914d",
         libraries: ["clusterer", "drawing", "services"],
@@ -180,6 +185,13 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
     const [directReportPreview, setDirectReportPreview] = useState<number>(0);
     const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
     const [userCompanyName, setUserCompanyName] = useState<string>('');
+
+    // UI State for Linking
+    const [selectedBusinessCardId, setSelectedBusinessCardId] = useState<string | null>(null);
+    const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+
+    // [Reverted Dynamic Fetch] - Back to formData.promotedCustomers
+
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -3359,26 +3371,80 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                 <table className={styles.listTable}>
                                     <thead>
                                         <tr>
-                                            <th>No</th>
-                                            <th>날짜</th>
-                                            <th>작업자</th>
+                                            <th style={{ width: '50px' }}>No</th>
+                                            <th style={{ width: '100px' }}>날짜</th>
+                                            <th style={{ width: '80px' }}>작업자</th>
+                                            <th style={{ width: '150px' }}>관련고객</th>
                                             <th>내역</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {(!formData.workHistory || formData.workHistory.length === 0) ? (
                                             <tr>
-                                                <td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#868e96' }}>등록된 작업 내역이 없습니다.</td>
+                                                <td colSpan={5} style={{ textAlign: 'center', padding: 20, color: '#868e96' }}>등록된 작업 내역이 없습니다.</td>
                                             </tr>
                                         ) : (
                                             formData.workHistory.map((item: any, index: number) => (
-                                                <tr key={item.id || index} onClick={() => handleEditWorkHistory(item)} style={{ cursor: 'pointer', ':hover': { backgroundColor: '#f8f9fa' } } as any}>
+                                                <tr key={item.id || index} onClick={() => handleEditWorkHistory(item)} style={{ cursor: 'pointer' }}>
                                                     <td>{index + 1}</td>
                                                     <td>{formatDate(item.date)}</td>
                                                     <td>{item.manager}</td>
-                                                    <td>
-                                                        [{item.targetType === 'customer' ? '고객' : '매물'}] {item.content}
-                                                        {item.details && <div style={{ fontSize: 11, color: '#868e96' }}>{item.details.length > 30 ? item.details.substring(0, 30) + '...' : item.details}</div>}
+                                                    <td title={item.targetKeyword || item.targetName}>
+                                                        <div style={{
+                                                            whiteSpace: 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            maxWidth: '130px'
+                                                        }}>
+                                                            {(item.targetKeyword || item.targetName) ? (
+                                                                <>
+                                                                    <span
+                                                                        style={{
+                                                                            color: item.targetId ? '#228be6' : '#868e96',
+                                                                            fontWeight: 'bold',
+                                                                            marginRight: 4,
+                                                                            cursor: item.targetId ? 'pointer' : 'default'
+                                                                        }}
+                                                                        onClick={(e) => {
+                                                                            if (item.targetId) {
+                                                                                e.stopPropagation();
+                                                                                if (item.targetType === 'businessCard') setSelectedBusinessCardId(item.targetId);
+                                                                                else setSelectedCustomerId(item.targetId);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        [{item.targetType === 'businessCard' ? '명함' : '고객'}]
+                                                                    </span>
+                                                                    <span
+                                                                        style={{
+                                                                            color: item.targetId ? '#228be6' : 'inherit',
+                                                                            cursor: item.targetId ? 'pointer' : 'default',
+                                                                            textDecoration: item.targetId ? 'underline' : 'none'
+                                                                        }}
+                                                                        onClick={(e) => {
+                                                                            if (item.targetId) {
+                                                                                e.stopPropagation();
+                                                                                if (item.targetType === 'businessCard') setSelectedBusinessCardId(item.targetId);
+                                                                                else setSelectedCustomerId(item.targetId);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        {item.targetKeyword || item.targetName}
+                                                                    </span>
+                                                                </>
+                                                            ) : null}
+                                                        </div>
+                                                    </td>
+                                                    <td title={item.content}>
+                                                        <div style={{
+                                                            whiteSpace: 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            maxWidth: '300px',
+                                                            textAlign: 'left'
+                                                        }}>
+                                                            {item.content || '-'}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))
@@ -3607,13 +3673,13 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                     <table className={styles.listTable}>
                                         <thead>
                                             <tr>
-                                                <th>No</th>
-                                                <th>날짜</th>
-                                                <th>이름</th>
-                                                <th>분류</th>
-                                                <th>예산</th>
+                                                <th style={{ width: '50px' }}>No</th>
+                                                <th style={{ width: '100px' }}>날짜</th>
+                                                <th style={{ width: '150px' }}>이름</th>
+                                                <th style={{ width: '80px' }}>분류</th>
+                                                <th style={{ width: '100px' }}>예산</th>
                                                 <th>특징</th>
-                                                <th>관리</th>
+                                                <th style={{ width: '50px' }}>관리</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -3635,7 +3701,20 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                             }}>
                                                                 {customer.type === 'customer' ? '고객' : '명함'}
                                                             </span>
-                                                            {customer.name}
+                                                            <span
+                                                                style={{ cursor: 'pointer', color: '#339af0', fontWeight: 600 }}
+                                                                onClick={() => {
+                                                                    if (customer.type === 'businessCard') {
+                                                                        setSelectedBusinessCardId(customer.targetId);
+                                                                        setIsBusinessCardModalOpen(true);
+                                                                    } else {
+                                                                        setSelectedCustomerId(customer.targetId);
+                                                                        setIsCustomerModalOpen(true);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {customer.name}
+                                                            </span>
                                                         </td>
                                                         <td>
                                                             <span style={{
@@ -3656,8 +3735,21 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                                                                     customer.classification || '-'}
                                                             </span>
                                                         </td>
-                                                        <td>{(customer.budget && !isNaN(Number(customer.budget))) ? formatCurrency(customer.budget) : '-'}</td>
-                                                        <td>{customer.features}</td>
+                                                        <td>
+                                                            <div style={{ whiteSpace: 'nowrap' }}>
+                                                                {(customer.budget && !isNaN(Number(customer.budget))) ? formatCurrency(customer.budget) : '-'}
+                                                            </div>
+                                                        </td>
+                                                        <td title={customer.features}>
+                                                            <div style={{
+                                                                maxWidth: '200px',
+                                                                whiteSpace: 'nowrap',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis'
+                                                            }}>
+                                                                {customer.features || '-'}
+                                                            </div>
+                                                        </td>
                                                         <td>
                                                             <button className={styles.deletePhoto} onClick={() => handleRemovePromotedCustomer(index)}>
                                                                 <Trash2 size={12} />
@@ -3809,6 +3901,46 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                                         </tbody>
                                     </table>
                                 </div>
+
+                                {/* Property Related Videos Section */}
+                                <div className={styles.paneHeader} style={{ backgroundColor: '#339af0', color: 'white', padding: '10px 15px', borderRadius: '4px 4px 0 0', margin: '15px -15px 15px -15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <h3 style={{ color: 'white', margin: 0, fontSize: 15 }}>물건관련영상</h3>
+                                    <span style={{ fontSize: 12, opacity: 0.9 }}>동영상을 유튜브에 업로드후 주소를 입력하세요.</span>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                    {Array.from({ length: 6 }).map((_, index) => (
+                                        <div key={index} style={{ display: 'flex', alignItems: 'center', border: '1px solid #dee2e6', borderRadius: 4, overflow: 'hidden' }}>
+                                            <div style={{ backgroundColor: '#f1f3f5', padding: '0 10px', fontSize: 13, color: '#495057', display: 'flex', alignItems: 'center', height: '36px', borderRight: '1px solid #dee2e6', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                                동영상 {index + 1}
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={(formData.videoUrls && formData.videoUrls[index]) || ''}
+                                                onChange={(e) => {
+                                                    const newUrls = [...(formData.videoUrls || [])];
+                                                    // Ensure array is long enough
+                                                    while (newUrls.length <= index) newUrls.push('');
+                                                    newUrls[index] = e.target.value;
+                                                    setFormData({ ...formData, videoUrls: newUrls });
+                                                }}
+                                                placeholder=""
+                                                style={{ border: 'none', padding: '0 10px', flex: 1, outline: 'none', fontSize: 13, height: '36px', minWidth: 0 }}
+                                            />
+                                            {/* YouTube Play Icon Button */}
+                                            {(formData.videoUrls && formData.videoUrls[index]) && (
+                                                <a
+                                                    href={formData.videoUrls[index].includes('http') ? formData.videoUrls[index] : `https://www.youtube.com/watch?v=${formData.videoUrls[index]}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, backgroundColor: '#ff0000', color: 'white', textDecoration: 'none' }}
+                                                    title="재생"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="white" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                                                </a>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -3842,6 +3974,47 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                         <Trash2 size={14} /> 삭제
                     </button>
                 </div>
+                {/* Navigation Buttons */}
+                {onNavigate && (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('first')}
+                            disabled={!canNavigate?.first}
+                            title="처음"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronsLeft size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('prev')}
+                            disabled={!canNavigate?.prev}
+                            title="이전"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('next')}
+                            disabled={!canNavigate?.next}
+                            title="다음"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('last')}
+                            disabled={!canNavigate?.last}
+                            title="마지막"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronsRight size={18} />
+                        </button>
+                    </div>
+                )}
                 <div className={styles.footerRight}>
                     <button className={styles.footerBtn} onClick={handleNew}><Plus size={14} /> 신규</button>
                     <button className={styles.footerBtn} onClick={handleCopy} disabled={isLoading}><Copy size={14} /> 복사</button>
@@ -4322,6 +4495,30 @@ export default function PropertyCard({ property, onClose, onRefresh }: PropertyC
                 message={confirmModal.message}
                 isDanger={confirmModal.isDanger}
             />
+
+            {/* View Modals for Linked Items */}
+            {selectedBusinessCardId && (
+                <div className={styles.searchModal} style={{ zIndex: 3000 }}>
+                    <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1200px', height: '90vh', padding: 0, background: '#e9ecef', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+                        <BusinessCard
+                            id={selectedBusinessCardId}
+                            onClose={() => setSelectedBusinessCardId(null)}
+                            isModal={true}
+                        />
+                    </div>
+                </div>
+            )}
+            {selectedCustomerId && (
+                <div className={styles.searchModal} style={{ zIndex: 3000 }}>
+                    <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1200px', height: '90vh', padding: 0, background: '#e9ecef', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+                        <Customer
+                            id={selectedCustomerId}
+                            onClose={() => setSelectedCustomerId(null)}
+                            isModal={true}
+                        />
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

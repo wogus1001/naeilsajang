@@ -712,6 +712,26 @@ function BusinessCardListContent() {
                             onClose={handleCloseCard}
                             onSuccess={handleCardSuccess}
                             isModal={false}
+                            onNavigate={(action) => {
+                                const currentIndex = filteredCards.findIndex(c => c.id === selectedCardId);
+                                if (currentIndex === -1) return;
+
+                                let nextIndex = currentIndex;
+                                if (action === 'prev') nextIndex = Math.max(0, currentIndex - 1);
+                                else if (action === 'next') nextIndex = Math.min(filteredCards.length - 1, currentIndex + 1);
+                                else if (action === 'first') nextIndex = 0;
+                                else if (action === 'last') nextIndex = filteredCards.length - 1;
+
+                                if (nextIndex !== currentIndex) {
+                                    setSelectedCardId(filteredCards[nextIndex].id);
+                                }
+                            }}
+                            canNavigate={{
+                                first: filteredCards.findIndex(c => c.id === selectedCardId) > 0,
+                                prev: filteredCards.findIndex(c => c.id === selectedCardId) > 0,
+                                next: filteredCards.findIndex(c => c.id === selectedCardId) < filteredCards.length - 1,
+                                last: filteredCards.findIndex(c => c.id === selectedCardId) < filteredCards.length - 1
+                            }}
                         />
                     </div>
                 </div>
@@ -732,6 +752,26 @@ function BusinessCardListContent() {
                             id={selectedCardId}
                             onClose={handleCloseCard}
                             onSuccess={handleCardSuccess}
+                            onNavigate={(action) => {
+                                const currentIndex = filteredCards.findIndex(c => c.id === selectedCardId);
+                                if (currentIndex === -1) return;
+
+                                let nextIndex = currentIndex;
+                                if (action === 'prev') nextIndex = Math.max(0, currentIndex - 1);
+                                else if (action === 'next') nextIndex = Math.min(filteredCards.length - 1, currentIndex + 1);
+                                else if (action === 'first') nextIndex = 0;
+                                else if (action === 'last') nextIndex = filteredCards.length - 1;
+
+                                if (nextIndex !== currentIndex) {
+                                    setSelectedCardId(filteredCards[nextIndex].id);
+                                }
+                            }}
+                            canNavigate={{
+                                first: filteredCards.findIndex(c => c.id === selectedCardId) > 0,
+                                prev: filteredCards.findIndex(c => c.id === selectedCardId) > 0,
+                                next: filteredCards.findIndex(c => c.id === selectedCardId) < filteredCards.length - 1,
+                                last: filteredCards.findIndex(c => c.id === selectedCardId) < filteredCards.length - 1
+                            }}
                         />
                     </div>
                 </div>

@@ -631,6 +631,26 @@ function CustomerListPageContent() {
                             onClose={handleCloseCard}
                             onSuccess={handleCardSuccess}
                             isModal={false}
+                            onNavigate={(action) => {
+                                const currentIndex = filteredCustomers.findIndex(c => c.id === selectedCustomerId);
+                                if (currentIndex === -1) return;
+
+                                let nextIndex = currentIndex;
+                                if (action === 'prev') nextIndex = Math.max(0, currentIndex - 1);
+                                else if (action === 'next') nextIndex = Math.min(filteredCustomers.length - 1, currentIndex + 1);
+                                else if (action === 'first') nextIndex = 0;
+                                else if (action === 'last') nextIndex = filteredCustomers.length - 1;
+
+                                if (nextIndex !== currentIndex) {
+                                    setSelectedCustomerId(filteredCustomers[nextIndex].id);
+                                }
+                            }}
+                            canNavigate={{
+                                first: filteredCustomers.findIndex(c => c.id === selectedCustomerId) > 0,
+                                prev: filteredCustomers.findIndex(c => c.id === selectedCustomerId) > 0,
+                                next: filteredCustomers.findIndex(c => c.id === selectedCustomerId) < filteredCustomers.length - 1,
+                                last: filteredCustomers.findIndex(c => c.id === selectedCustomerId) < filteredCustomers.length - 1
+                            }}
                         />
                     </div>
                 </div>
@@ -653,6 +673,26 @@ function CustomerListPageContent() {
                             onClose={handleCloseCard}
                             onSuccess={handleCardSuccess}
                             isModal={false}
+                            onNavigate={(action) => {
+                                const currentIndex = filteredCustomers.findIndex(c => c.id === selectedCustomerId);
+                                if (currentIndex === -1) return;
+
+                                let nextIndex = currentIndex;
+                                if (action === 'prev') nextIndex = Math.max(0, currentIndex - 1);
+                                else if (action === 'next') nextIndex = Math.min(filteredCustomers.length - 1, currentIndex + 1);
+                                else if (action === 'first') nextIndex = 0;
+                                else if (action === 'last') nextIndex = filteredCustomers.length - 1;
+
+                                if (nextIndex !== currentIndex) {
+                                    setSelectedCustomerId(filteredCustomers[nextIndex].id);
+                                }
+                            }}
+                            canNavigate={{
+                                first: filteredCustomers.findIndex(c => c.id === selectedCustomerId) > 0,
+                                prev: filteredCustomers.findIndex(c => c.id === selectedCustomerId) > 0,
+                                next: filteredCustomers.findIndex(c => c.id === selectedCustomerId) < filteredCustomers.length - 1,
+                                last: filteredCustomers.findIndex(c => c.id === selectedCustomerId) < filteredCustomers.length - 1
+                            }}
                         />
                     </div>
                 </div>

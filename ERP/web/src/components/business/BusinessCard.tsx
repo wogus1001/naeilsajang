@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Save, Plus, X, Trash2, Star, List, RefreshCw } from 'lucide-react';
+import { Save, Plus, X, Trash2, Star, List, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import styles from '@/app/(main)/customers/register/page.module.css'; // Reusing Customer styles for consistency
 import WorkHistoryModal from '../customers/WorkHistoryModal';
 import PropertySelector from '../customers/PropertySelector';
@@ -63,9 +63,12 @@ interface BusinessCardProps {
     onClose: () => void;
     onSuccess?: () => void;
     isModal?: boolean;
+    // Navigation Props
+    onNavigate?: (action: 'first' | 'prev' | 'next' | 'last') => void;
+    canNavigate?: { first: boolean; prev: boolean; next: boolean; last: boolean };
 }
 
-export default function BusinessCard({ id, onClose, onSuccess, isModal = false }: BusinessCardProps) {
+export default function BusinessCard({ id, onClose, onSuccess, isModal = false, onNavigate, canNavigate }: BusinessCardProps) {
     const [formData, setFormData] = useState<BusinessCardData>(INITIAL_DATA);
     const [loading, setLoading] = useState(false);
     const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
@@ -814,31 +817,29 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
     };
 
     return (
-        <div className={styles.container} style={{ height: '100%', border: 'none', background: 'transparent', padding: isModal ? 0 : 16 }}>
+        <div className={styles.container} style={{ height: '100%', border: 'none', background: 'transparent' }}>
             {/* Header */}
-            {!isModal && (
-                <div className={styles.header}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div className={styles.title}>명함카드 {id ? '' : '(신규)'}</div>
-                        <div
-                            onClick={toggleFavorite}
-                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                            title="관심명함 등록/해제"
-                        >
-                            <Star
-                                size={24}
-                                fill={formData.isFavorite ? "#FAB005" : "none"}
-                                color={formData.isFavorite ? "#FAB005" : "#ced4da"}
-                            />
-                        </div>
+            <div className={styles.header}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className={styles.title}>명함카드 {id ? '' : '(신규)'}</div>
+                    <div
+                        onClick={toggleFavorite}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        title="관심명함 등록/해제"
+                    >
+                        <Star
+                            size={24}
+                            fill={formData.isFavorite ? "#FAB005" : "none"}
+                            color={formData.isFavorite ? "#FAB005" : "#ced4da"}
+                        />
                     </div>
-                    {id && formData.createdAt && (
-                        <div style={{ marginLeft: 'auto', fontSize: '14px', color: '#868e96' }}>
-                            등록일 : {formData.createdAt.split('T')[0]}
-                        </div>
-                    )}
                 </div>
-            )}
+                {id && formData.createdAt && (
+                    <div style={{ marginLeft: 'auto', fontSize: '14px', color: '#868e96' }}>
+                        등록일 : {formData.createdAt.split('T')[0]}
+                    </div>
+                )}
+            </div>
 
             <div className={styles.grid}>
                 {/* Left Panel: Info */}
@@ -899,9 +900,22 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                                 </div>
                             </div>
                             <div className={styles.formRow}>
-                                <div className={styles.label}>부서/직급</div>
-                                <div className={styles.inputWrapper}>
-                                    <input className={styles.input} value={formData.department} onChange={(e) => handleChange('department', e.target.value)} />
+                                <div className={styles.label}>부서 / 직급</div>
+                                <div className={styles.inputWrapper} style={{ display: 'flex', gap: 8 }}>
+                                    <input
+                                        className={styles.input}
+                                        value={formData.department || ''}
+                                        onChange={(e) => handleChange('department', e.target.value)}
+                                        placeholder="부서"
+                                        style={{ flex: 1 }}
+                                    />
+                                    <input
+                                        className={styles.input}
+                                        value={formData.position || ''}
+                                        onChange={(e) => handleChange('position', e.target.value)}
+                                        placeholder="직급"
+                                        style={{ flex: 1 }}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -1198,6 +1212,47 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false }
                         </button>
                     )}
                 </div>
+                {/* Navigation Buttons */}
+                {onNavigate && (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('first')}
+                            disabled={!canNavigate?.first}
+                            title="처음"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronsLeft size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('prev')}
+                            disabled={!canNavigate?.prev}
+                            title="이전"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('next')}
+                            disabled={!canNavigate?.next}
+                            title="다음"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('last')}
+                            disabled={!canNavigate?.last}
+                            title="마지막"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronsRight size={18} />
+                        </button>
+                    </div>
+                )}
                 <div className={styles.footerRight}>
                     <button className={styles.footerBtn} onClick={handleReset}>
                         <Plus size={16} /> 신규

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Save, Plus, X, Search, FileText, Trash2, Copy, Printer, Star } from 'lucide-react';
+import { Save, Plus, X, Search, FileText, Trash2, Copy, Printer, Star, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import styles from '@/app/(main)/customers/register/page.module.css';
 import WorkHistoryModal from './WorkHistoryModal';
 import PropertySelector from './PropertySelector';
@@ -122,9 +122,12 @@ interface CustomerCardProps {
     onClose: () => void;
     onSuccess?: () => void;
     isModal?: boolean;
+    // Navigation Props
+    onNavigate?: (action: 'first' | 'prev' | 'next' | 'last') => void;
+    canNavigate?: { first: boolean; prev: boolean; next: boolean; last: boolean };
 }
 
-export default function CustomerCard({ id, onClose, onSuccess, isModal = false }: CustomerCardProps) {
+export default function CustomerCard({ id, onClose, onSuccess, isModal = false, onNavigate, canNavigate }: CustomerCardProps) {
     const [formData, setFormData] = useState<Customer>(INITIAL_DATA);
     const [loading, setLoading] = useState(false);
     const [managers, setManagers] = useState<any[]>([]);
@@ -181,8 +184,22 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
         if (openedPropertyId) {
             fetch(`/api/properties?id=${openedPropertyId}`)
                 .then(res => res.json())
-                .then(data => setOpenedPropertyData(data))
-                .catch(err => console.error(err));
+                .then(data => {
+                    if (data.error) {
+                        console.error('Property fetch error:', data.error);
+                        alert('물건 정보를 찾을 수 없습니다.');
+                        setOpenedPropertyId(null);
+                        setOpenedPropertyData(null);
+                    } else {
+                        setOpenedPropertyData(data);
+                    }
+                })
+                .catch(err => {
+                    console.error('Fetch error:', err);
+                    alert('물건 정보를 불러오는 중 오류가 발생했습니다.');
+                    setOpenedPropertyId(null);
+                    setOpenedPropertyData(null);
+                });
         } else {
             setOpenedPropertyData(null);
         }
@@ -693,13 +710,12 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
     };
 
     return (
-        <div className={styles.container} style={{ height: '100%', border: 'none', background: 'transparent', padding: isModal ? 0 : 16 }}>
+        <div className={styles.container} style={{ height: '100%', border: 'none', background: 'transparent' }}>
             {/* Header */}
-            {!isModal && (
-                <div className={styles.header}>
-                    <div className={styles.title}>고객카드 {id ? '' : '(신규)'}</div>
-                </div>
-            )}
+            <div className={styles.header}>
+                <div className={styles.title}>고객카드 {id ? '' : '(신규)'}</div>
+            </div>
+
 
             <div className={styles.grid}>
                 {/* Left Panel: Customer Info & Contact */}
@@ -1506,6 +1522,47 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false }
                         </button>
                     )}
                 </div>
+                {/* Navigation Buttons */}
+                {onNavigate && (
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('first')}
+                            disabled={!canNavigate?.first}
+                            title="처음"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronsLeft size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('prev')}
+                            disabled={!canNavigate?.prev}
+                            title="이전"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('next')}
+                            disabled={!canNavigate?.next}
+                            title="다음"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                        <button
+                            className={styles.footerBtn}
+                            onClick={() => onNavigate('last')}
+                            disabled={!canNavigate?.last}
+                            title="마지막"
+                            style={{ padding: '6px' }}
+                        >
+                            <ChevronsRight size={18} />
+                        </button>
+                    </div>
+                )}
                 <div className={styles.footerRight}>
                     <button className={styles.footerBtn} onClick={handleReset}>
                         <Plus size={16} /> 신규

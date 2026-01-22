@@ -110,6 +110,22 @@ const cleanObj = (obj: any) => {
     return newObj;
 };
 
+// Helper: Parse Date (Excel serial or String)
+const parseDate = (val: any) => {
+    if (!val) return null;
+    if (typeof val === 'number') {
+        // Excel Serial (Excel base date: Dec 30, 1899)
+        const date = new Date((val - (25567 + 2)) * 86400 * 1000);
+        return date.toISOString();
+    }
+    // String "2025-11-10 (월)" or "2025. 11. 10"
+    const str = String(val);
+    const datePart = str.split('(')[0].trim().replace(/\./g, '-');
+    const d = new Date(datePart);
+    if (!isNaN(d.getTime())) return d.toISOString();
+    return null;
+};
+
 // Start of Main Logic
 async function resolveIds(legacyCompany: string | null, legacyManager: string | null, supabaseAdmin: any) {
     let companyId = null;
@@ -187,11 +203,11 @@ export async function POST(request: Request) {
         // 1. Fetch Existing Properties
         const { data: allProps, error: fetchError } = await supabaseAdmin
             .from('properties')
-            .select('id, data');
+            .select('id, data, created_at'); // Added created_at
 
         if (fetchError) throw fetchError;
 
-        const propMap = new Map<string, { id: string, data: any }>();
+        const propMap = new Map<string, { id: string, data: any, created_at: string }>();
         allProps?.forEach((row: any) => {
             if (row.data && row.data['legacyId']) {
                 propMap.set(String(row.data['legacyId']).trim(), row);
@@ -248,6 +264,7 @@ export async function POST(request: Request) {
             const legacyId = String(legacyIdRaw).trim();
             const existing = propMap.get(legacyId);
             const newId = existing ? existing.id : Date.now().toString() + Math.random().toString().substr(2, 5);
+            const existingCreatedAt = existing ? existing.created_at : null;
 
             const rowCompany = row['업체명'] || userCompanyName;
             const { companyId } = await resolveIds(rowCompany, null, supabaseAdmin);
@@ -270,10 +287,6 @@ export async function POST(request: Request) {
                         assignedManagerId = managerNameMap.get(noSpace);
                     }
                 }
-            } else {
-                // If column is empty, what is the policy?
-                // User said "If no match... unassigned". Empty implies no match.
-                // Keeping it null.
             }
 
             // --- MAPPING LOGIC START ---
@@ -283,7 +296,6 @@ export async function POST(request: Request) {
             const industryInfo = industryVal ? findIndustryByDetail([industryVal]) : null;
 
             // Construct Mapped Data Object (English Keys matching PropertyCard.tsx state)
-            // Use undefined for missing keys to allow cleanObj to filter them out
             const mappedData: any = {
                 legacyId: legacyId,
                 name: getVal(row, ['물건명', '상호명', '이름']),
@@ -298,8 +310,6 @@ export async function POST(request: Request) {
                 industryCategory: industryInfo?.category, // Explicit category field
                 industrySector: industryInfo?.sector, // Explicit sector field
                 industryDetail: industryInfo?.sector || industryVal,
-
-
 
                 // Specs
                 area: getVal(row, ['면적', '실면적', '평수', '전용면적', '임대면적']),
@@ -325,6 +335,7 @@ export async function POST(request: Request) {
                 briefingPrice: parseAmt(getVal(row, ['브리핑가', '브리핑금액', '브리핑가액'])),
                 vat: getVal(row, ['부가세', 'VAT']),
                 priceMemo: getVal(row, ['금액메모', '가격메모', '금액_메모']),
+                totalPrice: parseAmt(getVal(row, ['합계금', '금액_합계금', '총금액'])),
 
                 // --- FRANCHISE (Teal) ---
                 hqDeposit: parseAmt(getVal(row, ['본사보증금', '가맹보증금'])),
@@ -378,7 +389,8 @@ export async function POST(request: Request) {
                 featureMemo: getVal(row, ['특징', '물건특징', '장점', 'Feature']),
                 overviewMemo: getVal(row, ['메모', '상세내역', '비고', '기타', 'Note', '물건개요_메모']),
                 memo: getVal(row, ['물건메모', '상세메모', 'Memo', '메모사항']),
-                consultingReport: getVal(row, ['컨설팅리포트', '컨설팅제안서', '리포트']), // New mapping provided by user
+                consultingReport: getVal(row, ['컨설팅리포트', '컨설팅제안서', '리포트']),
+                videoUrls: getVal(row, ['관련영상', '영상', 'Video', '물건관련영상']) ? String(getVal(row, ['관련영상', '영상', 'Video', '물건관련영상'])).split(',').map(v => v.trim()).filter(Boolean) : [],
             };
 
             // Remove undefined keys so we don't overwrite existing valid data
@@ -417,27 +429,63 @@ export async function POST(request: Request) {
                 address: finalData.address,              // Populating core column
 
                 data: finalData,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                // Always provide created_at. Use existing if available, else new date.
+                created_at: existingCreatedAt || (getVal(row, ['등록일', '접수일']) ? new Date(String(getVal(row, ['등록일', '접수일']))).toISOString() : new Date().toISOString())
             };
 
-            if (!existing) {
-                // Set created_at only for NEW
-                const regDate = getVal(row, ['등록일', '접수일']);
-                (corePayload as any).created_at = regDate ? new Date(regDate).toISOString() : new Date().toISOString();
-            }
+            // Remove the separate if (!existing) block for created_at since it's now handled above
 
             upsertPayloads.push(corePayload);
-            propMap.set(legacyId, { id: corePayload.id, data: finalData });
+            propMap.set(legacyId, { id: corePayload.id, data: finalData, created_at: corePayload.created_at }); // Update map for subsequent lookups
             processedLegacyIds.add(legacyId); // Mark as processed
             mainCount++;
         }
 
         if (upsertPayloads.length > 0) {
-            const { error } = await supabaseAdmin.from('properties').upsert(upsertPayloads);
+            // Deduplicate payloads by ID, keeping the last occurrence to avoid 'ON CONFLICT DO UPDATE command cannot affect row a second time'
+            const uniquePayloads = Array.from(
+                new Map(upsertPayloads.map(p => [p.id, p])).values()
+            );
+
+            const { error } = await supabaseAdmin.from('properties').upsert(uniquePayloads);
             if (error) throw error;
         }
 
         // 3. Process Work History
+        // PRE-FETCH FOR SYNC: Fetch Customers & Business Cards (Scoped to Company & High Limit)
+        // Note: Default Supabase limit is 1000. We bump to 10000 to cover typical small-medium biz.
+        // For larger scales, we would need pagination, but this quick fix solves the "cutoff" issue.
+        let custQuery = supabaseAdmin.from('customers').select('id, name, mobile');
+        if (defaultCompanyId) custQuery = custQuery.eq('company_id', defaultCompanyId);
+        const { data: allCustomers } = await custQuery.limit(10000);
+
+        let cardQuery = supabaseAdmin.from('business_cards').select('id, name, company_name, mobile');
+        if (defaultCompanyId) cardQuery = cardQuery.eq('company_id', defaultCompanyId);
+        const { data: allBusinessCards } = await cardQuery.limit(10000);
+
+        const customerMap = new Map<string, string>(); // Name -> ID
+        if (allCustomers) {
+            allCustomers.forEach((c: any) => {
+                // Map by Name (Strict + NFC Normalized)
+                if (c.name) customerMap.set(c.name.trim().normalize('NFC'), c.id);
+                // Map by Mobile (Strict Exact Match per user request)
+                // Note: The column is 'mobile' in customers table, not 'phone'.
+                if (c.mobile) customerMap.set(c.mobile.trim().normalize('NFC'), c.id);
+            });
+        }
+
+        const bizCardMap = new Map<string, string>(); // Name/Company -> ID
+        if (allBusinessCards) {
+            allBusinessCards.forEach((b: any) => {
+                // Map by Name AND Company Name (Strict + NFC Normalized)
+                if (b.name) bizCardMap.set(b.name.trim().normalize('NFC'), b.id);
+                if (b.company_name) bizCardMap.set(b.company_name.trim().normalize('NFC'), b.id);
+                // Map by Mobile (Strict Exact Match)
+                if (b.mobile) bizCardMap.set(b.mobile.trim().normalize('NFC'), b.id);
+            });
+        }
+
         let workCount = 0;
         const propsToUpdate = new Map<string, any>();
 
@@ -448,21 +496,90 @@ export async function POST(request: Request) {
 
             const target = propMap.get(legacyId)!;
             const currentData = propsToUpdate.get(target.id) || target.data;
-            const history = currentData.workHistory || [];
+            let history = currentData.workHistory || [];
 
-            history.push({
-                id: Date.now().toString() + Math.random().toString().substr(2, 5),
-                date: getVal(row, ['날짜', '작업일']) || new Date().toISOString().split('T')[0],
-                content: getVal(row, ['내역', '작업내역', 'Content']) || '',
-                details: getVal(row, ['상세내역', 'Details']) || '',
-                targetType: 'customer', // Default
-                targetKeyword: getVal(row, ['관련고객', '대상']) || '',
-                manager: getVal(row, ['작업자', '담당자']) || 'Unknown'
+            const cleanDate = getVal(row, ['날짜', '작업일']);
+            const parsedDate = cleanDate ? (parseDate(cleanDate) || new Date().toISOString()) : new Date().toISOString();
+
+            const content = getVal(row, ['내역', '작업내역', 'Content']) || '';
+            const details = getVal(row, ['상세내역', 'Details']) || '';
+            let targetType = (getVal(row, ['구분', 'Type']) === '명함') ? 'businessCard' : 'customer';
+            let targetKeyword = getVal(row, ['관련고객', '대상']) || '';
+            const manager = getVal(row, ['작업자', '담당자']) || 'Unknown';
+
+            let targetId = '';
+
+            // SYNC LOGIC: Resolve targetId
+            if (targetKeyword) {
+                let kw = String(targetKeyword).trim().normalize('NFC');
+
+                // Strip [Type] prefix if present (e.g., "[고객] 홍길동" -> "홍길동")
+                if (kw.startsWith('[')) {
+                    const closeIdx = kw.indexOf(']');
+                    if (closeIdx > -1) {
+                        const prefix = kw.substring(0, closeIdx + 1);
+                        // Optional: infer type from prefix if not explicitly set
+                        if (prefix.includes('명함')) targetType = 'businessCard';
+                        if (prefix.includes('고객')) targetType = 'customer';
+
+                        kw = kw.substring(closeIdx + 1).trim();
+                        targetKeyword = kw; // Update the variable to store the cleaned keyword
+                    }
+                }
+
+                if (targetType === 'businessCard') {
+                    if (bizCardMap.has(kw)) targetId = bizCardMap.get(kw)!;
+                } else {
+                    if (customerMap.has(kw)) targetId = customerMap.get(kw)!;
+                }
+            }
+
+            // DEDUPLICATION LOGIC
+            const isDuplicate = history.some((existing: any) => {
+                // 1. Date Match (Compare YYYY-MM-DD parts)
+                const d1 = existing.date ? existing.date.split('T')[0] : '';
+                const d2 = parsedDate.split('T')[0];
+                const dateMatch = d1 === d2;
+
+                // 2. Content Match
+                const contentMatch = (existing.content || '') === content;
+
+                // 3. Target Match
+                let targetMatch = false;
+                if (existing.targetId && targetId) {
+                    targetMatch = existing.targetId === targetId;
+                } else {
+                    const existingName = existing.targetKeyword || existing.targetName || '';
+                    targetMatch = existingName === targetKeyword;
+                }
+
+                // If content+date match and NO target on both, treat as duplicate
+                if (contentMatch && dateMatch && !existing.targetKeyword && !targetKeyword) {
+                    return true;
+                }
+
+                return dateMatch && contentMatch && targetMatch;
             });
 
-            currentData.workHistory = history;
-            propsToUpdate.set(target.id, currentData);
-            workCount++;
+            if (!isDuplicate) {
+                history.push({
+                    id: Date.now().toString() + Math.random().toString().substr(2, 5),
+                    date: parsedDate,
+                    content,
+                    details,
+                    targetType,
+                    targetKeyword,
+                    manager,
+                    targetId // Add resolved ID
+                });
+
+                // Sort by date desc
+                history.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                currentData.workHistory = history;
+                propsToUpdate.set(target.id, currentData);
+                workCount++;
+            }
         }
 
         // 4. Process Price History
@@ -525,6 +642,72 @@ export async function POST(request: Request) {
             contractCount++;
         }
 
+        // 6. Process Target Customers
+        let targetCustomerCount = 0;
+        const { targetCustomers = [] } = body; // Destructure new field
+
+        for (const row of targetCustomers) {
+            let legacyIdRaw = getVal(row, ['관리ID', '관리번호', 'ID']);
+            const legacyId = legacyIdRaw ? String(legacyIdRaw).trim() : '';
+            if (!legacyId || !propMap.has(legacyId)) continue;
+
+            const target = propMap.get(legacyId)!;
+            const currentData = propsToUpdate.get(target.id) || target.data;
+            const promotedList = currentData.promotedCustomers || [];
+
+            // Helper for number parsing
+            const safeNum = (v: any) => {
+                const s = String(v || '').replace(/,/g, '').trim();
+                return parseInt(s, 10) || 0;
+            };
+
+            let name = getVal(row, ['이름', '고객명', '상호']) || 'Unknown';
+            let type = 'customer';
+            let targetId = '';
+            let contact = '';
+
+            // 1. Prefix Stripping & Type Inference
+            if (name.startsWith('[')) {
+                const closeIdx = name.indexOf(']');
+                if (closeIdx > -1) {
+                    const prefix = name.substring(0, closeIdx + 1);
+                    if (prefix.includes('명함')) type = 'businessCard';
+                    if (prefix.includes('고객')) type = 'customer';
+                    name = name.substring(closeIdx + 1).trim();
+                }
+            }
+
+            // 2. Resolve targetId
+            const kw = String(name).trim().normalize('NFC');
+            // Try Business Card first if type hinted or neutral
+            if (type === 'businessCard' || type === 'customer') {
+                if (bizCardMap.has(kw)) {
+                    targetId = bizCardMap.get(kw)!;
+                    type = 'businessCard'; // Force type if found in BizCard
+                } else if (customerMap.has(kw)) {
+                    targetId = customerMap.get(kw)!;
+                    type = 'customer';
+                }
+            }
+            // Fallback: If not found, trust the inferred type.
+
+            promotedList.push({
+                id: Date.now().toString() + Math.random().toString().substr(2, 5),
+                date: getVal(row, ['날짜', '접수일']) || new Date().toISOString().split('T')[0],
+                name: name, // Store clean name
+                type: type,
+                classification: getVal(row, ['분류', '등급']) || '-',
+                budget: safeNum(getVal(row, ['예산', '금액'])),
+                features: getVal(row, ['특징', '메모']) || '',
+                targetId: targetId || 'batch_upload', // Use found ID or placeholder
+                contact: contact // Would require fetching contact from Map if we stored it, currently we only stored ID. Maybe OK to leave empty or user can edit.
+            });
+
+            currentData.promotedCustomers = promotedList;
+            propsToUpdate.set(target.id, currentData);
+            targetCustomerCount++;
+        }
+
         // 5. Save History Updates
         const updatePromises = Array.from(propsToUpdate.entries()).map(async ([id, data]) => {
             return supabaseAdmin
@@ -537,9 +720,11 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             success: true,
+            mainCount, // Add mainCount
             workCount,
             priceCount,
             contractCount,
+            targetCustomerCount,
             processedProperties: Array.from(processedLegacyIds).map(lid => {
                 const val = propMap.get(lid);
                 return val ? { manageId: lid, id: val.id, name: val.data.name } : null;

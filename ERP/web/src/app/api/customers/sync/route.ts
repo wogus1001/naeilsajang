@@ -19,6 +19,23 @@ export async function POST(request: Request) {
         const { data: customers, error } = await query;
         if (error) throw error;
 
+        // 0. Pre-fetch Company Properties for Validation & Linking
+        // We fetch ALL properties for this company to ensure we validate links correctly.
+        let propQuery = supabaseAdmin.from('properties').select('id, name, data, company_id');
+        if (companyId) propQuery = propQuery.eq('company_id', companyId);
+
+        // Limit to prevent OOM
+        const { data: properties } = await propQuery.limit(5000);
+
+        // Build Lookup Maps
+        const propertyIdMap = new Set(properties?.map(p => p.id));
+        const propertyNameMap = new Map(); // Name -> Property Object
+        if (properties) {
+            properties.forEach(p => {
+                if (p.name) propertyNameMap.set(p.name.trim(), p);
+            });
+        }
+
         let historySynced = 0;
         let promotedSynced = 0;
         let promotedLinked = 0;
@@ -47,6 +64,9 @@ export async function POST(request: Request) {
             // 1. Sync History -> Schedules
             // Logic: Check if schedule exists. If not, create.
             // Deduplication Key: businessCardId (customer_id) + date + content
+            let cardUpdated = false;
+
+            // 1. Sync History -> Schedules
             if (history.length > 0) {
                 // Fetch existing schedules for this customer to minimize inserts
                 const { data: existingSchedules } = await supabaseAdmin
@@ -119,32 +139,33 @@ export async function POST(request: Request) {
             }
             // 2. Sync History -> Properties (Link Related Items)
             if (history.length > 0) {
-                let cardUpdated = false;
                 for (let h of history) {
-                    // Try to link if targetId is missing but relatedProperty exists
+                    // Auto-Healing: Check if targetId is valid (exists in THIS company)
+                    if (h.targetId && !propertyIdMap.has(h.targetId)) {
+                        h.targetId = null; // Reset invalid ID
+                        cardUpdated = true;
+                    }
+
+                    // Try to link (if missing or just reset)
                     if (!h.targetId && h.relatedProperty) {
-                        const { data: prop } = await supabaseAdmin
-                            .from('properties')
-                            .select('id, name, data') // Added 'data' to fix TS error
-                            .ilike('name', h.relatedProperty.trim()) // Fuzzy match
-                            .limit(1)
-                            .maybeSingle();
+                        const prop = propertyNameMap.get(h.relatedProperty.trim());
 
                         if (prop) {
                             h.targetId = prop.id;
                             h.relatedProperty = prop.name; // Normalize Name
                             cardUpdated = true;
-                            // Also add to Property History (Reverse Sync)
+
+                            // Reverse Sync: Add to Property History immediately
                             const pData = (prop as any).data || {};
                             const pHistory = pData.workHistory || [];
-                            // Avoid duplicates: Check if same date/content/targetId exists
-                            // Note: 'h.id' might be random float, so duplicates are hard to check perfectly without unique ID.
-                            // We check content + date + targetId.
-                            const exists = pHistory.some((ph: any) =>
-                                ph.targetId === customer.id &&
-                                ph.date === h.date &&
-                                ph.content === h.content
-                            );
+
+                            const exists = pHistory.some((ph: any) => {
+                                const d1 = ph.date ? String(ph.date).replace(/T/, ' ').substring(0, 10) : '';
+                                const d2 = h.date ? String(h.date).replace(/T/, ' ').substring(0, 10) : '';
+                                const c1 = (ph.content || '').trim();
+                                const c2 = (h.content || '').trim();
+                                return d1 === d2 && c1 === c2;
+                            });
 
                             if (!exists) {
                                 const newWorkHistory = {
@@ -155,7 +176,7 @@ export async function POST(request: Request) {
                                     details: h.details || '',
                                     targetType: 'customer',
                                     targetKeyword: customer.name,
-                                    targetId: customer.id // Link back to this customer
+                                    targetId: customer.id
                                 };
 
                                 await supabaseAdmin
@@ -176,36 +197,39 @@ export async function POST(request: Request) {
 
             // 2. Sync Promoted -> Properties (Link & Add to Property List)
             if (promoted.length > 0) {
-                let cardUpdated = false;
 
                 for (let i = 0; i < promoted.length; i++) {
                     const p = promoted[i];
 
-                    // If already linked, skip? 
-                    // But we might need to update the Property's list if it's missing there.
-                    // Let's try to link if `propertyId` is missing.
+                    // Auto-Healing
+                    if (p.propertyId && !propertyIdMap.has(p.propertyId)) {
+                        p.propertyId = null;
+                        p.isSynced = false;
+                        cardUpdated = true;
+                    }
+
                     if (!p.propertyId && p.itemName) {
-                        // Fuzzy Search Property
-                        const { data: prop } = await supabaseAdmin
-                            .from('properties')
-                            .select('id, name, data')
-                            .ilike('name', p.itemName.trim()) // Exact-ish match
-                            .limit(1)
-                            .maybeSingle();
+                        const prop = propertyNameMap.get(p.itemName.trim());
 
                         if (prop) {
-                            // Link found!
                             p.propertyId = prop.id;
-                            p.id = prop.id; // Critical: Update ID to Property ID so click works
-                            p.itemName = prop.name; // Normalize name
-                            p.isSynced = true; // Mark as synced
+                            p.id = prop.id;
+                            p.itemName = prop.name;
+                            p.isSynced = true;
+                            p.budget = customer.data?.budget || p.amount || '-';
                             cardUpdated = true;
                             promotedLinked++;
 
-                            // Add to Property's `promotedCustomers` list
+                            // [RESTORED COPY-TO-PROPERTY LOGIC]
                             const pData = prop.data || {};
                             const pList = pData.promotedCustomers || [];
-                            const exists = pList.some((c: any) => c.promotedId === p.id || c.targetId === customer.id); // Check dup
+
+                            const exists = pList.some((c: any) => {
+                                if (c.targetId === customer.id) return true;
+                                if (c.promotedId === p.id) return true;
+                                if (!c.targetId && c.name === customer.name && c.contact === customer.mobile) return true;
+                                return false;
+                            });
 
                             if (!exists) {
                                 const newPromo = {
@@ -213,9 +237,9 @@ export async function POST(request: Request) {
                                     id: Date.now() + Math.random(),
                                     date: p.date,
                                     name: customer.name,
-                                    type: 'customer', // Distinguish from BusinessCard
+                                    type: 'customer',
                                     classification: customer.data?.class || '-',
-                                    budget: p.amount || '-',
+                                    budget: customer.data?.budget || p.amount || '-',
                                     features: `[추진] ${customer.name}`,
                                     targetId: customer.id,
                                     contact: customer.mobile
@@ -229,12 +253,71 @@ export async function POST(request: Request) {
                         }
                     }
                 }
+            }
 
-                if (cardUpdated) {
-                    await supabaseAdmin
-                        .from('customers')
-                        .update({ data: customer.data }) // Save Updated JSON (with new propertyIds)
-                        .eq('id', customer.id);
+
+            if (cardUpdated) {
+                await supabaseAdmin
+                    .from('customers')
+                    .update({ data: customer.data })
+                    .eq('id', customer.id);
+            }
+        }
+
+        // 3. Reverse Sync (Scoped by existing Fetch)
+        if (properties) {
+            // Build Customer Map for fast lookup
+            const customerMap = new Map<string, any>();
+            customers.forEach((c: any) => customerMap.set(c.id, c));
+
+            // Iterate Properties
+            for (const prop of properties) {
+                const pHistory = prop.data?.workHistory || [];
+                if (pHistory.length === 0) continue;
+
+                for (const h of pHistory) {
+                    // Only process items targeting a Customer
+                    if (h.targetType === 'customer' && h.targetId) {
+                        const customer = customerMap.get(h.targetId);
+                        if (customer) {
+                            const cData = customer.data || {};
+                            const cHistory = cData.history || [];
+
+                            // Check Deduplication (Date + Content)
+                            const exists = cHistory.some((ch: any) => {
+                                const d1 = ch.date ? String(ch.date).replace(/T/, ' ').substring(0, 10) : '';
+                                const d2 = h.date ? String(h.date).replace(/T/, ' ').substring(0, 10) : '';
+                                const c1 = (ch.content || '').trim();
+                                const c2 = (h.content || '').trim();
+                                return d1 === d2 && c1 === c2;
+                            });
+
+                            if (!exists) {
+                                // Add to Customer History
+                                const newHistory = {
+                                    id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                                    date: h.date,
+                                    relatedProperty: prop.name,
+                                    targetId: prop.id, // Link back to Property
+                                    content: h.content,
+                                    details: h.details,
+                                    manager: h.manager,
+                                    isSynced: true
+                                };
+
+                                cHistory.push(newHistory);
+                                cData.history = cHistory; // Update ref
+
+                                // Persist
+                                await supabaseAdmin
+                                    .from('customers')
+                                    .update({ data: cData })
+                                    .eq('id', customer.id);
+
+                                historySynced++;
+                            }
+                        }
+                    }
                 }
             }
         }

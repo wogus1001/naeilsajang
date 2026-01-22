@@ -2129,6 +2129,26 @@ function PropertiesPageContent() {
                                 property={selectedProperty}
                                 onClose={() => setSelectedPropertyId(null)}
                                 onRefresh={fetchProperties}
+                                onNavigate={(action) => {
+                                    const currentIndex = filteredProperties.findIndex(p => p.id === selectedPropertyId);
+                                    if (currentIndex === -1) return;
+
+                                    let nextIndex = currentIndex;
+                                    if (action === 'prev') nextIndex = Math.max(0, currentIndex - 1);
+                                    else if (action === 'next') nextIndex = Math.min(filteredProperties.length - 1, currentIndex + 1);
+                                    else if (action === 'first') nextIndex = 0;
+                                    else if (action === 'last') nextIndex = filteredProperties.length - 1;
+
+                                    if (nextIndex !== currentIndex) {
+                                        setSelectedPropertyId(filteredProperties[nextIndex].id);
+                                    }
+                                }}
+                                canNavigate={{
+                                    first: filteredProperties.findIndex(p => p.id === selectedPropertyId) > 0,
+                                    prev: filteredProperties.findIndex(p => p.id === selectedPropertyId) > 0,
+                                    next: filteredProperties.findIndex(p => p.id === selectedPropertyId) < filteredProperties.length - 1,
+                                    last: filteredProperties.findIndex(p => p.id === selectedPropertyId) < filteredProperties.length - 1
+                                }}
                             />
                         </div>
                     </div>

@@ -74,14 +74,44 @@ export async function POST(request: Request) {
                         const pData = property.data || {};
                         const pHistory = pData.workHistory || [];
 
-                        // Check duplicates
-                        const exists = pHistory.some((ph: any) =>
-                            ph.targetId === item.business_card_id &&
-                            ph.date === item.work_date &&
-                            ph.content === item.content
-                        );
+                        // Check duplicates (Robust)
+                        const existingIndex = pHistory.findIndex((ph: any) => {
+                            // 1. Date Match (Safer substring)
+                            // Handle "2026-01-20", "2026-01-20T...", "2026-01-20 09:..."
+                            const d1 = ph.date ? String(ph.date).replace(/T/, ' ').substring(0, 10) : '';
+                            const d2 = item.work_date ? String(item.work_date).replace(/T/, ' ').substring(0, 10) : '';
+                            const dateMatch = d1 === d2;
 
-                        if (!exists) {
+                            // 2. Content Match
+                            const c1 = (ph.content || '').trim();
+                            const c2 = (item.content || '').trim();
+                            const contentMatch = c1 === c2;
+
+                            // 3. Target Match (ID or Name)
+                            const idMatch = ph.targetId === item.business_card_id;
+                            const n1 = (ph.targetKeyword || '').replace(/\s+/g, '').normalize('NFC');
+                            const n2 = bCard.name.replace(/\s+/g, '').normalize('NFC');
+                            const nameMatch = n1 === n2;
+
+                            // 4. Weak Match: If Content+Date match and Target is unlinked/empty, claim it.
+                            const weakMatch = !ph.targetId && dateMatch && contentMatch;
+
+                            return dateMatch && contentMatch && (idMatch || nameMatch || weakMatch);
+                        });
+
+                        if (existingIndex !== -1) {
+                            // Exists. If it was only a name match (no ID), LINK IT now.
+                            if (!pHistory[existingIndex].targetId) {
+                                pHistory[existingIndex].targetId = item.business_card_id;
+                                pHistory[existingIndex].targetType = 'businessCard';
+                                pHistory[existingIndex].targetKeyword = bCard.name; // Standardize name
+
+                                await supabaseAdmin
+                                    .from('properties')
+                                    .update({ data: { ...pData, workHistory: pHistory } })
+                                    .eq('id', property.id);
+                            }
+                        } else {
                             const newHistory = {
                                 id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                                 date: item.work_date,
@@ -157,9 +187,22 @@ export async function POST(request: Request) {
                             let currentList = currentData.promotedCustomers || [];
                             if (!Array.isArray(currentList)) currentList = [];
 
-                            const exists = currentList.some((c: any) => c.promotedId === item.id);
+                            const existsIndex = currentList.findIndex((c: any) => {
+                                // 1. Direct Promoted ID match
+                                if (c.promotedId === item.id) return true;
+                                // 2. Target ID match (Same Business Card)
+                                if (c.targetId === item.business_card_id) return true;
+                                // 3. Name + Contact + Type Match (For Batch Uploaded items "batch_upload")
+                                if (!c.targetId || c.targetId === 'batch_upload') {
+                                    if (c.name === card.name && (c.contact === card.mobile || !c.contact)) {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            });
 
-                            if (!exists) {
+                            if (existsIndex === -1) {
+                                // Add new if not exists
                                 const newCustomer = {
                                     promotedId: item.id,
                                     id: new Date().getTime().toString() + Math.random().toString().slice(2, 5),
@@ -180,6 +223,26 @@ export async function POST(request: Request) {
                                     .from('properties')
                                     .update({ data: newData })
                                     .eq('id', property.id);
+                            } else {
+                                // Merge / Update existing (especially if it was a batch placeholder)
+                                const target = currentList[existsIndex];
+                                if (!target.targetId || target.targetId === 'batch_upload') {
+                                    currentList[existsIndex] = {
+                                        ...target,
+                                        promotedId: item.id, // Link to sync item
+                                        targetId: card.id, // Link to Real Biz Card
+                                        type: 'businessCard',
+                                        budget: item.amount || target.budget,
+                                        contact: card.mobile || target.contact
+                                    };
+
+                                    const newData = { ...currentData, promotedCustomers: currentList };
+
+                                    await supabaseAdmin
+                                        .from('properties')
+                                        .update({ data: newData })
+                                        .eq('id', property.id);
+                                }
                             }
                         }
                     } else {

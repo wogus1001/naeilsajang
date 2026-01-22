@@ -19,14 +19,15 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
         photos: FileList | null; // Add photos state
         docFolder: FileList | null; // Add docFolder state
         contracts: File | null; // Add contracts state
-    }>({ main: null, work: null, price: null, photos: null, docFolder: null, contracts: null });
+        targetCustomers: File | null; // Add targetCustomers state
+    }>({ main: null, work: null, price: null, photos: null, docFolder: null, contracts: null, targetCustomers: null });
 
     const [loading, setLoading] = useState(false);
     const [logs, setLogs] = useState<string[]>([]);
 
     if (!isOpen) return null;
 
-    const handleFileChange = (type: 'main' | 'work' | 'price' | 'contracts') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (type: 'main' | 'work' | 'price' | 'contracts' | 'targetCustomers') => (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setFiles(prev => ({ ...prev, [type]: e.target.files![0] }));
         }
@@ -65,7 +66,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
     };
 
     const handleUpload = async () => {
-        if (!files.main && !files.work && !files.price && !files.contracts) {
+        if (!files.main && !files.work && !files.price && !files.contracts && !files.targetCustomers) {
             alert('적어도 하나의 파일을 선택해주세요.');
             return;
         }
@@ -80,8 +81,9 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
             const workData = files.work ? await parseExcel(files.work) : [];
             const priceData = files.price ? await parseExcel(files.price) : [];
             const contractData = files.contracts ? await parseExcel(files.contracts) : [];
+            const targetCustomerData = files.targetCustomers ? await parseExcel(files.targetCustomers) : [];
 
-            setLogs(prev => [...prev, `파싱 완료: 메인 ${mainData.length}건, 작업 ${workData.length}건, 가격 ${priceData.length}건, 계약 ${contractData.length}건`, '서버 전송 중...']);
+            setLogs(prev => [...prev, `파싱 완료: 메인 ${mainData.length}건, 작업 ${workData.length}건, 가격 ${priceData.length}건, 계약 ${contractData.length}건, 추진고객 ${targetCustomerData.length}건`, '서버 전송 중...']);
 
             // Get User Info for meta
             const userStr = localStorage.getItem('user');
@@ -98,7 +100,8 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                 main: mainData,
                 work: workData,
                 price: priceData,
-                contracts: contractData, // Add contracts payload
+                contracts: contractData,
+                targetCustomers: targetCustomerData, // Add targetCustomers payload
                 meta: {
                     userCompanyName,
                     managerId: managerIdVal
@@ -113,8 +116,8 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
 
             if (res.ok) {
                 const result = await res.json();
-                setLogs(prev => [...prev, '업로드 성공!', `- 점포 처리: ${result.mainCount}건`, `- 작업내역 추가: ${result.workCount}건`, `- 가격내역 추가: ${result.priceCount}건`, `- 계약내역 추가: ${result.contractCount || 0}건`]);
-                alert(`업로드 완료\n- 점포: ${result.mainCount}\n- 작업: ${result.workCount}\n- 가격: ${result.priceCount}\n- 계약: ${result.contractCount || 0}`);
+                setLogs(prev => [...prev, '업로드 성공!', `- 점포 처리: ${result.mainCount}건`, `- 작업내역 추가: ${result.workCount}건`, `- 가격내역 추가: ${result.priceCount}건`, `- 계약내역 추가: ${result.contractCount || 0}건`, `- 추진고객 추가: ${result.targetCustomerCount || 0}건`]);
+                alert(`업로드 완료\n- 점포: ${result.mainCount}\n- 작업: ${result.workCount}\n- 가격: ${result.priceCount}\n- 계약: ${result.contractCount || 0}\n- 추진고객: ${result.targetCustomerCount || 0}`);
 
                 // --- IMAGE UPLOAD LOGIC ---
                 if (files.photos && result.processedProperties && result.processedProperties.length > 0) {
@@ -147,16 +150,27 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                             for (const file of groupFiles) {
                                 const ext = file.name.split('.').pop();
                                 const path = `${prop.id}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
-                                const { data: upData, error: upError } = await supabase.storage
-                                    .from('property-images')
-                                    .upload(path, file);
+                                const formData = new FormData();
+                                formData.append('file', file);
+                                formData.append('path', path);
+                                formData.append('bucket', 'property-images');
 
-                                if (upError) {
-                                    console.error(`Upload failed for ${file.name}`, upError);
-                                    setLogs(prev => [...prev, `[업로드 실패] ${file.name}: ${upError.message}`]);
-                                } else if (upData) {
-                                    const publicUrl = supabase.storage.from('property-images').getPublicUrl(path).data.publicUrl;
+                                try {
+                                    const uploadRes = await fetch('/api/upload', {
+                                        method: 'POST',
+                                        body: formData
+                                    });
+
+                                    if (!uploadRes.ok) {
+                                        const errData = await uploadRes.json();
+                                        throw new Error(errData.error || 'Upload failed');
+                                    }
+
+                                    const { publicUrl } = await uploadRes.json();
                                     uploadedUrls.push(publicUrl);
+                                } catch (err: any) {
+                                    console.error(`Upload failed for ${file.name}`, err);
+                                    setLogs(prev => [...prev, `[업로드 실패] ${file.name}: ${err.message}`]);
                                 }
                             }
 
@@ -499,6 +513,16 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                             {files.contracts && <Check size={14} color="#51cf66" />}
                         </div>
                         <input type="file" accept=".xlsx, .xls" onChange={handleFileChange('contracts')} style={{ fontSize: 12 }} />
+                    </div>
+
+                    {/* Target Customers */}
+                    <div style={{ border: '1px solid #dee2e6', borderRadius: 8, padding: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <FileSpreadsheet size={16} color="#e64980" />
+                            추진 고객 내역 (store_target_customers.xlsx)
+                            {files.targetCustomers && <Check size={14} color="#51cf66" />}
+                        </div>
+                        <input type="file" accept=".xlsx, .xls" onChange={handleFileChange('targetCustomers')} style={{ fontSize: 12 }} />
                     </div>
 
                     {/* Image Folder */}
