@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.12] - 2026-01-23
+
+### Fixed (수정됨)
+- **Property Batch Upload Geocoding (점포 일괄 업로드 지오코딩 복구)**
+  - Implemented client-side geocoding using Kakao Maps API in the upload modal. Automatically converts addresses to `lat`/`lng` coordinates during Excel upload.
+    - 엑셀 업로드 시 브라우저의 카카오 지도 API를 사용하여 주소를 좌표(위도/경도)로 자동 변환 및 저장하도록 기능을 복구했습니다.
+- **Property Card Map Rendering (점포 상세 지도 표시 수정)**
+  - Fixed map rendering logic to support flat `lat`/`lng` database columns, ensuring maps display correctly even without nested `coordinates` objects.
+    - 좌표 데이터가 있어도 지도가 나오지 않던 문제를 수정하였습니다. (기존 객체 구조와 새로운 플랫 구조 호환성 확보)
+  - Added "Generate Coordinates" button (`좌표생성`) for properties with missing location data.
+    - 좌표가 없는 경우 "위치 정보 없음" 알림과 함께 즉시 좌표를 생성할 수 있는 버튼을 추가했습니다.
+
 ## [v1.1.11] - 2026-01-23
 
 ### Fixed (수정됨)

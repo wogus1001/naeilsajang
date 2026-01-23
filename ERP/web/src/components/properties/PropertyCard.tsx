@@ -596,6 +596,30 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     // Global ESC Handler for Sequential Closing
 
 
+    // Manual Geocode
+    const handleManualGeocode = () => {
+        if (!formData.address) return;
+        if (typeof window === 'undefined' || !(window as any).kakao || !(window as any).kakao.maps) {
+            alert('지도 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
+
+        const geocoder = new (window as any).kakao.maps.services.Geocoder();
+        geocoder.addressSearch(formData.address, async (result: any[], status: any) => {
+            if (status === (window as any).kakao.maps.services.Status.OK) {
+                const lat = result[0].y;
+                const lng = result[0].x;
+
+                const updatedFormData = { ...formData, lat, lng };
+                setFormData(updatedFormData);
+                await autoSaveProperty(updatedFormData);
+                alert('좌표가 생성되었습니다.');
+            } else {
+                alert('해당 주소로 좌표를 검색할 수 없습니다.');
+            }
+        });
+    };
+
     // Date Formatter
     const formatDate = (date: Date | string) => {
         if (!date) return '';
@@ -2667,15 +2691,45 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                     {isMapOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />} 지도
                                                 </button>
                                             </div>
-                                            {isMapOpen && formData.coordinates && (
-                                                <div style={{ width: '100%', height: '200px', marginTop: 4, border: '1px solid #dee2e6' }}>
-                                                    <Map
-                                                        center={{ lat: formData.coordinates.lat, lng: formData.coordinates.lng }}
-                                                        style={{ width: "100%", height: "100%" }}
-                                                        level={3}
-                                                    >
-                                                        <MapMarker position={{ lat: formData.coordinates.lat, lng: formData.coordinates.lng }} />
-                                                    </Map>
+
+                                            {isMapOpen && (
+                                                <div style={{ width: '100%', marginTop: 4 }}>
+                                                    {(formData.coordinates || (formData.lat && formData.lng)) ? (
+                                                        <div style={{ width: '100%', height: '200px', border: '1px solid #dee2e6' }}>
+                                                            <Map
+                                                                center={{
+                                                                    lat: formData.coordinates?.lat || Number(formData.lat),
+                                                                    lng: formData.coordinates?.lng || Number(formData.lng)
+                                                                }}
+                                                                style={{ width: "100%", height: "100%" }}
+                                                                level={3}
+                                                            >
+                                                                <MapMarker position={{
+                                                                    lat: formData.coordinates?.lat || Number(formData.lat),
+                                                                    lng: formData.coordinates?.lng || Number(formData.lng)
+                                                                }} />
+                                                            </Map>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{
+                                                            width: '100%', padding: 12, backgroundColor: '#f8f9fa',
+                                                            border: '1px dashed #dee2e6', borderRadius: 4,
+                                                            textAlign: 'center', fontSize: 13, color: '#868e96',
+                                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8
+                                                        }}>
+                                                            <span>위치 정보가 없습니다. (주소: {formData.address || '없음'})</span>
+                                                            {formData.address && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleManualGeocode}
+                                                                    className={styles.smallBtn}
+                                                                    style={{ width: 'auto', padding: '4px 12px', background: '#339af0', color: 'white', border: 'none' }}
+                                                                >
+                                                                    좌표생성
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
@@ -3981,10 +4035,10 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                         )}
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Footer Actions */}
-            <div className={styles.footer}>
+            < div className={styles.footer} >
                 <div className={styles.footerLeft}>
                     <button className={styles.footerBtn} onClick={handleSave} disabled={isLoading}>
                         <Save size={14} /> 저장
@@ -3994,46 +4048,48 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                     </button>
                 </div>
                 {/* Navigation Buttons */}
-                {onNavigate && (
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                        <button
-                            className={styles.footerBtn}
-                            onClick={() => onNavigate('first')}
-                            disabled={!canNavigate?.first}
-                            title="처음"
-                            style={{ padding: '6px' }}
-                        >
-                            <ChevronsLeft size={18} />
-                        </button>
-                        <button
-                            className={styles.footerBtn}
-                            onClick={() => onNavigate('prev')}
-                            disabled={!canNavigate?.prev}
-                            title="이전"
-                            style={{ padding: '6px' }}
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
-                        <button
-                            className={styles.footerBtn}
-                            onClick={() => onNavigate('next')}
-                            disabled={!canNavigate?.next}
-                            title="다음"
-                            style={{ padding: '6px' }}
-                        >
-                            <ChevronRight size={18} />
-                        </button>
-                        <button
-                            className={styles.footerBtn}
-                            onClick={() => onNavigate('last')}
-                            disabled={!canNavigate?.last}
-                            title="마지막"
-                            style={{ padding: '6px' }}
-                        >
-                            <ChevronsRight size={18} />
-                        </button>
-                    </div>
-                )}
+                {
+                    onNavigate && (
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <button
+                                className={styles.footerBtn}
+                                onClick={() => onNavigate('first')}
+                                disabled={!canNavigate?.first}
+                                title="처음"
+                                style={{ padding: '6px' }}
+                            >
+                                <ChevronsLeft size={18} />
+                            </button>
+                            <button
+                                className={styles.footerBtn}
+                                onClick={() => onNavigate('prev')}
+                                disabled={!canNavigate?.prev}
+                                title="이전"
+                                style={{ padding: '6px' }}
+                            >
+                                <ChevronLeft size={18} />
+                            </button>
+                            <button
+                                className={styles.footerBtn}
+                                onClick={() => onNavigate('next')}
+                                disabled={!canNavigate?.next}
+                                title="다음"
+                                style={{ padding: '6px' }}
+                            >
+                                <ChevronRight size={18} />
+                            </button>
+                            <button
+                                className={styles.footerBtn}
+                                onClick={() => onNavigate('last')}
+                                disabled={!canNavigate?.last}
+                                title="마지막"
+                                style={{ padding: '6px' }}
+                            >
+                                <ChevronsRight size={18} />
+                            </button>
+                        </div>
+                    )
+                }
                 <div className={styles.footerRight}>
                     <button className={styles.footerBtn} onClick={handleNew}><Plus size={14} /> 신규</button>
                     <button className={styles.footerBtn} onClick={handleCopy} disabled={isLoading}><Copy size={14} /> 복사</button>
@@ -4058,7 +4114,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                     }}><Printer size={14} /> 인쇄</button>
                     <button className={styles.footerBtn} onClick={onClose}>닫기</button>
                 </div>
-            </div>
+            </div >
 
             {/* Address Search Modal */}
             {
@@ -4356,138 +4412,142 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             }
 
             {/* Contract History Modal */}
-            {isContractModalOpen && (
-                <div className={styles.searchModal}>
-                    <div className={styles.modalContent} style={{ width: '800px', maxWidth: '95vw' }}>
-                        <div className={styles.modalHeader}>
-                            <h3>{editingContractId ? '계약히스토리 수정' : '계약히스토리 추가'}</h3>
-                            <button type="button" onClick={() => setIsContractModalOpen(false)}><X size={20} /></button>
-                        </div>
-                        <div style={{ padding: '20px' }}>
-                            <div className={styles.fieldGrid}>
-                                <div className={styles.fieldRow}>
-                                    <div className={styles.fieldLabel}>계약종류</div>
-                                    <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                        <div style={{ display: 'flex', gap: 12 }}>
-                                            {['매매', '전세', '월세', '연세'].map(type => (
-                                                <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-                                                    <input
-                                                        type="radio"
-                                                        name="contractType"
-                                                        checked={contractForm.type === type}
-                                                        onChange={() => setContractForm(prev => ({ ...prev, type }))}
-                                                    />
-                                                    <span style={{
-                                                        backgroundColor: type === '매매' ? '#339af0' : type === '전세' ? '#51cf66' : type === '월세' ? '#ff6b6b' : '#cc5de8',
-                                                        color: 'white',
-                                                        padding: '2px 8px',
-                                                        borderRadius: 4,
-                                                        fontSize: 12
-                                                    }}>{type}</span>
-                                                </label>
-                                            ))}
+            {
+                isContractModalOpen && (
+                    <div className={styles.searchModal}>
+                        <div className={styles.modalContent} style={{ width: '800px', maxWidth: '95vw' }}>
+                            <div className={styles.modalHeader}>
+                                <h3>{editingContractId ? '계약히스토리 수정' : '계약히스토리 추가'}</h3>
+                                <button type="button" onClick={() => setIsContractModalOpen(false)}><X size={20} /></button>
+                            </div>
+                            <div style={{ padding: '20px' }}>
+                                <div className={styles.fieldGrid}>
+                                    <div className={styles.fieldRow}>
+                                        <div className={styles.fieldLabel}>계약종류</div>
+                                        <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
+                                            <div style={{ display: 'flex', gap: 12 }}>
+                                                {['매매', '전세', '월세', '연세'].map(type => (
+                                                    <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                                                        <input
+                                                            type="radio"
+                                                            name="contractType"
+                                                            checked={contractForm.type === type}
+                                                            onChange={() => setContractForm(prev => ({ ...prev, type }))}
+                                                        />
+                                                        <span style={{
+                                                            backgroundColor: type === '매매' ? '#339af0' : type === '전세' ? '#51cf66' : type === '월세' ? '#ff6b6b' : '#cc5de8',
+                                                            color: 'white',
+                                                            padding: '2px 8px',
+                                                            borderRadius: 4,
+                                                            fontSize: 12
+                                                        }}>{type}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className={styles.fieldRow}>
+                                        <div className={styles.fieldLabel}>계약자</div>
+                                        <div className={styles.fieldValue}>
+                                            <input className={styles.input} value={contractForm.contractorName} onChange={(e) => setContractForm(prev => ({ ...prev, contractorName: e.target.value }))} />
+                                        </div>
+                                        <div className={styles.fieldLabel}>연락처</div>
+                                        <div className={styles.fieldValue}>
+                                            <input className={styles.input} value={contractForm.contractorPhone} onChange={(e) => setContractForm(prev => ({ ...prev, contractorPhone: e.target.value }))} />
+                                        </div>
+                                    </div>
+                                    <div className={styles.fieldRow}>
+                                        <div className={styles.fieldLabel}>계약일</div>
+                                        <div className={styles.fieldValue}>
+                                            <input type="date" className={styles.input} value={contractForm.contractDate} onChange={(e) => setContractForm(prev => ({ ...prev, contractDate: e.target.value }))} />
+                                        </div>
+                                        <div className={styles.fieldLabel}>만기일</div>
+                                        <div className={styles.fieldValue}>
+                                            <input type="date" className={styles.input} value={contractForm.expirationDate} onChange={(e) => setContractForm(prev => ({ ...prev, expirationDate: e.target.value }))} />
+                                        </div>
+                                    </div>
+                                    <div className={styles.fieldRow}>
+                                        <div className={styles.fieldLabel}>보증금</div>
+                                        <div className={styles.fieldValue}>
+                                            <input className={styles.input} style={{ textAlign: 'right' }} value={formatInput(contractForm.deposit)} onChange={(e) => setContractForm(prev => ({ ...prev, deposit: Number(e.target.value.replace(/,/g, '')) }))} />
+                                            <span style={{ fontSize: 12, marginLeft: 4 }}>만원</span>
+                                        </div>
+                                        <div className={styles.fieldLabel}>임대료</div>
+                                        <div className={styles.fieldValue}>
+                                            <input className={styles.input} style={{ textAlign: 'right' }} value={formatInput(contractForm.monthlyRent)} onChange={(e) => setContractForm(prev => ({ ...prev, monthlyRent: Number(e.target.value.replace(/,/g, '')) }))} />
+                                            <span style={{ fontSize: 12, marginLeft: 4 }}>만원</span>
+                                        </div>
+                                    </div>
+                                    <div className={styles.fieldRow}>
+                                        <div className={styles.fieldLabel}>권리금</div>
+                                        <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
+                                            <input className={styles.input} style={{ width: '150px', textAlign: 'right' }} value={formatInput(contractForm.premium)} onChange={(e) => setContractForm(prev => ({ ...prev, premium: Number(e.target.value.replace(/,/g, '')) }))} />
+                                            <span style={{ fontSize: 12, marginLeft: 4 }}>만원</span>
+                                        </div>
+                                    </div>
+                                    <div className={styles.fieldRow}>
+                                        <div className={styles.fieldLabel}>계약정보</div>
+                                        <div className={styles.fieldValue} style={{ gridColumn: 'span 3', height: '120px' }}>
+                                            <textarea className={styles.textarea} style={{ height: '100%' }} value={contractForm.details} onChange={(e) => setContractForm(prev => ({ ...prev, details: e.target.value }))} />
                                         </div>
                                     </div>
                                 </div>
-                                <div className={styles.fieldRow}>
-                                    <div className={styles.fieldLabel}>계약자</div>
-                                    <div className={styles.fieldValue}>
-                                        <input className={styles.input} value={contractForm.contractorName} onChange={(e) => setContractForm(prev => ({ ...prev, contractorName: e.target.value }))} />
-                                    </div>
-                                    <div className={styles.fieldLabel}>연락처</div>
-                                    <div className={styles.fieldValue}>
-                                        <input className={styles.input} value={contractForm.contractorPhone} onChange={(e) => setContractForm(prev => ({ ...prev, contractorPhone: e.target.value }))} />
-                                    </div>
-                                </div>
-                                <div className={styles.fieldRow}>
-                                    <div className={styles.fieldLabel}>계약일</div>
-                                    <div className={styles.fieldValue}>
-                                        <input type="date" className={styles.input} value={contractForm.contractDate} onChange={(e) => setContractForm(prev => ({ ...prev, contractDate: e.target.value }))} />
-                                    </div>
-                                    <div className={styles.fieldLabel}>만기일</div>
-                                    <div className={styles.fieldValue}>
-                                        <input type="date" className={styles.input} value={contractForm.expirationDate} onChange={(e) => setContractForm(prev => ({ ...prev, expirationDate: e.target.value }))} />
-                                    </div>
-                                </div>
-                                <div className={styles.fieldRow}>
-                                    <div className={styles.fieldLabel}>보증금</div>
-                                    <div className={styles.fieldValue}>
-                                        <input className={styles.input} style={{ textAlign: 'right' }} value={formatInput(contractForm.deposit)} onChange={(e) => setContractForm(prev => ({ ...prev, deposit: Number(e.target.value.replace(/,/g, '')) }))} />
-                                        <span style={{ fontSize: 12, marginLeft: 4 }}>만원</span>
-                                    </div>
-                                    <div className={styles.fieldLabel}>임대료</div>
-                                    <div className={styles.fieldValue}>
-                                        <input className={styles.input} style={{ textAlign: 'right' }} value={formatInput(contractForm.monthlyRent)} onChange={(e) => setContractForm(prev => ({ ...prev, monthlyRent: Number(e.target.value.replace(/,/g, '')) }))} />
-                                        <span style={{ fontSize: 12, marginLeft: 4 }}>만원</span>
-                                    </div>
-                                </div>
-                                <div className={styles.fieldRow}>
-                                    <div className={styles.fieldLabel}>권리금</div>
-                                    <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                        <input className={styles.input} style={{ width: '150px', textAlign: 'right' }} value={formatInput(contractForm.premium)} onChange={(e) => setContractForm(prev => ({ ...prev, premium: Number(e.target.value.replace(/,/g, '')) }))} />
-                                        <span style={{ fontSize: 12, marginLeft: 4 }}>만원</span>
-                                    </div>
-                                </div>
-                                <div className={styles.fieldRow}>
-                                    <div className={styles.fieldLabel}>계약정보</div>
-                                    <div className={styles.fieldValue} style={{ gridColumn: 'span 3', height: '120px' }}>
-                                        <textarea className={styles.textarea} style={{ height: '100%' }} value={contractForm.details} onChange={(e) => setContractForm(prev => ({ ...prev, details: e.target.value }))} />
-                                    </div>
-                                </div>
-                            </div>
-                            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                {editingContractId && (
-                                    <button className={styles.footerBtn} style={{ backgroundColor: '#fa5252', color: 'white', marginRight: 'auto' }} onClick={handleDeleteContract}>
-                                        <Trash2 size={14} /> 삭제
+                                <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                    {editingContractId && (
+                                        <button className={styles.footerBtn} style={{ backgroundColor: '#fa5252', color: 'white', marginRight: 'auto' }} onClick={handleDeleteContract}>
+                                            <Trash2 size={14} /> 삭제
+                                        </button>
+                                    )}
+                                    <button className={styles.footerBtn} style={{ backgroundColor: '#339af0', color: 'white' }} onClick={handleSaveContract}>
+                                        <Save size={14} /> {editingContractId ? '수정사항 저장' : '내역저장후 닫기'}
                                     </button>
-                                )}
-                                <button className={styles.footerBtn} style={{ backgroundColor: '#339af0', color: 'white' }} onClick={handleSaveContract}>
-                                    <Save size={14} /> {editingContractId ? '수정사항 저장' : '내역저장후 닫기'}
-                                </button>
-                                <button className={styles.footerBtn} onClick={() => setIsContractModalOpen(false)}>
-                                    <X size={14} /> 닫기
-                                </button>
+                                    <button className={styles.footerBtn} onClick={() => setIsContractModalOpen(false)}>
+                                        <X size={14} /> 닫기
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
 
 
             {/* Custom Category Input Modal */}
-            {isCategoryInputOpen && (
-                <div className={styles.searchModal}>
-                    <div className={styles.modalContent} style={{ width: '300px' }}>
-                        <div className={styles.modalHeader}>
-                            <h3>새 업종 추가</h3>
-                            <button type="button" onClick={() => setIsCategoryInputOpen(false)}><X size={20} /></button>
-                        </div>
-                        <div style={{ padding: '20px' }}>
-                            <div style={{ marginBottom: 15 }}>
-                                <input
-                                    value={newCategoryName}
-                                    onChange={(e) => setNewCategoryName(e.target.value)}
-                                    placeholder="업종명을 입력하세요"
-                                    className={styles.input}
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleAddCategory();
-                                    }}
-                                />
+            {
+                isCategoryInputOpen && (
+                    <div className={styles.searchModal}>
+                        <div className={styles.modalContent} style={{ width: '300px' }}>
+                            <div className={styles.modalHeader}>
+                                <h3>새 업종 추가</h3>
+                                <button type="button" onClick={() => setIsCategoryInputOpen(false)}><X size={20} /></button>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                <button className={styles.footerBtn} style={{ backgroundColor: '#339af0', color: 'white' }} onClick={handleAddCategory}>
-                                    추가
-                                </button>
-                                <button className={styles.footerBtn} onClick={() => setIsCategoryInputOpen(false)}>
-                                    취소
-                                </button>
+                            <div style={{ padding: '20px' }}>
+                                <div style={{ marginBottom: 15 }}>
+                                    <input
+                                        value={newCategoryName}
+                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                        placeholder="업종명을 입력하세요"
+                                        className={styles.input}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleAddCategory();
+                                        }}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                    <button className={styles.footerBtn} style={{ backgroundColor: '#339af0', color: 'white' }} onClick={handleAddCategory}>
+                                        추가
+                                    </button>
+                                    <button className={styles.footerBtn} onClick={() => setIsCategoryInputOpen(false)}>
+                                        취소
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <PersonSelectorModal
                 isOpen={isPersonSelectorOpen}
@@ -4498,14 +4558,16 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             />
 
             {/* Custom Toast */}
-            {toast.visible && (
-                <div className={styles.toastContainer}>
-                    <div className={styles.toastContent}>
-                        <Star size={16} fill="#fab005" color="#fab005" />
-                        {toast.message}
+            {
+                toast.visible && (
+                    <div className={styles.toastContainer}>
+                        <div className={styles.toastContent}>
+                            <Star size={16} fill="#fab005" color="#fab005" />
+                            {toast.message}
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <ConfirmModal
                 isOpen={confirmModal.isOpen}
@@ -4516,34 +4578,38 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             />
 
             {/* View Modals for Linked Items */}
-            {selectedBusinessCardId && (
-                <div className={styles.searchModal} style={{ zIndex: 3000 }}>
-                    <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1200px', height: '90vh', padding: 0, background: '#e9ecef', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
-                        <BusinessCard
-                            id={selectedBusinessCardId}
-                            onClose={() => {
-                                setSelectedBusinessCardId(null);
-                                if (property.id) fetchProperty(property.id); // Refresh to reflect active sync
-                            }}
-                            isModal={true}
-                        />
+            {
+                selectedBusinessCardId && (
+                    <div className={styles.searchModal} style={{ zIndex: 3000 }}>
+                        <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1200px', height: '90vh', padding: 0, background: '#e9ecef', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+                            <BusinessCard
+                                id={selectedBusinessCardId}
+                                onClose={() => {
+                                    setSelectedBusinessCardId(null);
+                                    if (property.id) fetchProperty(property.id); // Refresh to reflect active sync
+                                }}
+                                isModal={true}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
-            {selectedCustomerId && (
-                <div className={styles.searchModal} style={{ zIndex: 3000 }}>
-                    <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1200px', height: '90vh', padding: 0, background: '#e9ecef', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
-                        <Customer
-                            id={selectedCustomerId}
-                            onClose={() => {
-                                setSelectedCustomerId(null);
-                                if (property.id) fetchProperty(property.id); // Refresh to reflect active sync
-                            }}
-                            isModal={true}
-                        />
+                )
+            }
+            {
+                selectedCustomerId && (
+                    <div className={styles.searchModal} style={{ zIndex: 3000 }}>
+                        <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1200px', height: '90vh', padding: 0, background: '#e9ecef', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
+                            <Customer
+                                id={selectedCustomerId}
+                                onClose={() => {
+                                    setSelectedCustomerId(null);
+                                    if (property.id) fetchProperty(property.id); // Refresh to reflect active sync
+                                }}
+                                isModal={true}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div >
     );
 }

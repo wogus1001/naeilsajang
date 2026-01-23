@@ -65,6 +65,56 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
         });
     };
 
+    // Helper: Geocode Addresses (Client-side Kakao)
+    const geocodeData = async (data: any[]) => {
+        if (typeof window === 'undefined' || !(window as any).kakao || !(window as any).kakao.maps) {
+            console.warn('Kakao Maps SDK not loaded. Skipping geocoding.');
+            return data;
+        }
+
+        const geocoder = new (window as any).kakao.maps.services.Geocoder();
+        const processed = [...data];
+        let successCount = 0;
+
+        for (let i = 0; i < processed.length; i++) {
+            const row = processed[i];
+            // Find address key
+            const addrKey = Object.keys(row).find(k => ['지번주소', '도로명주소', '소재지', '주소', '위치상권'].includes(k));
+            const address = addrKey ? row[addrKey] : null;
+
+            if (address && !row['lat'] && !row['lng']) { // Only if not already present
+                try {
+                    setLogs(prev => {
+                        const newLogs = [...prev];
+                        if (newLogs.length > 0 && newLogs[newLogs.length - 1].startsWith('좌표 변환 중')) {
+                            newLogs[newLogs.length - 1] = `좌표 변환 중... (${i + 1}/${processed.length})`;
+                            return newLogs;
+                        }
+                        return [...prev, `좌표 변환 중... (${i + 1}/${processed.length})`];
+                    });
+
+                    await new Promise<void>((resolve) => {
+                        geocoder.addressSearch(address, (result: any[], status: any) => {
+                            if (status === (window as any).kakao.maps.services.Status.OK) {
+                                row['lat'] = result[0].y;
+                                row['lng'] = result[0].x;
+                                successCount++;
+                            }
+                            resolve(); // Always resolve to continue
+                        });
+                    });
+
+                    // Small delay to prevent rate limiting (approx 50ms)
+                    await new Promise(r => setTimeout(r, 50));
+                } catch (e) {
+                    console.error('Geocoding error', e);
+                }
+            }
+        }
+        console.log(`Geocoding complete. Success: ${successCount}`);
+        return processed;
+    };
+
     const handleUpload = async () => {
         if (!files.main && !files.work && !files.price && !files.contracts && !files.targetCustomers) {
             alert('적어도 하나의 파일을 선택해주세요.');
@@ -77,7 +127,12 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
         setLogs(['데이터 파싱 중...']);
 
         try {
-            const mainData = files.main ? await parseExcel(files.main) : [];
+            let mainData = files.main ? await parseExcel(files.main) : [];
+            // Apply Geocoding (Enrich mainData with lat/lng)
+            if (mainData.length > 0) {
+                mainData = await geocodeData(mainData);
+            }
+
             const workData = files.work ? await parseExcel(files.work) : [];
             const priceData = files.price ? await parseExcel(files.price) : [];
             const contractData = files.contracts ? await parseExcel(files.contracts) : [];

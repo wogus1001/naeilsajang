@@ -301,6 +301,8 @@ export async function POST(request: Request) {
                 name: getVal(row, ['물건명', '상호명', '이름']),
                 address: getVal(row, ['지번주소', '도로명주소', '소재지', '주소', '위치상권']),
                 detailAddress: getVal(row, ['상세주소', '나머지주소', '호수']), // New: Detailed Address
+                lat: getVal(row, ['lat', 'latitude', '위도']),
+                lng: getVal(row, ['lng', 'longitude', '경도']),
 
                 // Status mapping
                 status: getVal(row, ['상태', 'status', '물건상태', '물건등급']), // Default 'progress' handled later
