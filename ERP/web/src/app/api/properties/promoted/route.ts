@@ -51,7 +51,7 @@ export async function GET(request: Request) {
                         date: p.date,
                         name: c.name,
                         type: 'customer',
-                        classification: c.data?.class || c.classification || '-',
+                        classification: c.data?.class || (c as any).classification || '-',
                         budget: c.data?.budget || p.amount || '-',
                         features: `[추진] ${p.itemName || c.name}`,
                         targetId: c.id,
