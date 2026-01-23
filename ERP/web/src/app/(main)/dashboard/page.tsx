@@ -40,7 +40,7 @@ export default function DashboardPage() {
                 const user = JSON.parse(userStr);
                 setUserData(user);
                 setUserName(user.name || '사장님');
-                currentUserId = user.id;
+                currentUserId = user.uid || user.id;
                 companyName = user.companyName;
             } catch (e) {
                 console.error(e);

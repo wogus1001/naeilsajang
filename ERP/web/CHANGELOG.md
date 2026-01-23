@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.10] - 2026-01-23
+
+### Fixed (수정됨)
+- **Dashboard API Call Logic (대시보드 호출 로직 수정)**
+  - Fixed client-side logic to use `user.uid` (UUID) instead of `user.id` when fetching dashboard data.
+    - 대시보드 데이터 요청 시 로그인 ID가 아닌 고유 식별자(UUID)를 사용하도록 수정하여, 회사 데이터 필터링이 정확하게 동작하도록 개선했습니다.
+
 ## [v1.1.9] - 2026-01-23
 
 ### Fixed (수정됨)
