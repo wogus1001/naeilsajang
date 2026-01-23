@@ -1,21 +1,7 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
-
-// Helper to read JSON file safely
-const readJsonFile = (filename: string) => {
-    const filePath = path.join(process.cwd(), 'src/data', filename);
-    if (!fs.existsSync(filePath)) return [];
-    try {
-        const fileData = fs.readFileSync(filePath, 'utf8');
-        return JSON.parse(fileData);
-    } catch (error) {
-        console.error(`Error reading ${filename}:`, error);
-        return [];
-    }
-};
 
 export async function GET(request: Request) {
     try {
@@ -26,76 +12,135 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
         }
 
-        // 1. Load Data
-        const schedules = readJsonFile('schedules.json');
-        const contracts = readJsonFile('contracts.json'); // Using contracts.json for list/count
-        const properties = readJsonFile('properties.json');
-        const customers = readJsonFile('customers.json');
+        const supabaseAdmin = getSupabaseAdmin();
 
-        // 2. Load User Info & Permissions
-        const users = readJsonFile('users.json');
-        const currentUser = users.find((u: any) => u.id === userId);
-        const userCompany = currentUser?.companyName || '';
-        const isAdmin = currentUser?.role === 'admin' || userId === 'admin';
+        let companyId: string | null = null;
+        let isAdmin = false;
 
-        // 3. Filter & Aggregate Data for User
+        // Check if userId is a valid UUID
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
 
-        // A. Schedules (Today + Upcoming)
-        // Use KST for date comparison
+        if (!isUuid || userId === 'admin') {
+            // Fallback for Legacy/Dev 'admin' user or invalid ID
+            // Treat as Super Admin (No Company Filter)
+            console.warn(`[Dashboard] Invalid UUID '${userId}'. Treating as Super Admin (All Data).`);
+            companyId = null;
+            isAdmin = true;
+        } else {
+            // 1. Get User's Company ID (Normal Flow)
+            const { data: userProfile, error: profileError } = await supabaseAdmin
+                .from('profiles')
+                .select('company_id, role, name')
+                .eq('id', userId)
+                .single();
+
+            if (profileError || !userProfile?.company_id) {
+                console.error('Dashboard: User profile or company not found', profileError);
+                return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+            }
+            companyId = userProfile.company_id;
+            isAdmin = userProfile.role === 'admin';
+        }
+
+        // 2. Parallel Data Fetching
         const now = new Date();
         const kstOffset = 9 * 60; // KST is UTC+9
         const kstDate = new Date(now.getTime() + (kstOffset * 60 * 1000));
         const todayStr = kstDate.toISOString().split('T')[0];
-        console.log('[Dashboard API] Debug:', { todayStr, userId, totalSchedules: schedules.length });
 
-        const userSchedules = schedules.filter((s: any) => {
-            // Exclude work history logs
-            if (s.type === 'work') return false;
+        const dPlus2Date = new Date(kstDate);
+        dPlus2Date.setDate(dPlus2Date.getDate() + 2);
+        const dPlus2Str = dPlus2Date.toISOString().split('T')[0];
 
-            // Include personal schedules
-            if (s.userId === userId) return true;
-            // Include company shared schedules
-            if (userCompany && s.companyName === userCompany && (s.scope === 'public' || s.scope === 'work')) {
-                // Legacy: some old shared schedules might be scope='work' but type!='work'. 
-                // However, we just excluded type='work'. So this is safe.
-                return true;
-            }
-            return false;
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-indexed
+
+        // Prepare Queries
+        let scheduleQuery = supabaseAdmin.from('schedules').select('*');
+        let contractQuery = supabaseAdmin.from('contracts').select('*');
+        let propertyQuery = supabaseAdmin.from('properties').select('id, created_at');
+        let customerQuery = supabaseAdmin.from('customers').select('id', { count: 'exact', head: true });
+
+        // Apply Company Scope only if not Admin (or if we resolved a specific company)
+        // For 'admin' / invalid UUID, we treat as Super Admin (See all)
+        if (companyId) {
+            scheduleQuery = scheduleQuery.eq('company_id', companyId);
+            contractQuery = contractQuery.eq('company_id', companyId);
+            propertyQuery = propertyQuery.eq('company_id', companyId);
+            customerQuery = customerQuery.eq('company_id', companyId);
+        }
+
+        const queries = [
+            // A. Schedules
+            scheduleQuery
+                .gte('date', todayStr)
+                .not('type', 'in', '("work","completed","canceled","postponed")') // Exclude work logs & finished
+                .order('date', { ascending: true })
+                .order('title', { ascending: true }) // fallback sort
+                .limit(20),
+
+            // B. Contracts (Project)
+            contractQuery
+                .order('created_at', { ascending: false }),
+
+            // C. Properties
+            propertyQuery,
+
+            // D. Customers
+            customerQuery
+        ];
+
+        const [
+            { data: schedules, error: schedError },
+            { data: contracts, error: contractError },
+            { data: properties, error: propError },
+            { count: customerCount, error: custError }
+        ] = await Promise.all(queries);
+
+        if (schedError) console.error('Error fetching schedules:', schedError);
+        if (contractError) console.error('Error fetching contracts:', contractError);
+        if (propError) console.error('Error fetching properties:', propError);
+        if (custError) console.error('Error fetching customers:', custError);
+
+        // 3. Process Data
+
+        // A. Schedules
+        const validSchedules = (schedules || []).filter((s: any) => {
+            // Additional filtering if needed (e.g., private logic)
+            // Assuming DB policy/query handles mostly correct data.
+            // Check Scope if 'private' (personal)
+            if (s.scope === 'personal' && s.user_id !== userId) return false;
+            return true;
         });
 
-        const upcomingSchedules = userSchedules.filter((s: any) =>
-            s.date >= todayStr &&
-            !['completed', 'canceled', 'postponed'].includes(s.type) &&
-            !['completed', 'canceled', 'postponed'].includes(s.status)
-        );
-        console.log('[Dashboard API] Filtered:', { userSchedules: userSchedules.length, upcoming: upcomingSchedules.length });
+        // Upcoming Count (Today ~ D+2)
+        const shortTermCount = validSchedules.filter((s: any) => s.date <= dPlus2Str).length;
 
-        // Sort by date ASC, then time ASC
-        const sortedSchedules = upcomingSchedules
-            .sort((a: any, b: any) => {
-                if (a.date !== b.date) return a.date.localeCompare(b.date);
-                return (a.time || '').localeCompare(b.time || '');
-            })
-            .slice(0, 5); // Start with top 5
+        // Top 5 for Widget
+        const widgetSchedules = validSchedules.slice(0, 5).map((s: any) => ({
+            id: s.id,
+            time: `${s.date.slice(5)} ${s.time?.slice(0, 5) || ''}`.trim(), // MM-DD HH:mm
+            title: s.title,
+            location: s.location || '',
+            type: s.type || 'schedule'
+        }));
 
-        // B. Contracts (Ongoing & Recent) - Filter by company (same as list page)
-        const companyContracts = contracts.filter((c: any) => {
-            if (isAdmin) return true;
-            const targetUser = users.find((u: any) => u.id === c.userId);
-            return (userCompany && targetUser?.companyName === userCompany) || c.userId === userId;
-        });
 
-        // 1. Project-based contracts (from contracts.json)
-        const projectOngoingContracts = companyContracts.filter((c: any) =>
+        // B. Contracts
+        // 1. Projects (DB)
+        const projectContracts = contracts || [];
+        const projectOngoing = projectContracts.filter((c: any) =>
             ['on_going', 'active', 'progress', 'WAITING', 'APPROVAL_REQUESTED'].includes(c.status)
         );
 
-        // 2. E-signature contracts (Aggregated from UCanSign API)
+        // 2. Electronic (API)
         let electronicOngoingCount = 0;
         let apiRecentContracts: any[] = [];
+
         try {
             const { getContracts } = await import('@/lib/ucansign/client');
             const apiContracts = await getContracts(userId) || [];
+
             const ongoingMerged = apiContracts.filter((c: any) => {
                 const status = (c.status || '').toLowerCase();
                 return !['completed', 'canceled', 'rejected', 'trash', 'expired', 'deleted'].includes(status);
@@ -112,84 +157,43 @@ export async function GET(request: Request) {
             }));
         } catch (error) {
             console.error('Failed to fetch electronic contracts:', error);
+            // Non-blocking
         }
 
-        // Local contracts (contracts.json) - Treat as Electronic Contracts if they have ucansignId
-        // Also include Project contracts (those without ucansignId)
-        const localContracts = companyContracts
-            .slice()
-            .reverse()
-            .slice(0, 20)
-            .map((c: any) => ({
-                id: String(c.id),
-                title: c.name || c.title || '계약 내역',
-                customer: c.customerName || '고객',
-                status: c.status,
-                date: (c.createdAt || '').split('T')[0],
-                // If it has ucansignId, it's electronic. Otherwise it's manually created project.
-                type: c.ucansignId ? '전자계약' : '프로젝트'
-            }));
+        // Merge Recent Contracts
+        const localProjects = projectContracts.map((c: any) => ({
+            id: c.id,
+            title: c.name || '계약 프로젝트',
+            customer: '고객', // Join with customer table if needed, or store name
+            status: c.status,
+            date: (c.created_at || '').split('T')[0],
+            type: '프로젝트'
+        }));
 
-        // Merge and Deduplicate
-        // 1. Electronic from Local (only if not present in API)
-        const apiIds = new Set(apiRecentContracts.map(c => c.id));
-        const localElectronic = localContracts.filter((c: any) => c.type === '전자계약' && !apiIds.has(c.id));
-
-        // 2. Project from Local (include 'active', 'on_going', 'completed', etc.)
-        const localProjects = localContracts.filter((c: any) => c.type === '프로젝트');
-
-        const mergedRecent = [...apiRecentContracts, ...localElectronic, ...localProjects]
-            .filter(c => c.date)
+        const mergedRecent = [...apiRecentContracts, ...localProjects]
             .sort((a, b) => b.date.localeCompare(a.date))
             .slice(0, 5);
 
-        // C. Properties (New this month)
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0-indexed
 
-        const userProperties = properties.filter((p: any) => {
-            // Admin sees all properties to match properties/page.tsx
-            if (isAdmin) return true;
-            if (userCompany) return p.companyName === userCompany;
-            return p.userId === userId || p.managerId === userId;
-        });
-
-        const newPropertiesCount = userProperties.filter((p: any) => {
-            if (!p.createdAt) return false;
-            const d = new Date(p.createdAt);
+        // C. Properties (New This Month)
+        const newPropertiesCount = (properties || []).filter((p: any) => {
+            if (!p.created_at) return false;
+            const d = new Date(p.created_at);
             return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
         }).length;
 
-        // D. Customers (Total) - Also filter by company to match customers/page.tsx
-        const companyCustomers = customers.filter((c: any) => {
-            if (userCompany) return c.companyName === userCompany;
-            return c.userId === userId || c.managerId === userId;
-        });
 
-        // Calculate D+2 date for Stats Count
-        const dPlus2Date = new Date(kstDate);
-        dPlus2Date.setDate(dPlus2Date.getDate() + 2);
-        const dPlus2Str = dPlus2Date.toISOString().split('T')[0];
-
-        const shortTermCount = upcomingSchedules.filter((s: any) => s.date <= dPlus2Str).length;
-
-        // 3. Construct Response
+        // 4. Response
         const dashboardData = {
             stats: {
                 scheduleCount: shortTermCount,
-                ongoingContractCount: projectOngoingContracts.length + electronicOngoingCount,
-                projectContractCount: projectOngoingContracts.length,
+                ongoingContractCount: projectOngoing.length + electronicOngoingCount,
+                projectContractCount: projectOngoing.length,
                 apiContractCount: electronicOngoingCount,
                 newPropertyCount: newPropertiesCount,
-                totalCustomerCount: companyCustomers.length,
+                totalCustomerCount: customerCount || 0,
             },
-            todaySchedules: sortedSchedules.map((s: any) => ({
-                id: s.id,
-                time: `${s.date.slice(5)} ${s.time || ''}`, // Show MM-DD Time for upcoming
-                title: s.title,
-                location: s.location || '',
-                type: s.type || 'schedule'
-            })),
+            todaySchedules: widgetSchedules,
             recentContracts: mergedRecent
         };
 

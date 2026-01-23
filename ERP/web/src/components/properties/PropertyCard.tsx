@@ -189,6 +189,8 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     // UI State for Linking
     const [selectedBusinessCardId, setSelectedBusinessCardId] = useState<string | null>(null);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+    const [isBusinessCardModalOpen, setIsBusinessCardModalOpen] = useState(false);
+    const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
 
     // [Reverted Dynamic Fetch] - Back to formData.promotedCustomers
 

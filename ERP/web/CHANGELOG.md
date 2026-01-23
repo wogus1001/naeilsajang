@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.9] - 2026-01-23
+
+### Fixed (수정됨)
+- **Dashboard Data Visibility (대시보드 데이터 미표시 수정)**
+  - Fixed an issue where the "Total Customers" count was 0 for Admin users or when Company ID fallback failed.
+    - 관리자(Admin) 계정 접속 시 특정 회사가 선택되지 않아 고객 수가 0명으로 뜨던 문제를 수정했습니다. 관리자는 이제 전체 통계를 볼 수 있습니다.
+- **Dashboard Widget Layout (대시보드 위젯 레이아웃 수정)**
+  - Fixed text overflow/wrapping issues in the "Scheduled Schedule" widget by removing detailed description text from the time column.
+    - 예정된 일정 위젯에서 날짜(시간) 컬럼에 긴 설명글이 포함되어 레이아웃이 깨지던 현상을 수정했습니다.
+- **Customer Card Date Format (고객카드 날짜 형식 수정)**
+  - Fixed ISO Date string display (e.g., `2026-01-12T...`) in Work History and Promoted Properties tables.
+    - 고객 작업내역 및 추진물건 목록에서 날짜가 읽기 어려운 형식으로 나오던 버그를 `YYYY-MM-DD (요일)` 형식으로 개선했습니다.
+
 ## [v1.1.8] - 2026-01-22
 
 ### Changed (변경됨)

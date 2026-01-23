@@ -709,6 +709,27 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
         }
     };
 
+    const formatDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        // If it already has (Day), return as is
+        if (dateStr.toString().includes('(')) return dateStr;
+
+        try {
+            let datePart = dateStr;
+            if (dateStr.includes('T')) {
+                datePart = dateStr.split('T')[0];
+            }
+            const date = new Date(datePart);
+            if (isNaN(date.getTime())) return dateStr;
+
+            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+            const day = dayNames[date.getDay()];
+            return `${datePart} (${day})`;
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
     return (
         <div className={styles.container} style={{ height: '100%', border: 'none', background: 'transparent' }}>
             {/* Header */}
@@ -1400,7 +1421,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                                         formData.history.map((item: any, i) => (
                                             <tr key={i} onClick={() => { setEditingHistoryIndex(i); setIsWorkModalOpen(true); }} style={{ cursor: 'pointer' }}>
                                                 <td>{i + 1}</td>
-                                                <td style={{ whiteSpace: 'nowrap' }}>{item.date}</td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{formatDate(item.date)}</td>
                                                 <td>{item.manager || item.worker}</td>
                                                 <td
                                                     style={{
@@ -1481,7 +1502,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                                                     />
                                                 </td>
                                                 <td>{i + 1}</td>
-                                                <td style={{ whiteSpace: 'nowrap' }}>{item.addedDate || item.date || '-'}</td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{formatDate(item.addedDate || item.date || '-')}</td>
                                                 <td style={{
                                                     color: item.isSynced !== false ? '#228BE6' : 'inherit',
                                                     maxWidth: '150px',
