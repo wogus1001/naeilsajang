@@ -2661,7 +2661,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                             type="checkbox"
                                                             name="operationType"
                                                             value={type}
-                                                            checked={formData.operationType?.includes(type)}
+                                                            checked={formData.operationType?.includes(type) || false}
                                                             onChange={(e) => handleMultiSelect(e, 'operationType')}
                                                         />
                                                         {type}
