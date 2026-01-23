@@ -12,6 +12,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
     const [drawingMode, setDrawingMode] = React.useState<any>(null);
     const [map, setMap] = React.useState<kakao.maps.Map | null>(null);
     const [isToolbarOpen, setIsToolbarOpen] = React.useState(true);
+    const [coords, setCoords] = React.useState<{ lat: number, lng: number } | null>(null);
     const drawingManagerRef = React.useRef<any>(null);
 
     // Distance Measurement State
@@ -36,6 +37,26 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
     const polygonRef = React.useRef<kakao.maps.Polygon | null>(null);
     const areaOverlayRef = React.useRef<kakao.maps.CustomOverlay | null>(null);
     const areasRef = React.useRef<{ polygon: kakao.maps.Polygon; overlay: kakao.maps.CustomOverlay }[]>([]);
+
+    // -- Geocoding Logic --
+    React.useEffect(() => {
+        if (data.coordinates && data.coordinates.lat && data.coordinates.lng) {
+            setCoords(data.coordinates);
+            return;
+        }
+
+        if (data.address && window.kakao && window.kakao.maps && window.kakao.maps.services) {
+            const geocoder = new kakao.maps.services.Geocoder();
+            geocoder.addressSearch(data.address, (result: any, status: any) => {
+                if (status === kakao.maps.services.Status.OK) {
+                    setCoords({
+                        lat: Number(result[0].y),
+                        lng: Number(result[0].x)
+                    });
+                }
+            });
+        }
+    }, [data.coordinates, data.address]);
 
     // -- Map Print Stability Logic (Format 3 & Legacy) --
     React.useEffect(() => {
@@ -618,12 +639,16 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
     // Basic formatting helpers
     const formatCurrency = (value: number | string) => {
         if (!value) return '0';
-        return Number(value).toLocaleString();
+        const num = Number(value);
+        if (isNaN(num)) return String(value); // Return text as-is if not a valid number
+        return num.toLocaleString();
     };
 
     const formatDate = (dateString: string) => {
         if (!dateString) return '-';
-        return new Date(dateString).toLocaleDateString('ko-KR');
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return dateString; // Return text as-is if invalid date
+        return date.toLocaleDateString('ko-KR');
     };
 
     const thStyle = { backgroundColor: '#f8f9fa', fontWeight: 600, color: '#495057', textAlign: 'left' as const };
@@ -632,7 +657,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
     // Style helper for fixed boxes with truncation
     const getBoxStyle = (height: string, lineClamp: number) => ({
-        fontSize: '14px',
+        fontSize: '13px',
         backgroundColor: '#f8f9fa',
         padding: '10px',
         borderRadius: '4px',
@@ -821,7 +846,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                 /* Enforce strict line clamping for print with border-box */
                 .memo-box {
-                    font-size: 11pt !important;
+                    font-size: 13px !important;
                     line-height: 1.2 !important;
                     display: -webkit-box !important;
                     -webkit-box-orient: vertical !important;
@@ -830,8 +855,8 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     box-sizing: border-box !important; /* Critical to include padding in height */
                 }
                 .memo-box-large {
-                    height: 80px !important;    /* 4 lines (approx 68px) + padding */
-                    max-height: 80px !important;
+                    height: 72px !important;    /* 4 lines strict limit (reduced to 72px) */
+                    max-height: 72px !important;
                     -webkit-line-clamp: 4 !important;
                 }
                 .memo-box-medium {
@@ -839,8 +864,28 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     max-height: 46px !important;
                     -webkit-line-clamp: 2 !important;
                 }
+                .memo-box-medium-3 {
+                    height: 57px !important;    /* 3 lines (approx 45px) + 12px padding */
+                    max-height: 57px !important;
+                    -webkit-line-clamp: 3 !important;
+                }
+                .memo-box-6lines {
+                    height: 103px !important;   /* 6 lines (104px - 1px adjustment) */
+                    max-height: 103px !important;
+                    -webkit-line-clamp: 6 !important;
+                }
+                .memo-box-7lines {
+                    height: 118px !important;   /* 7 lines (119px - 1px adjustment) */
+                    max-height: 118px !important;
+                    -webkit-line-clamp: 7 !important;
+                }
                 .memo-box-xl {
                     min-height: 250px !important;
+                }
+                .memo-box-details {
+                    height: 88px !important;    /* 5 lines (90px - 2px adjustment) */
+                    max-height: 88px !important;
+                    -webkit-line-clamp: 5 !important;
                 }
             }
         }
@@ -963,9 +1008,9 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             </tr>
                             <tr>
                                 <th style={thStyle}>특징</th>
-                                <td style={tdMemoStyle}>{data.featureMemo}</td>
+                                <td style={tdStyle}>{data.featureMemo}</td>
                                 <th style={thStyle}>상권</th>
-                                <td style={tdMemoStyle}>{data.locationMemo}</td>
+                                <td style={tdStyle}>{data.locationMemo}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1018,7 +1063,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             </tr>
                             <tr>
                                 <th style={thStyle}>임대료</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.rent)} 만원 <span style={{ fontSize: '10px', color: '#666' }}>(VAT {data.vat || '별도'})</span></td>
-                                <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.maintenance)} 만원</td>
+                                <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.maintenance)}</td>
                             </tr>
                             <tr>
                                 <th style={{ ...thStyle, backgroundColor: '#fff9db' }}>합계</th>
@@ -1122,19 +1167,19 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                 <div>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#82c91e' }}>영업 메모</h2>
-                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('76px', 4), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>
+                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('72px', 4), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>
                         {data.operationMemo || '-'}
                     </div>
                 </div>
                 <div>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#12b886' }}>매출/경비 메모</h2>
-                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('76px', 4), backgroundColor: '#e6fcf5', borderColor: '#c3fae8' }}>
+                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('72px', 4), backgroundColor: '#e6fcf5', borderColor: '#c3fae8' }}>
                         {data.revenueMemo || '-'}
                     </div>
                 </div>
                 <div>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#fd7e14' }}>가맹 메모</h2>
-                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('76px', 4), backgroundColor: '#fff4e6', borderColor: '#ffe8cc' }}>
+                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('72px', 4), backgroundColor: '#fff4e6', borderColor: '#ffe8cc' }}>
                         {data.franchiseMemo || '-'}
                     </div>
                 </div>
@@ -1167,7 +1212,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             {/* Lease Memo (Request 4 - Make sure it is visible) */}
             <div className="print-section f1-section">
                 <h2 className="f1-h2" style={{ borderLeftColor: '#228be6' }}>임대차 메모</h2>
-                <div className="memo-box memo-box-large" style={{ ...getBoxStyle('76px', 4), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>
+                <div className="memo-box memo-box-large" style={{ ...getBoxStyle('72px', 4), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>
                     {data.leaseMemo || '-'}
                 </div>
             </div>
@@ -1179,15 +1224,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 (data.memo || data.details) && (
                     <div className="print-section f1-section">
                         <h2 className="f1-h2" style={{ borderLeftColor: '#868e96' }}>상세 내용</h2>
-                        <div style={{
-                            ...getBoxStyle('250px', 12),
-                            padding: '20px',
+                        <div className="memo-box memo-box-details" style={{
+                            ...getBoxStyle('88px', 5),
                             backgroundColor: '#f8f9fa',
                             whiteSpace: 'pre-wrap',
                             lineHeight: '1.6',
-                            fontSize: '14px',
+                            fontSize: '13px',
                             display: '-webkit-box',
-                            WebkitLineClamp: 12,
+                            WebkitLineClamp: 3,
                             WebkitBoxOrient: 'vertical',
                             overflow: 'hidden'
                         }}>
@@ -1235,7 +1279,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         </colgroup>
                         <tbody>
                             <tr><th style={thStyle}>업종</th><td style={tdStyle}>{[data.industryCategory, data.industrySector, data.industryDetail].filter(Boolean).join(' > ')}</td></tr>
-                            <tr><th style={thStyle}>특징</th><td style={tdMemoStyle}>{data.featureMemo}</td></tr>
+                            <tr><th style={thStyle}>특징</th><td style={tdStyle}>{data.featureMemo}</td></tr>
                             <tr>
                                 <th style={{ ...thStyle, height: '62px' }}>위치/상권</th>
                                 <td className="cell-multiline" style={{ ...tdMemoStyle, height: '62px', whiteSpace: 'normal', wordBreak: 'break-all' }}>
@@ -1295,7 +1339,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             {/* Store Characteristics (Full Width) */}
             <div className="print-section f2-section" style={{ marginBottom: '25px' }}>
                 <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '20px', color: '#333' }}>매장특성</h2>
-                <div className="memo-box memo-box-medium" style={{ ...getBoxStyle('54px', 2), backgroundColor: '#f8f9fa' }}>{data.overviewMemo || '-'}</div>
+                <div className="memo-box memo-box-medium-3" style={{ ...getBoxStyle('57px', 3), backgroundColor: '#f8f9fa' }}>{data.overviewMemo || '-'}</div>
             </div>
 
             {/* 2. Price (Full Width Table) */}
@@ -1315,7 +1359,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         </tr>
                         <tr>
                             <th style={thStyle}>임대료</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.monthlyRent)} 만원</td>
-                            <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)} 만원</td>
+                            <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
                             <th style={thStyle}>부가세</th><td style={tdStyle}>{data.vat || '-'}</td>
                         </tr>
                     </tbody>
@@ -1337,7 +1381,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     </table>
                 </div>
                 <div>
-                    <h2 className="f2-h2" style={{ fontSize: '19px', height: '24px', marginBottom: '15px' }}> </h2>
+                    <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 관리</h2>
                     <table className="report-table f2-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <tbody>
                             <tr><th style={thStyle}>공부서류하자</th><td style={tdStyle}>{data.docDefects || '-'}</td></tr>
@@ -1354,11 +1398,11 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '5px' }}>
                 <div className="print-section no-print-margin f2-section">
                     <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업현황 메모</h2>
-                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('84px', 4), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>{data.operationMemo || '-'}</div>
+                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>{data.operationMemo || '-'}</div>
                 </div>
                 <div className="print-section no-print-margin f2-section">
                     <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '12px', color: '#333' }}>임대차권리 메모</h2>
-                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('84px', 4), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>{data.leaseMemo || '-'}</div>
+                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>{data.leaseMemo || '-'}</div>
                 </div>
             </div>
         </div>
@@ -1460,7 +1504,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             {/* Store Characteristics (Full Width) */}
             <div className="print-section f3-section" style={{ marginBottom: '15px', marginTop: '15px' }}>
                 <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>매장특성</h2>
-                <div className="memo-box memo-box-medium" style={{ ...getBoxStyle('48px', 2), backgroundColor: '#f8f9fa' }}>{data.overviewMemo || '-'}</div>
+                <div className="memo-box memo-box-medium-3" style={{ ...getBoxStyle('57px', 3), backgroundColor: '#f8f9fa' }}>{data.overviewMemo || '-'}</div>
             </div>
 
             {/* 2. Price (Full Width Table) */}
@@ -1479,7 +1523,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         </tr>
                         <tr>
                             <th style={thStyle}>임대료</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.monthlyRent)} 만원 <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? '부가세 포함' : '부가세 별도'})</span></td>
-                            <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)} 만원</td>
+                            <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
                             <th style={{ ...thStyle, backgroundColor: '#fff9db' }}>합계</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f03e3e', backgroundColor: '#fff9db' }}>{formatCurrency((data.deposit || 0) + (data.premium || 0))} 만원</td>
                         </tr>
                     </tbody>
@@ -1501,7 +1545,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     </table>
                 </div>
                 <div>
-                    <h2 className="f3-h2" style={{ fontSize: '16px', height: '24px', marginBottom: '10px' }}> </h2>
+                    <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 관리</h2>
                     <table className="report-table f3-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <tbody>
                             <tr><th style={thStyle}>공부서류하자</th><td style={tdStyle}>{data.docDefects || '-'}</td></tr>
@@ -1516,15 +1560,16 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
             {/* 4. Memos + Map Combined */}
             <div className="print-section f3-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', height: 'calc(100% - 650px)', minHeight: '380px', marginBottom: '10px', marginTop: '15px' }}>
+
                 {/* Left Column: Memos */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
                     <div className="print-section no-print-margin f3-section" style={{ display: 'flex', flexDirection: 'column' }}>
                         <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업현황 메모</h2>
-                        <div className="memo-box" style={{ height: '115px', maxHeight: '115px', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden', backgroundColor: '#f4fce3', borderColor: '#d8f5a2', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{data.operationMemo || '-'}</div>
+                        <div className="memo-box memo-box-7lines" style={{ ...getBoxStyle('118px', 7), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>{data.operationMemo || '-'}</div>
                     </div>
                     <div className="print-section no-print-margin f3-section" style={{ display: 'flex', flexDirection: 'column' }}>
                         <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차권리 메모</h2>
-                        <div className="memo-box" style={{ height: '115px', maxHeight: '115px', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical', overflow: 'hidden', backgroundColor: '#e7f5ff', borderColor: '#d0ebff', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>{data.leaseMemo || '-'}</div>
+                        <div className="memo-box memo-box-7lines" style={{ ...getBoxStyle('118px', 7), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>{data.leaseMemo || '-'}</div>
                     </div>
                 </div>
 
@@ -1532,9 +1577,9 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 <div className="print-section no-print-margin f3-section" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #e64980', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>위치 정보</h2>
                     <div className="map-container-print" style={{ flex: 1, width: '100%', height: '100%', minHeight: '300px' }}>
-                        {(data.coordinates && data.coordinates.lat && data.coordinates.lng) ? (
+                        {(coords && coords.lat && coords.lng) ? (
                             <Map
-                                center={data.coordinates}
+                                center={coords}
                                 level={4}
                                 style={{ width: '100%', height: '100%', borderRadius: '4px', border: '1px solid #dee2e6' }}
                                 onCreate={setMap}
@@ -1542,7 +1587,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 onMouseMove={(_map, mouseEvent) => handleMouseMove(mouseEvent)}
                                 onRightClick={() => handleRightClick()}
                             >
-                                <MapMarker position={data.coordinates} />
+                                <MapMarker position={coords} />
                                 <div className="print-hide" style={{
                                     position: 'absolute',
                                     top: '10px',
@@ -1767,7 +1812,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 </tr>
                                 <tr>
                                     <th style={thStyle}>권리금</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
-                                    <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)} 만원</td>
+                                    <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
                                 </tr>
                                 <tr>
                                     <th style={{ ...thStyle, backgroundColor: '#fff9db' }}>합계</th>
@@ -1812,17 +1857,17 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         <table className="report-table" style={{ width: '100%', fontSize: '13px', tableLayout: 'auto' }}>
                             <tbody>
                                 <tr>
-                                    <th style={{ ...thStyle, width: 'auto', whiteSpace: 'nowrap' }}>임대기간</th><td style={tdStyle}>{data.leasePeriod || '-'}</td>
-                                    <th style={{ ...thStyle, width: 'auto', whiteSpace: 'nowrap' }}>임대료변동</th><td style={tdStyle}>{data.rentFluctuation || '-'}</td>
-                                    <th style={{ ...thStyle, width: 'auto', whiteSpace: 'nowrap' }}>공부서류하자</th><td style={tdStyle}>{data.docDefects || '-'}</td>
+                                    <th style={{ ...thStyle, padding: '11px 4px', width: 'auto', whiteSpace: 'nowrap' }}>임대기간</th><td style={{ ...tdStyle, padding: '11px 4px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.leasePeriod || '-'}</td>
+                                    <th style={{ ...thStyle, padding: '11px 4px', width: 'auto', whiteSpace: 'nowrap' }}>임대료변동</th><td style={{ ...tdStyle, padding: '11px 4px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.rentFluctuation || '-'}</td>
+                                    <th style={{ ...thStyle, padding: '11px 4px', width: 'auto', whiteSpace: 'nowrap' }}>공부서류하자</th><td style={{ ...tdStyle, padding: '11px 4px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.docDefects || '-'}</td>
                                 </tr>
                                 <tr>
-                                    <th style={{ ...thStyle, width: 'auto', whiteSpace: 'nowrap' }}>양수도통보</th><td style={tdStyle}>{data.transferNotice || '-'}</td>
-                                    <th style={{ ...thStyle, width: 'auto', whiteSpace: 'nowrap' }}>화해조서/공증</th><td style={tdStyle}>{data.settlementDefects || '-'}</td>
-                                    <th style={{ ...thStyle, width: 'auto', whiteSpace: 'nowrap' }}>동업권리관계</th><td style={tdStyle}>{data.partnershipRights || '-'}</td>
+                                    <th style={{ ...thStyle, padding: '11px 4px', width: 'auto', whiteSpace: 'nowrap' }}>양수도통보</th><td style={{ ...tdStyle, padding: '11px 4px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.transferNotice || '-'}</td>
+                                    <th style={{ ...thStyle, padding: '11px 4px', width: 'auto', whiteSpace: 'nowrap' }}>화해조서/공증</th><td style={{ ...tdStyle, padding: '11px 4px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.settlementDefects || '-'}</td>
+                                    <th style={{ ...thStyle, padding: '11px 4px', width: 'auto', whiteSpace: 'nowrap' }}>동업권리관계</th><td style={{ ...tdStyle, padding: '11px 4px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.partnershipRights || '-'}</td>
                                 </tr>
                                 <tr>
-                                    <th style={{ ...thStyle, width: 'auto', whiteSpace: 'nowrap' }}>임대인 정보</th><td colSpan={5} style={tdStyle}>{data.lessorInfo || '-'}</td>
+                                    <th style={{ ...thStyle, padding: '11px 4px', width: 'auto', whiteSpace: 'nowrap' }}>임대인 정보</th><td colSpan={5} style={{ ...tdStyle, padding: '11px 4px', maxWidth: '500px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.lessorInfo || '-'}</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1833,29 +1878,27 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 {/* Right Column: Memos (Less items, more gap) */}
                 {/* Right Column: Memos (Less items, more gap) */}
                 {/* Right Column: Memos (Less items, more gap) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <h2 style={{ fontSize: '17px', borderBottom: '2px solid #333', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>물건 메모</h2>
-                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '150px', overflow: 'hidden', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '133px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                             {data.overviewMemo || '-'}
                         </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <h2 style={{ fontSize: '17px', borderBottom: '2px solid #fd7e14', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>가맹 메모</h2>
-                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#fff4e6', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '150px', overflow: 'hidden', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#fff4e6', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '133px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                             {data.franchiseMemo || '-'}
                         </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <h2 style={{ fontSize: '17px', borderBottom: '2px solid #82c91e', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>영업 메모</h2>
-                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#f4fce3', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '150px', overflow: 'hidden', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#f4fce3', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '133px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                             {data.operationMemo || '-'}
                         </div>
                     </div>
                 </div>
             </div>
-
-
 
             {/* Bottom: Revenue & Lease Memo (Split 50/50) */}
             <div style={{ display: 'grid', gridTemplateColumns: '48% 48%', gap: '30px', marginBottom: '10px' }}>
@@ -1867,12 +1910,11 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 </div>
                 <div>
                     <h2 style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 메모</h2>
-                    <div className="memo-box" style={{ padding: '20px', backgroundColor: '#e7f5ff', borderRadius: '4px', fontSize: '14px', lineHeight: '1.6', height: '148px', maxHeight: '148px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                    <div className="memo-box" style={{ padding: '20px', backgroundColor: '#e7f5ff', borderRadius: '4px', fontSize: '14px', lineHeight: '1.6', height: '147px', maxHeight: '147px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 9, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                         {data.leaseMemo || '-'}
                     </div>
                 </div>
             </div>
-
 
         </>
     );
@@ -1944,8 +1986,18 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <th style={thStyle}>면적</th><td style={tdStyle}>{data.area} m²</td>
                             </tr>
                             <tr>
-                                <th style={thStyle}>특징</th><td colSpan={3} style={tdMemoStyle}>{data.featureMemo}</td>
-                                <th style={thStyle}>상권현황</th><td style={tdMemoStyle}>{data.locationMemo}</td>
+                                <th style={thStyle}>특징</th>
+                                <td colSpan={3} style={tdMemoStyle}>
+                                    <div style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {data.featureMemo}
+                                    </div>
+                                </td>
+                                <th style={thStyle}>상권현황</th>
+                                <td style={tdMemoStyle}>
+                                    <div style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {data.locationMemo}
+                                    </div>
+                                </td>
                             </tr>
                             <tr>
                                 <th style={thStyle}>시설/인테리어</th><td style={tdStyle}>{/* Placeholder */} 상태 양호</td>
@@ -1953,7 +2005,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <th style={thStyle}>피크타임</th><td style={tdStyle}>{/* Placeholder */} 점심 12:00~13:00</td>
                             </tr>
                             <tr>
-                                <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)} 만원</td>
+                                <th style={thStyle}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
                                 <th style={thStyle}>총창업비용</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f03e3e' }}>{formatCurrency(totalStartup)} 만원</td>
                                 <th style={thStyle}>권리금</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
                             </tr>
@@ -2078,25 +2130,17 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 <div style={{ marginBottom: '10px', marginTop: '-15px' }}>
                     <h2 style={{ fontSize: '19px', borderLeft: '4px solid #e64980', paddingLeft: '10px', marginBottom: '8px', color: '#333' }}>위치 정보</h2>
                     <div className="map-container-print" style={{ width: '100%', height: '350px' }}>
-                        {(data.coordinates && data.coordinates.lat && data.coordinates.lng) ? (
+                        {(coords && coords.lat && coords.lng) ? (
                             <Map
-                                center={{ lat: parseFloat(data.coordinates.lat), lng: parseFloat(data.coordinates.lng) }}
+                                center={coords}
                                 style={{ width: '100%', height: '350px' }}
                                 level={4}
-                                onCreate={(map) => {
-                                    setMap(map);
-                                    // Force layout recalculation after a short delay to ensure print visibility
-                                    setTimeout(() => {
-                                        map.relayout();
-                                    }, 500);
-                                }}
+                                onCreate={setMap}
                                 onClick={(_map, mouseEvent) => handleMapClick(mouseEvent)}
                                 onMouseMove={(_map, mouseEvent) => handleMouseMove(mouseEvent)}
                                 onRightClick={() => handleRightClick()}
                             >
-                                <MapMarker
-                                    position={{ lat: parseFloat(data.coordinates.lat), lng: parseFloat(data.coordinates.lng) }}
-                                />
+                                <MapMarker position={coords} />
                                 <div className="print-hide" style={{
                                     position: 'absolute',
                                     top: '10px',
@@ -2330,8 +2374,18 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <th style={thStyle}>면적</th><td style={tdStyle}>{data.area} m²</td>
                             </tr>
                             <tr>
-                                <th style={thStyle}>특징</th><td colSpan={3} style={tdMemoStyle}>{data.featureMemo}</td>
-                                <th style={thStyle}>상권현황</th><td style={tdMemoStyle}>{data.locationMemo}</td>
+                                <th style={thStyle}>특징</th>
+                                <td colSpan={3} style={tdMemoStyle}>
+                                    <div style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {data.featureMemo}
+                                    </div>
+                                </td>
+                                <th style={thStyle}>상권현황</th>
+                                <td style={tdMemoStyle}>
+                                    <div style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {data.locationMemo}
+                                    </div>
+                                </td>
                             </tr>
                             <tr>
                                 <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>시설/인테리어</th><td style={tdStyle}>{/* Placeholder */} 상태 양호</td>
@@ -2339,7 +2393,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>피크타임</th><td style={tdStyle}>{/* Placeholder */} 점심 12:00~13:00</td>
                             </tr>
                             <tr>
-                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)} 만원</td>
+                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>관리비</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
                                 <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>총창업비용</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f03e3e' }}>{formatCurrency(totalStartup)} 만원</td>
                                 <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>권리금</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
                             </tr>
@@ -2558,20 +2612,17 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     <div>
                         <h2 style={{ fontSize: '16px', borderLeft: '4px solid #e64980', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>위치</h2>
                         <div className="map-container-print" style={{ width: '100%', height: '260px' }}>
-                            {(data.coordinates && data.coordinates.lat && data.coordinates.lng) ? (
+                            {(coords && coords.lat && coords.lng) ? (
                                 <Map
-                                    center={{ lat: parseFloat(data.coordinates.lat), lng: parseFloat(data.coordinates.lng) }}
+                                    center={coords}
                                     style={{ width: '100%', height: '100%' }}
                                     level={4}
-                                    onCreate={(map) => {
-                                        setMap(map);
-                                        setTimeout(() => map.relayout(), 500);
-                                    }}
+                                    onCreate={setMap}
                                     onClick={(_map, mouseEvent) => handleMapClick(mouseEvent)}
                                     onMouseMove={(_map, mouseEvent) => handleMouseMove(mouseEvent)}
                                     onRightClick={() => handleRightClick()}
                                 >
-                                    <MapMarker position={{ lat: parseFloat(data.coordinates.lat), lng: parseFloat(data.coordinates.lng) }} />
+                                    <MapMarker position={coords} />
                                     <div className="print-hide" style={{
                                         position: 'absolute',
                                         top: '10px',

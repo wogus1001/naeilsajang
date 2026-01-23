@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+
+## [v1.1.13] - 2026-01-23
+
+### Fixed (수정됨)
+- **Print Format Map Rendering (인쇄물 지도 표시 수정)**
+  - Fixed map rendering issue in Print Formats 3, 5, and 6 by restoring specific geocoding logic (`coords` state) for address-based locations.
+    - 인쇄 형식 3, 5, 6번에서 지도가 나오지 않던 문제를 수정했습니다. (주소를 좌표로 변환하는 로직 복구)
+- **Print Format Layouts (인쇄물 레이아웃 개선)**
+  - **Format 4**: Adjusted 'Memo' section height and increased 'Lease Rights' table column widths for better readability. Added truncation to prevent overflow.
+    - 형식 4번: 메모란 높이를 조정하고 임대차 권리 분석 표의 컬럼 너비를 넓혔습니다. 내용이 길어질 경우 말줄임표(...) 처리.
+  - **Format 5 & 6**: Applied 5-line truncation to 'Features' (`특징`) and 'Location Analysis' (`상권현황`) fields to maintain layout stability.
+    - 형식 5, 6번: 특징 및 상권현황 텍스트가 길어질 경우 5줄까지만 표시하고 말줄임표로 처리하여 레이아웃 깨짐을 방지했습니다.
+
+### Changed (변경됨)
+- **Maintenance Fee Display (관리비 단위 변경)**
+  - Removed the "Won" (`만원`) unit text from the "Maintenance Fee" field in all Print Formats (1~6). Now displays as a standalone number (e.g., "30").
+    - 인쇄 형식 1~6번의 관리비 항목에서 "만원" 글자를 삭제하고 숫자만 표시하도록 변경했습니다.
+
 ## [v1.1.12] - 2026-01-23
 
 ### Fixed (수정됨)
