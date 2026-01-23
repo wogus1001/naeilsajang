@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.11] - 2026-01-23
+
+### Fixed (수정됨)
+- **Promoted Customer Feature Sync (추진고객 특징 동기화 우선순위 수정)**
+  - Fixed logic to prioritize "Customer Info - Features" (`feature`) over "Store Customer - Features" (`wantedFeature`) during both Push and Pull syncs.
+    - 추진고객 동기화 시 '점포고객 정보'의 특징이 '고객 정보'의 특징을 덮어쓰던 문제를 수정했습니다. 이제 고객 정보의 특징을 최우선으로 표시합니다.
+- **Real-time Property Card Sync (물건 카드 실시간 동기화)**
+  - Added auto-refresh logic to `PropertyCard` when closing Customer/Business Card modals after editing.
+    - 물건 카드에서 고객/명함 팝업을 열어 수정한 후 닫았을 때, 즉시 변경사항("6" 등)이 물건 카드 목록에 반영되도록 개선했습니다.
+- **Table Layout & Truncation (테이블 레이아웃 및 텍스트 말줄임)**
+  - **Property Card**: Fixed "Features" column width (150px) with ellipsis truncation to prevent indefinite table expansion.
+    - 물건 카드의 추진고객 '특징' 컬럼 너비를 150px로 고정하고 말줄임표(...) 처리를 적용했습니다.
+  - **Customer Card**: Fixed "Work History" layout.
+    - Work Content (`내역`) column width fixed to 180px with ellipsis.
+    - Worker (`작업자`) and Related Property (`관련물건`) columns forced to single-line display (`nowrap`).
+    - 고객 카드의 작업 내역 컬럼을 180px로 고정하고, 작업자 및 관련 물건 컬럼이 줄바꿈 없이 한 줄로 나오도록 수정했습니다.
+
 ## [v1.1.10] - 2026-01-23
 
 ### Fixed (수정됨)

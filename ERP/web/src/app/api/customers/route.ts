@@ -256,6 +256,60 @@ export async function PUT(request: Request) {
 
         if (error) throw error;
 
+        // [PUSH SYNC] Active Sync to Properties
+        // Find properties linked to this customer and update their snapshot
+        try {
+            // Fetch properties that have this customer in their promoted list
+            // Note: JSONB path query or just fetch all properties for company and filter (safer for small scale)
+            // Given "My Project" scale, fetching properties for company is okay.
+            // Better: use .contains for index usage if possible.
+            // .contains('data', { promotedCustomers: [{ targetId: id }] }) works for array
+            let propQuery = supabaseAdmin.from('properties').select('id, data').contains('data', { promotedCustomers: [{ targetId: id }] });
+
+            // Scope to company for safety (though ID contained is unique enough)
+            if (updates.company_id || existing.company_id) {
+                propQuery = propQuery.eq('company_id', updates.company_id || existing.company_id);
+            }
+
+            const { data: linkedProps } = await propQuery;
+
+            if (linkedProps && linkedProps.length > 0) {
+                console.log(`[PushSync] Updating ${linkedProps.length} properties for Customer ${id}`);
+                const customer = transformCustomer(updated);
+
+                for (const prop of linkedProps) {
+                    const pList = prop.data.promotedCustomers || [];
+                    let modified = false;
+
+                    const newList = pList.map((item: any) => {
+                        if (item.targetId === id && item.type === 'customer') {
+                            modified = true;
+                            // Update Snapshot
+                            return {
+                                ...item,
+                                name: customer.name,
+                                contact: customer.mobile,
+                                classification: customer.grade || item.classification,
+                                budget: customer.budget || item.budget,
+                                features: customer.feature || customer.wantedFeature || item.features // UI: Customer Info (feature) > Store Customer (wantedFeature)
+                            };
+                        }
+                        return item;
+                    });
+
+                    if (modified) {
+                        await supabaseAdmin
+                            .from('properties')
+                            .update({ data: { ...prop.data, promotedCustomers: newList } })
+                            .eq('id', prop.id);
+                    }
+                }
+            }
+        } catch (syncError) {
+            console.error('[PushSync] Failed to sync to properties:', syncError);
+            // Don't fail the main request
+        }
+
         return NextResponse.json(transformCustomer(updated));
 
     } catch (error) {

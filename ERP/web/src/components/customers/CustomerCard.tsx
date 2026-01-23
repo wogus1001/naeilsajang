@@ -1406,8 +1406,8 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                                     <tr>
                                         <th style={{ width: 50 }}>No</th>
                                         <th style={{ width: 100, whiteSpace: 'nowrap' }}>날짜</th>
-                                        <th style={{ width: 80 }}>작업자</th>
-                                        <th style={{ width: 120 }}>관련물건</th>
+                                        <th style={{ width: 80, whiteSpace: 'nowrap' }}>작업자</th>
+                                        <th style={{ width: 120, whiteSpace: 'nowrap' }}>관련물건</th>
                                         <th>내역</th>
                                         <th style={{ width: 60, textAlign: 'center' }}>삭제</th>
                                     </tr>
@@ -1422,12 +1422,13 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                                             <tr key={i} onClick={() => { setEditingHistoryIndex(i); setIsWorkModalOpen(true); }} style={{ cursor: 'pointer' }}>
                                                 <td>{i + 1}</td>
                                                 <td style={{ whiteSpace: 'nowrap' }}>{formatDate(item.date)}</td>
-                                                <td>{item.manager || item.worker}</td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>{item.manager || item.worker}</td>
                                                 <td
                                                     style={{
                                                         color: item.targetId ? '#228BE6' : 'inherit',
                                                         cursor: item.targetId ? 'pointer' : 'default',
-                                                        fontWeight: item.targetId ? '500' : 'normal'
+                                                        fontWeight: item.targetId ? '500' : 'normal',
+                                                        whiteSpace: 'nowrap'
                                                     }}
                                                     onClick={(e) => {
                                                         if (item.targetId) {
@@ -1438,7 +1439,17 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                                                 >
                                                     {item.relatedProperty || item.related}
                                                 </td>
-                                                <td>{item.content}</td>
+                                                <td title={item.content}>
+                                                    <div style={{
+                                                        width: '180px', // Reduced width as requested
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        display: 'block'
+                                                    }}>
+                                                        {item.content}
+                                                    </div>
+                                                </td>
                                                 <td style={{ textAlign: 'center' }}>
                                                     <button
                                                         className={styles.iconBtn}

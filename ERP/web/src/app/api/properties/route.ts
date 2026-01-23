@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-// Service Role Client moved to handlers
+export const dynamic = 'force-dynamic'; // Ensure fresh data on every request
 
 // Helper Query: Resolve Company/User UUIDs
 async function resolveIds(legacyCompany: string | null, legacyManager: string | null) {
@@ -19,7 +19,6 @@ async function resolveIds(legacyCompany: string | null, legacyManager: string | 
         const email = legacyManager.includes('@') ? legacyManager : `${legacyManager}@example.com`;
         const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', email).single();
         if (u) managerId = u.id;
-        // Also fallback: if manager found but no company yet, maybe infer company?
     }
 
     return { companyId, managerId };
@@ -29,12 +28,6 @@ async function resolveIds(legacyCompany: string | null, legacyManager: string | 
 function transformProperty(row: any) {
     if (!row) return null;
     const { data, ...core } = row;
-    // CamelCase conversion for core fields if needed?
-    // DB: status, operation_type, is_favorite, address, name
-    // Frontend expects: status, operationType, isFavorite, address, name
-    // We must map snake_case core cols back to camelCase if frontend expects camelCase.
-    // Based on `properties.json`: operationType, isFavorite are used.
-
     return {
         ...data, // Spread JSONB first (defaults)
         ...core, // Overwrite with Core columns (validated)
@@ -42,14 +35,7 @@ function transformProperty(row: any) {
         operationType: core.operation_type,
         isFavorite: core.is_favorite,
         companyId: core.company_id,
-        managerId: row.manager_id, // keep snake? No, frontend likely uses `managerId`.
-        // We need to fetch manager Legacy ID? Or just use what's in `data` if preserved? 
-        // The migration script put everything remaining into `data`.
-        // So `managerId` (legacy string) is likely inside `data` if we didn't filter it out?
-        // Wait, splitData removed 'managerId' from data.
-        // So we might lose the legacy "test1" string if we only return UUID.
-        // Frontend might display manager Name.
-        // For now, let's trust the `data` blob or better yet, generic object spread.
+        managerId: row.manager_id,
         createdAt: core.created_at,
         updatedAt: core.updated_at
     };
@@ -67,6 +53,69 @@ export async function GET(request: Request) {
         if (id) {
             const { data: prop, error } = await supabaseAdmin.from('properties').select('*').eq('id', id).single();
             if (error || !prop) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+
+            // [Hydration] Fetch fresh data for Promoted Customers
+            if (prop.data && prop.data.promotedCustomers && prop.data.promotedCustomers.length > 0) {
+                const pList = prop.data.promotedCustomers;
+                const cardIds = pList.filter((c: any) => c.targetId && c.type === 'businessCard').map((c: any) => c.targetId);
+                const custIds = pList.filter((c: any) => c.targetId && c.type === 'customer').map((c: any) => c.targetId);
+
+                // Fetch Maps
+                const cardMap = new Map();
+                const custMap = new Map();
+
+                if (cardIds.length > 0) {
+                    const { data: cards } = await supabaseAdmin.from('business_cards').select('id, name, mobile, etc_memo, category').in('id', cardIds);
+                    cards?.forEach(c => cardMap.set(c.id, c));
+                }
+                if (custIds.length > 0) {
+                    // Update: Select ALL columns
+                    const { data: custs } = await supabaseAdmin.from('customers').select('id, name, mobile, data, manager_id, wanted_feature, memo_interest').in('id', custIds);
+
+                    // DEBUG LOGGING
+                    console.log('[PropertyHydration] Fetched Customers:', custs?.map(c => ({
+                        id: c.id,
+                        name: c.name,
+                        wanted_feature: c.wanted_feature,
+                        data_feature: c.data?.feature,
+                        data_memo: c.data?.memo
+                    })));
+
+                    custs?.forEach(c => custMap.set(c.id, c));
+                }
+
+                // Update List with Fresh Data
+                prop.data.promotedCustomers = pList.map((item: any) => {
+                    if (item.targetId) {
+                        if (item.type === 'businessCard' && cardMap.has(item.targetId)) {
+                            const c = cardMap.get(item.targetId);
+                            return {
+                                ...item,
+                                name: c.name,
+                                contact: c.mobile,
+                                classification: c.category || '-',
+                                features: c.etc_memo || item.features // Use latest memo
+                            };
+                        } else if (item.type === 'customer' && custMap.has(item.targetId)) {
+                            const c = custMap.get(item.targetId);
+                            // Correct mapping for wanted_feature. 
+                            // Prioritize feature (Customer Info) over wanted_feature (Store Customer)
+                            const syncedFeature = c.data?.feature || c.wanted_feature || c.data?.memo || item.features;
+
+                            return {
+                                ...item,
+                                name: c.name,
+                                contact: c.mobile,
+                                classification: c.data?.class || item.classification,
+                                budget: c.data?.budget || item.budget,
+                                features: syncedFeature // Synced
+                            };
+                        }
+                    }
+                    return item;
+                });
+            }
+
             return NextResponse.json(transformProperty(prop));
         }
 

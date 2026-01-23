@@ -261,6 +261,21 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     }, [managers, formData.managerId]);
 
 
+    // Helper to refresh property data
+    const fetchProperty = async (id: string) => {
+        try {
+            const res = await fetch(`/api/properties?id=${id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setFormData(data);
+                if (onRefresh) onRefresh(); // Optional: notify parent
+            }
+        } catch (error) {
+            console.error('Failed to refresh property:', error);
+        }
+    };
+
+
     // History Popup State
     const [isPriceHistoryOpen, setIsPriceHistoryOpen] = useState(false);
     const [isWorkHistoryOpen, setIsWorkHistoryOpen] = useState(false);
@@ -428,8 +443,8 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
     const handlePersonSelect = async (person: any, type: 'customer' | 'businessCard') => {
         const name = person.name || person.company || '';
-        const phone = person.phone || '';
-        const feature = person.feature || person.memo || '';
+        const phone = person.mobile || person.phone || '';
+        const feature = type === 'customer' ? (person.feature || '') : (person.memo || '');
 
         if (personSelectorMode === 'workHistory') {
             setWorkHistoryForm(prev => ({
@@ -3439,10 +3454,11 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                     </td>
                                                     <td title={item.content}>
                                                         <div style={{
+                                                            display: 'block',
                                                             whiteSpace: 'nowrap',
                                                             overflow: 'hidden',
                                                             textOverflow: 'ellipsis',
-                                                            maxWidth: '300px',
+                                                            maxWidth: '180px',
                                                             textAlign: 'left'
                                                         }}>
                                                             {item.content || '-'}
@@ -3744,10 +3760,11 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                         </td>
                                                         <td title={customer.features}>
                                                             <div style={{
-                                                                maxWidth: '200px',
+                                                                width: '150px', // Force fixed width
                                                                 whiteSpace: 'nowrap',
                                                                 overflow: 'hidden',
-                                                                textOverflow: 'ellipsis'
+                                                                textOverflow: 'ellipsis',
+                                                                display: 'block'
                                                             }}>
                                                                 {customer.features || '-'}
                                                             </div>
@@ -4504,7 +4521,10 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                     <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1200px', height: '90vh', padding: 0, background: '#e9ecef', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
                         <BusinessCard
                             id={selectedBusinessCardId}
-                            onClose={() => setSelectedBusinessCardId(null)}
+                            onClose={() => {
+                                setSelectedBusinessCardId(null);
+                                if (property.id) fetchProperty(property.id); // Refresh to reflect active sync
+                            }}
                             isModal={true}
                         />
                     </div>
@@ -4515,7 +4535,10 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                     <div className={styles.modalContent} style={{ width: '90%', maxWidth: '1200px', height: '90vh', padding: 0, background: '#e9ecef', borderRadius: '16px' }} onClick={e => e.stopPropagation()}>
                         <Customer
                             id={selectedCustomerId}
-                            onClose={() => setSelectedCustomerId(null)}
+                            onClose={() => {
+                                setSelectedCustomerId(null);
+                                if (property.id) fetchProperty(property.id); // Refresh to reflect active sync
+                            }}
                             isModal={true}
                         />
                     </div>

@@ -201,54 +201,85 @@ export async function POST(request: Request) {
                 for (let i = 0; i < promoted.length; i++) {
                     const p = promoted[i];
 
-                    // Auto-Healing
+                    // Auto-Healing: Check if targetId is valid
                     if (p.propertyId && !propertyIdMap.has(p.propertyId)) {
                         p.propertyId = null;
                         p.isSynced = false;
                         cardUpdated = true;
                     }
 
-                    if (!p.propertyId && p.itemName) {
-                        const prop = propertyNameMap.get(p.itemName.trim());
-
-                        if (prop) {
-                            p.propertyId = prop.id;
-                            p.id = prop.id;
-                            p.itemName = prop.name;
+                    // 1. Resolve Property ID if missing
+                    let targetProp = null;
+                    if (p.propertyId) {
+                        targetProp = propertyIdMap.has(p.propertyId) ? properties?.find(pr => pr.id === p.propertyId) : null;
+                    } else if (p.itemName) {
+                        targetProp = propertyNameMap.get(p.itemName.trim());
+                        if (targetProp) {
+                            p.propertyId = targetProp.id;
+                            p.id = targetProp.id; // Use Property ID as ID? Existing logic seems to do this, though maybe risky for list keys.
+                            p.itemName = targetProp.name;
                             p.isSynced = true;
                             p.budget = customer.data?.budget || p.amount || '-';
                             cardUpdated = true;
                             promotedLinked++;
+                        }
+                    }
 
-                            // [RESTORED COPY-TO-PROPERTY LOGIC]
-                            const pData = prop.data || {};
-                            const pList = pData.promotedCustomers || [];
+                    // 2. Reverse Sync: Ensure it exists in Property's list (Always Run if Prop found)
+                    if (targetProp) {
+                        const pData = targetProp.data || {};
+                        const pList = pData.promotedCustomers || [];
 
-                            const exists = pList.some((c: any) => {
-                                if (c.targetId === customer.id) return true;
-                                if (c.promotedId === p.id) return true;
-                                if (!c.targetId && c.name === customer.name && c.contact === customer.mobile) return true;
-                                return false;
-                            });
+                        const existsIndex = pList.findIndex((c: any) => {
+                            if (c.targetId === customer.id && c.promotedId === p.id) return true; // Exact Header ID Match
+                            if (c.targetId === customer.id) return true; // Target Match
+                            // Fallback: Name + Contact (for legacy)
+                            if (!c.targetId && c.name === customer.name && c.contact === customer.mobile) return true;
+                            return false;
+                        });
 
-                            if (!exists) {
-                                const newPromo = {
-                                    promotedId: p.id || Date.now(),
-                                    id: Date.now() + Math.random(),
-                                    date: p.date,
-                                    name: customer.name,
-                                    type: 'customer',
-                                    classification: customer.data?.class || '-',
-                                    budget: customer.data?.budget || p.amount || '-',
-                                    features: `[추진] ${customer.name}`,
+                        const newPromo = {
+                            promotedId: p.id || Date.now(), // Unique ID for the promoted item row in Customer
+                            id: Date.now().toString() + Math.random().toString(36).substr(2, 5), // Unique ID for the row in Property table
+                            date: p.date,
+                            name: customer.name,
+                            type: 'customer',
+                            classification: customer.data?.class || '-',
+                            budget: customer.data?.budget || p.amount || '-',
+                            features: customer.data?.feature || customer.data?.memo || '',
+                            targetId: customer.id,
+                            contact: customer.mobile
+                        };
+
+                        if (existsIndex === -1) {
+                            // Add new
+                            await supabaseAdmin
+                                .from('properties')
+                                .update({ data: { ...pData, promotedCustomers: [...pList, newPromo] } })
+                                .eq('id', targetProp.id);
+                        } else {
+                            // Update existing (Fix missing data or fields) - OPTIONAL but good for "Consistency"
+                            // Only update if critical fields are missing to avoid overwriting manual edits?
+                            // User complained about "Unstable", implies missing.
+                            // Let's just Ensure it is present.
+                            // If we want to force-update "features" to fix previous bugs, we should update.
+                            const existing = pList[existsIndex];
+                            const shouldUpdate =
+                                !existing.targetId ||
+                                existing.features === `[추진] ${customer.name}` || // Fix old buggy data
+                                !existing.features;
+
+                            if (shouldUpdate) {
+                                pList[existsIndex] = {
+                                    ...existing,
                                     targetId: customer.id,
-                                    contact: customer.mobile
+                                    promotedId: p.id,
+                                    features: newPromo.features // Apply fix
                                 };
-
                                 await supabaseAdmin
                                     .from('properties')
-                                    .update({ data: { ...pData, promotedCustomers: [...pList, newPromo] } })
-                                    .eq('id', prop.id);
+                                    .update({ data: { ...pData, promotedCustomers: pList } })
+                                    .eq('id', targetProp.id);
                             }
                         }
                     }

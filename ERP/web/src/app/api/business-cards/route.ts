@@ -771,6 +771,58 @@ export async function PUT(request: Request) {
             }
         }
 
+        // [PUSH SYNC] Active Sync to Properties (Business Cards)
+        try {
+            // Fetch properties linked to this card
+            let propQuery = supabaseAdmin.from('properties').select('id, data').contains('data', { promotedCustomers: [{ targetId: id, type: 'businessCard' }] });
+
+            // Limit by company if possible? Yes, business cards are usually company-scoped?
+            // But let's rely on ID match which is safer.
+
+            const { data: linkedProps } = await propQuery;
+
+            if (linkedProps && linkedProps.length > 0) {
+                console.log(`[PushSync] Updating ${linkedProps.length} properties for BusinessCard ${id}`);
+
+                // Construct updated card object (partial)
+                const updatedCard = {
+                    name,
+                    mobile, // Front: mobile
+                    category, // Front: category
+                    memo, // Front: memo (etc_memo)
+                };
+
+                for (const prop of linkedProps) {
+                    const pList = prop.data.promotedCustomers || [];
+                    let modified = false;
+
+                    const newList = pList.map((item: any) => {
+                        if (item.targetId === id && item.type === 'businessCard') {
+                            modified = true;
+                            // Update Snapshot
+                            return {
+                                ...item,
+                                name: updatedCard.name,
+                                contact: updatedCard.mobile,
+                                classification: updatedCard.category || item.classification, // Map category -> classification
+                                features: updatedCard.memo || item.features // Map memo -> features
+                            };
+                        }
+                        return item;
+                    });
+
+                    if (modified) {
+                        await supabaseAdmin
+                            .from('properties')
+                            .update({ data: { ...prop.data, promotedCustomers: newList } })
+                            .eq('id', prop.id);
+                    }
+                }
+            }
+        } catch (syncError) {
+            console.error('[PushSync] Failed to sync BusinessCard to properties:', syncError);
+        }
+
         return NextResponse.json({ success: true });
 
     } catch (error: any) {

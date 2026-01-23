@@ -211,7 +211,7 @@ export async function POST(request: Request) {
                                     type: 'businessCard',
                                     classification: card.category || '-',
                                     budget: item.amount || '-',
-                                    features: `[추진] ${item.item_name}`,
+                                    features: card.etc_memo || '',
                                     targetId: card.id,
                                     contact: card.mobile || ''
                                 };

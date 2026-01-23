@@ -12,10 +12,19 @@ export default function LoginPage() {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [loggedInUser, setLoggedInUser] = useState<any>(null);
 
+    const [savedId, setSavedId] = useState('');
+    const [rememberId, setRememberId] = useState(false);
+
     React.useEffect(() => {
         const userStr = localStorage.getItem('user');
         if (userStr) {
             setLoggedInUser(JSON.parse(userStr));
+        }
+
+        const saved = localStorage.getItem('saved_login_id');
+        if (saved) {
+            setSavedId(saved);
+            setRememberId(true);
         }
     }, []);
 
@@ -104,6 +113,12 @@ export default function LoginPage() {
                     status: profile.status // No default 'active'
                 };
 
+                if (rememberId) {
+                    localStorage.setItem('saved_login_id', id);
+                } else {
+                    localStorage.removeItem('saved_login_id');
+                }
+
                 localStorage.setItem('user', JSON.stringify(userInfo));
                 router.push('/dashboard');
             }
@@ -155,6 +170,7 @@ export default function LoginPage() {
                                 id="email"
                                 placeholder="아이디를 입력하세요"
                                 className={styles.input}
+                                defaultValue={savedId}
                                 required
                             />
                         </div>
@@ -168,6 +184,17 @@ export default function LoginPage() {
                                 className={styles.input}
                                 required
                             />
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px' }}>
+                            <input
+                                type="checkbox"
+                                id="rememberId"
+                                checked={rememberId}
+                                onChange={(e) => setRememberId(e.target.checked)}
+                                style={{ width: '16px', height: '16px', marginRight: '8px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="rememberId" style={{ fontSize: '14px', color: '#666', cursor: 'pointer' }}>아이디 저장</label>
                         </div>
 
                         <button type="submit" className={styles.loginButton} disabled={isLoading}>
