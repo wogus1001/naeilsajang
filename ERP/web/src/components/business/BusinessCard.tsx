@@ -179,6 +179,12 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
+                if (isWorkModalOpen) {
+                    setIsWorkModalOpen(false);
+                    e.stopPropagation();
+                    return;
+                }
+
                 if (openedPropertyId) {
                     setOpenedPropertyId(null);
                     e.stopPropagation();
@@ -190,7 +196,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         };
         window.addEventListener('keydown', handleEsc, { capture: true });
         return () => window.removeEventListener('keydown', handleEsc, { capture: true });
-    }, [openedPropertyId, isPropertySelectorOpen]);
+    }, [openedPropertyId, isPropertySelectorOpen, isWorkModalOpen]);
 
     // --- LOGIC: Schedule & History ---
 

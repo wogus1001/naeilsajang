@@ -485,7 +485,7 @@ function CustomerListPageContent() {
                         <col style={{ width: 100 }} />
                         <col style={{ width: 60 }} />
                         <col style={{ width: 40 }} />
-                        <col style={{ width: 40 }} />
+                        <col style={{ width: 90 }} />
                         <col style={{ width: 80 }} />
                         <col style={{ width: 200 }} />
                         <col style={{ width: 300 }} />
@@ -558,7 +558,7 @@ function CustomerListPageContent() {
                                     </span>
                                 </td>
                                 <td>{customer.gender === 'F' ? '여' : '남'}</td>
-                                <td className={styles.classBadge}>{customer.class}급</td>
+                                <td className={styles.classBadge}>{customer.class}</td>
                                 <td>{customer.status}</td>
                                 <td style={{ textAlign: 'left' }}>{customer.feature}</td>
                                 <td style={{ textAlign: 'left' }}>{customer.address}</td>

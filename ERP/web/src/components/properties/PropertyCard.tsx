@@ -16,6 +16,7 @@ import { saveAs } from 'file-saver';
 import { getSupabase } from '@/lib/supabase';
 import BusinessCard from '../business/BusinessCard';
 import Customer from '../customers/CustomerCard';
+import { PropertyShareButton } from './PropertyShareButton';
 
 interface RevenueItem {
     id: string;
@@ -2459,6 +2460,12 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                     />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', marginRight: '20px' }}>
+                    {/* Share Button (Mobile Secret Briefing) */}
+                    {formData.id && (
+                        <div style={{ marginRight: '8px' }}>
+                            <PropertyShareButton propertyId={formData.id} />
+                        </div>
+                    )}
                     <div
                         onClick={toggleFavorite}
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px', marginRight: '8px' }}
