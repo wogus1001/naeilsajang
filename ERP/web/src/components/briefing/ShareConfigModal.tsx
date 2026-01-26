@@ -547,7 +547,9 @@ function HistoryLinkItem({ link, onRefresh }: { link: any, onRefresh: () => void
                     {isEditing ? (
                         <div className="flex items-center gap-1 w-full">
                             <input
-                                ref={(input) => input && input.focus()}
+                                ref={(input) => {
+                                    if (input) input.focus();
+                                }}
                                 value={memo}
                                 onChange={(e) => setMemo(e.target.value)}
                                 onKeyDown={(e) => {
