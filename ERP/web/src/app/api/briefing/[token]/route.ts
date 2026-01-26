@@ -3,12 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { token: string } }
+    context: { params: Promise<{ token: string }> }
 ) {
+    const { token } = await context.params;
+
     // Use Service Role to bypass RLS for public access via token
     const supabaseAdmin = createAdminClient();
-
-    const token = params.token;
 
     // 1. Fetch Link Data
     const { data: link, error: linkError } = await supabaseAdmin
