@@ -5,7 +5,9 @@ export async function GET(
     req: NextRequest,
     context: { params: Promise<{ token: string }> }
 ) {
-    const { token } = await context.params;
+    // Next.js 15: params is now a Promise
+    const params = await context.params;
+    const token = params.token;
 
     // Use Service Role to bypass RLS for public access via token
     const supabaseAdmin = createAdminClient();

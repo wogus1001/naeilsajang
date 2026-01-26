@@ -127,8 +127,9 @@ async function getBriefingData(token: string) {
     return { property: maskedProperty, options };
 }
 
-export default async function BriefingPage(props: { params: Promise<{ token: string }> }) {
+export default async function SharePage(props: { params: Promise<{ token: string }> }) {
     const params = await props.params;
+    const token = params.token;
     console.log('[BriefingPage] Page requested for token:', params.token);
     const data = await getBriefingData(params.token);
 
