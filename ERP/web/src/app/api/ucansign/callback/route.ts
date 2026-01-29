@@ -65,7 +65,12 @@ export async function GET(request: Request) {
 
         if (error) {
             console.error('Failed to update Supabase Profile:', error);
-            return NextResponse.json({ error: 'Failed to save token' }, { status: 500 });
+            // Return detailed error for debugging
+            return NextResponse.json({
+                error: 'Failed to save token',
+                details: error.message,
+                hint: error.hint || 'Check if columns ucansign_access_token exist'
+            }, { status: 500 });
         }
 
         // Clear cookie
