@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 
 
 
+## [v1.1.18] - 2026-01-29
+
+### Fixed (수정됨)
+- **Template Saving (템플릿 저장 오류 수정)**
+  - Fixed "An error occurred while saving" (Duplicate Key / RLS) issues in the local development environment by enforcing Admin privileges for database operations when using fallback authentication.
+    - 로컬 개발 환경에서 템플릿 저장 시 발생하던 오류(중복 키/권한 문제)를 수정했습니다. 시스템이 관리자 권한을 자동으로 인계받아 안전하게 저장합니다.
+
+### Added (추가됨)
+- **System Template Protection (기본 템플릿 보호 기능)**
+  - Added a "Save as System Template" (`기본 템플릿으로 저장`) checkbox in the Builder.
+    - 빌더에 '기본 템플릿으로 저장' 옵션을 추가하여, 체크 후 저장 시 **삭제 방지(보호)** 기능이 적용됩니다.
+- **Template Forking Logic (기본 템플릿 복제 로직)**
+  - Opening a System Template now automatically triggers "Fork" mode, resetting the ID to ensure a **new copy** is created upon saving, effectively preventing accidental overwrites of the original.
+    - 기본 템플릿을 열면 자동으로 '복제 모드'로 시작되어, 저장 시 원본을 덮어쓰지 않고 **새 문서로 저장**되도록 개선했습니다.
+
 ## [v1.1.17] - 2026-01-29
 
 ### Fixed (수정됨)
