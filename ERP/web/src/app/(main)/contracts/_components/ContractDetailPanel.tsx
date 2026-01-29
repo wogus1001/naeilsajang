@@ -5,6 +5,7 @@ import {
     X, FileText, Calendar, User, Clock, Download, Trash2,
     Ban, Send, ShieldCheck, MoreVertical, CheckCircle2, History, RefreshCcw
 } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
 
 interface ContractDetailPanelProps {
     contract: any;
@@ -29,6 +30,17 @@ export default function ContractDetailPanel({ contract, onClose, onAction, loadi
     const [historyData, setHistoryData] = useState<any[]>([]);
     const [attachmentsData, setAttachmentsData] = useState<any[]>([]);
     const [loadingTab, setLoadingTab] = useState(false);
+
+    // Modal State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+
+    const closeAlert = () => {
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     const statusInfo = contract ? (STATUS_MAP[contract.status] || { label: contract.status, color: '#495057', bg: '#f1f3f5' }) : { label: '', color: '', bg: '' };
     const isTrash = contract ? (contract.status === 'trash' || contract.status === 'deleted') : false;
@@ -92,7 +104,7 @@ export default function ContractDetailPanel({ contract, onClose, onAction, loadi
                 const text = await res.text();
                 console.error(`[Frontend] Error body: ${text}`);
                 if (newWindow) newWindow.document.write(`Download failed: Server returned ${res.status}`);
-                alert('다운로드 링크를 가져오지 못했습니다. (서버 오류)');
+                showAlert('다운로드 링크를 가져오지 못했습니다. (서버 오류)');
                 return;
             }
 
@@ -100,7 +112,7 @@ export default function ContractDetailPanel({ contract, onClose, onAction, loadi
             if (!text) {
                 console.error('[Frontend] Empty response from server');
                 if (newWindow) newWindow.document.write('Download failed: Empty response');
-                alert('서버로부터 응답이 없습니다.');
+                showAlert('서버로부터 응답이 없습니다.');
                 return;
             }
 
@@ -110,7 +122,7 @@ export default function ContractDetailPanel({ contract, onClose, onAction, loadi
             } catch (jsonError) {
                 console.error('[Frontend] JSON Parse Error:', jsonError, 'Response:', text);
                 if (newWindow) newWindow.document.write(`Download failed: Invalid API response`);
-                alert('서버 응답 형식이 올바르지 않습니다.');
+                showAlert('서버 응답 형식이 올바르지 않습니다.');
                 return;
             }
 
@@ -119,12 +131,12 @@ export default function ContractDetailPanel({ contract, onClose, onAction, loadi
             } else {
                 console.warn('[Frontend] No URL in data:', data);
                 if (newWindow) newWindow.document.write(data.error || 'Download failed: File not found.');
-                alert(data.error || '다운로드 링크를 찾을 수 없습니다.');
+                showAlert(data.error || '다운로드 링크를 찾을 수 없습니다.');
             }
         } catch (e) {
             console.error('[Frontend] HandleDownload Exception:', e);
             if (newWindow) newWindow.close();
-            alert('다운로드 중 스크립트 오류가 발생했습니다.');
+            showAlert('다운로드 중 스크립트 오류가 발생했습니다.');
         }
     };
 
@@ -314,7 +326,15 @@ export default function ContractDetailPanel({ contract, onClose, onAction, loadi
                     )}
                 </div>
             </div>
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
         </div>
+
     );
 }
 

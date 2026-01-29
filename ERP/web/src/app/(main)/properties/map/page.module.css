@@ -281,5 +281,58 @@
     height: 6px;
     border-top: 6px solid #fff;
     border-left: 6px solid transparent;
+    border-top: 6px solid #fff;
+    border-left: 6px solid transparent;
     border-right: 6px solid transparent;
+}
+
+@media (max-width: 768px) {
+    .filterBar {
+        height: 56px;
+        /* Slightly taller for touch */
+        overflow-x: auto;
+        justify-content: flex-start;
+        /* Start from left */
+        padding: 0 12px;
+        gap: 16px;
+        /* Space between groups */
+        white-space: nowrap;
+        /* Prevent text wrapping */
+        scrollbar-width: none;
+        /* Firefox */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .filterBar::-webkit-scrollbar {
+        display: none;
+        /* Chrome/Safari */
+    }
+
+    .filterGroup {
+        flex-shrink: 0;
+        /* Prevent squashing */
+        gap: 12px;
+    }
+
+    .filterItem {
+        font-size: 13px;
+        /* Slightly smaller text */
+    }
+
+    .filterBadge {
+        padding: 4px 8px;
+        /* Larger touch target */
+        font-size: 12px;
+    }
+
+    .filterInput {
+        width: 60px;
+        /* Wider input for easier touch */
+    }
+
+    /* Adjust overlay position on mobile if needed */
+    .overlayWrap {
+        bottom: 50px;
+        /* Move up slightly */
+    }
 }

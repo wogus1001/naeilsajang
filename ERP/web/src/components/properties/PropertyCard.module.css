@@ -93,6 +93,12 @@
     flex: 1;
 }
 
+.headerActions {
+    display: flex;
+    align-items: center;
+    margin-right: 20px;
+}
+
 /* Section Layout (Table Style) */
 .sectionRow {
     display: flex;
@@ -382,6 +388,13 @@
     margin: 0;
     font-size: 16px;
     font-weight: bold;
+}
+
+.modalBody {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    min-height: 0;
 }
 
 .searchBox {
@@ -915,7 +928,73 @@
         top: 0;
         z-index: 100;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        padding: 8px 12px;
+        padding: 12px;
+        flex-direction: column;
+        /* Stack top controls and title */
+        align-items: stretch;
+        gap: 8px;
+        /* Gap between title/badges and icon actions */
+    }
+
+    /* Status Badges Container */
+    .titleSection>div:first-child {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    /* Badge Items (Ensure they don't get squashed) */
+    .titleSection>div:first-child span {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .titleSection {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+        margin-right: 0;
+        width: 100%;
+        order: 1;
+        /* Title First */
+    }
+
+    .titleInput {
+        font-size: 16px;
+        width: 100%;
+        height: 48px;
+        /* Larger Touch Target */
+        margin-top: 4px;
+        padding: 8px;
+        /* Inner padding */
+    }
+
+    /* Header Actions Container */
+    .headerActions {
+        width: 100%;
+        display: flex;
+        /* Ensure flex */
+        justify-content: flex-end;
+        align-items: center;
+        /* Align icons to right */
+        margin-top: 0;
+        margin-right: 0 !important;
+        margin-bottom: 0;
+        gap: 8px;
+        order: 2;
+        /* Actions Below */
+    }
+
+    /* Target Icons inside Header Actions */
+    .headerActions>div {
+        transform: scale(1.1);
+        /* Slightly smaller scale than 1.2 to fit better */
+        margin-left: 8px !important;
+        /* Space between icons */
+        margin-right: 0 !important;
+        padding: 8px !important;
     }
 
     .mainLayout {
@@ -1040,19 +1119,29 @@
 
     /* Specific element tweaks */
     .managerInfo {
-        display: none;
+        display: flex;
+        padding: 4px 8px;
+        min-width: auto;
+        font-size: 12px;
+        margin-right: 0;
+        background: transparent;
+        border: none;
     }
 
     .titleInput {
-        font-size: 16px;
+        font-size: 18px;
+        /* Larger Title */
         width: 100%;
     }
 
-    .titleSection {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-        margin-right: 0;
+    /* Reset Manager Info div transform regarding the above selector if it catches it */
+    .headerActions .managerInfo {
+        transform: none;
+        padding: 0;
+        margin-right: 0 !important;
+        background: #f8f9fa;
+        /* Add background for visibility */
+        border-radius: 16px;
     }
 
     /* Make embedded elements wrap */

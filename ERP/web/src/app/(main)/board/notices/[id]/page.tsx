@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, User, Calendar, Eye, Trash2, Edit3 } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 export default function NoticeDetailPage() {
     const router = useRouter();
@@ -10,6 +12,13 @@ export default function NoticeDetailPage() {
     const [notice, setNotice] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<any>(null);
+
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const showAlert = (message: string) => setAlertConfig({ isOpen: true, message, title: '알림' });
+    const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => { } });
+    const showConfirm = (message: string, onConfirm: () => void) => setConfirmModal({ isOpen: true, message, onConfirm });
 
     useEffect(() => {
         const userStr = localStorage.getItem('user');
@@ -25,7 +34,7 @@ export default function NoticeDetailPage() {
                     const data = await res.json();
                     setNotice(data);
                 } else {
-                    alert('공지사항을 찾을 수 없습니다.');
+                    showAlert('공지사항을 찾을 수 없습니다.');
                     router.push('/board/notices');
                 }
             } catch (error) {
@@ -39,19 +48,20 @@ export default function NoticeDetailPage() {
     }, [params?.id, router]);
 
     const handleDelete = async () => {
-        if (!confirm('정말로 이 공지사항을 삭제하시겠습니까?')) return;
-        try {
-            const res = await fetch(`/api/notices/${params.id}`, { method: 'DELETE' });
-            if (res.ok) {
-                alert('삭제되었습니다.');
-                router.push('/board/notices');
-            } else {
-                alert('삭제 실패');
+        showConfirm('정말로 이 공지사항을 삭제하시겠습니까?', async () => {
+            try {
+                const res = await fetch(`/api/notices/${params.id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showAlert('삭제되었습니다.');
+                    router.push('/board/notices');
+                } else {
+                    showAlert('삭제 실패');
+                }
+            } catch (error) {
+                console.error(error);
+                showAlert('오류 발생');
             }
-        } catch (error) {
-            console.error(error);
-            alert('오류 발생');
-        }
+        });
     };
 
     if (loading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading...</div>;
@@ -165,6 +175,19 @@ export default function NoticeDetailPage() {
                     </div>
                 )}
             </div>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                isDanger={true}
+            />
         </div>
     );
 }

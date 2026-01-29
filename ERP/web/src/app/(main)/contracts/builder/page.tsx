@@ -10,13 +10,212 @@ import {
     PlusSquare, Columns, Trash, FilePlus,
     Undo, Redo, Indent as IndentIcon, Outdent as OutdentIcon, Image as ImageIcon, Eraser,
     ChevronLeft, ChevronRight, FileMinus, Scissors, MessageSquare, WrapText,
-    ArrowUpFromLine, MoveVertical
+    ArrowUpFromLine, MoveVertical, ChevronUp, ChevronDown
 } from 'lucide-react';
+import styles from './page.module.css';
+import { AlertModal } from '@/components/common/AlertModal';
+import { InputModal } from '@/components/common/InputModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { ContractTemplate, FormField } from '@/types/contract-core';
 import { getTemplateById, getAllTemplates, fetchCombinedTemplates } from '@/lib/templates/registry';
 import { createClient } from '@/utils/supabase/client';
 
 const PAGE_DELIMITER = '<!-- GENUINE_PAGE_BREAK -->';
+
+const inlineStyles = {
+    container: {
+        display: 'flex',
+        flexDirection: 'column' as const,
+        height: '100vh',
+        backgroundColor: '#e9ecef', // Darker bg for contrast
+        overflow: 'hidden'
+    },
+    header: {
+        backgroundColor: 'white',
+        borderBottom: '1px solid #dee2e6',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        padding: '0', // Removed general padding to control row spacing
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+        zIndex: 10
+    },
+    toolbarRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        flexWrap: 'wrap' as const,
+        padding: '0 20px' // Horizontal padding only, vertical handled individually
+    },
+    separator: {
+        width: '1px',
+        height: '24px',
+        backgroundColor: '#dee2e6',
+        margin: '0 5px'
+    },
+    titleInput: {
+        border: '1px solid #ced4da',
+        borderRadius: '4px',
+        padding: '6px 12px',
+        fontSize: '14px',
+        width: '240px',
+        fontWeight: 600
+    },
+    select: {
+        border: '1px solid #ced4da',
+        borderRadius: '4px',
+        padding: '6px',
+        fontSize: '14px'
+    },
+    toolBtn: {
+        background: 'none',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        padding: '6px',
+        color: '#495057',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'all 0.2s',
+        minWidth: '32px'
+    },
+    varBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        padding: '4px 10px',
+        backgroundColor: '#f1f3f5',
+        color: '#495057',
+        border: '1px solid #dee2e6',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: 600,
+        cursor: 'pointer',
+        transition: 'all 0.2s'
+    },
+    label: {
+        fontSize: '12px',
+        fontWeight: 600,
+        color: '#868e96',
+        marginRight: '6px'
+    },
+    cancelBtn: {
+        padding: '8px 16px',
+        border: '1px solid #dee2e6',
+        backgroundColor: 'white',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontSize: '14px',
+        fontWeight: 500
+    },
+    saveBtn: {
+        padding: '8px 16px',
+        backgroundColor: '#4c6ef5',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        fontSize: '14px',
+        fontWeight: 600,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+    },
+    workspace: {
+        flex: 1,
+        overflowY: 'auto' as const,
+        overflowX: 'auto' as const, // Enable horizontal scroll if width < A4
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '40px 20px 100px 20px', // Add side padding to prevent touching edges
+        backgroundColor: '#e9ecef'
+    },
+    pageContainer: {
+        position: 'relative' as const,
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: '4px',
+        alignItems: 'center'
+    },
+    paper: {
+        width: '210mm',
+        minWidth: '210mm', // Prevent shrinking
+        height: '297mm', // Fixed A4 Height
+        minHeight: '297mm',
+        backgroundColor: 'white',
+        padding: '5mm 10mm',
+        letterSpacing: '-0.5px',
+        wordSpacing: '-1px',
+        boxSizing: 'border-box' as const,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        position: 'relative' as const,
+        outline: 'none',
+        fontSize: '16px',
+        lineHeight: '1.6',
+        color: '#212529',
+        overflow: 'hidden', // Enforce A4 constraint
+    },
+    pageInfo: {
+        marginTop: '8px',
+        fontSize: '12px',
+        color: '#868e96',
+        fontWeight: 500
+    },
+    paginationBar: {
+        height: '60px',
+        backgroundColor: 'white',
+        borderTop: '1px solid #dee2e6',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 30px',
+        position: 'fixed' as const,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 20
+    },
+    pageNav: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px'
+    },
+    navBtn: {
+        backgroundColor: 'white',
+        border: '1px solid #dee2e6',
+        cursor: 'pointer',
+        color: '#495057',
+        width: '40px', // Fixed square size
+        height: '40px',
+        borderRadius: '4px', // Square with slight radius
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'all 0.2s',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+    },
+    pageIndicator: {
+        fontSize: '16px',
+        fontWeight: 700,
+        fontFamily: 'monospace',
+        color: '#212529'
+    },
+    pageActionBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '8px 12px',
+        backgroundColor: 'white',
+        border: '1px solid #ced4da',
+        borderRadius: '4px',
+        fontSize: '13px',
+        fontWeight: 600,
+        cursor: 'pointer',
+        color: '#495057'
+    }
+};
+
+
+
 
 const BuilderContent = () => {
     const router = useRouter();
@@ -32,6 +231,7 @@ const BuilderContent = () => {
     const [category, setCategory] = useState('기타');
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
 
     // Table Resizing State
     const resizingState = useRef<{
@@ -69,7 +269,25 @@ const BuilderContent = () => {
     const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({});
     const [currentFontSize, setCurrentFontSize] = useState('11pt');
     const [currentLineHeight, setCurrentLineHeight] = useState('1.6');
+
     const [currentParagraphSpacing, setCurrentParagraphSpacing] = useState('5px');
+
+    // Alert & Confirm State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+    const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+    const showConfirm = (message: string, onConfirm: () => void, isDanger: boolean = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
 
     // --- State Management for Current Page ---
     // When switching pages, we must save the current editor content back to the pages array
@@ -534,7 +752,10 @@ const BuilderContent = () => {
 
     const addTableRow = () => {
         const data = getSelectedTable();
-        if (!data) return alert('표 내부를 클릭해주세요.');
+        if (!data) {
+            showAlert('표 내부를 클릭해주세요.');
+            return;
+        }
         const { row } = data;
         const newRow = row.cloneNode(true) as HTMLTableRowElement;
         Array.from(newRow.cells).forEach(cell => cell.innerHTML = '&nbsp;');
@@ -543,7 +764,10 @@ const BuilderContent = () => {
 
     const addTableCol = () => {
         const data = getSelectedTable();
-        if (!data) return alert('표 내부를 클릭해주세요.');
+        if (!data) {
+            showAlert('표 내부를 클릭해주세요.');
+            return;
+        }
         const { cell, table } = data;
         const cellIndex = (cell as HTMLTableCellElement).cellIndex;
         Array.from(table.rows).forEach(r => {
@@ -555,10 +779,13 @@ const BuilderContent = () => {
 
     const deleteTable = () => {
         const data = getSelectedTable();
-        if (!data) return alert('표 내부를 클릭해주세요.');
-        if (confirm('현재 표를 삭제하시겠습니까?')) {
-            data.table.remove();
+        if (!data) {
+            showAlert('표 내부를 클릭해주세요.');
+            return;
         }
+        showConfirm('현재 표를 삭제하시겠습니까?', () => {
+            data.table.remove();
+        }, true);
     };
 
     // --- Table Resizing Logic ---
@@ -736,20 +963,21 @@ const BuilderContent = () => {
 
     const deleteCurrentPage = () => {
         if (pages.length <= 1) {
-            alert('최소 1페이지는 존재해야 합니다.');
+            showAlert('최소 1페이지는 존재해야 합니다.');
             return;
         }
-        if (!confirm(`${currentPageIndex + 1}페이지를 삭제하시겠습니까? 복구할 수 없습니다.`)) return;
 
-        setPages(prev => {
-            const newPages = prev.filter((_, idx) => idx !== currentPageIndex);
-            return newPages;
-        });
+        showConfirm(`${currentPageIndex + 1}페이지를 삭제하시겠습니까? 복구할 수 없습니다.`, () => {
+            setPages(prev => {
+                const newPages = prev.filter((_, idx) => idx !== currentPageIndex);
+                return newPages;
+            });
 
-        // Adjust index if we deleted the last page
-        if (currentPageIndex >= pages.length - 1) {
-            setCurrentPageIndex(Math.max(0, pages.length - 2));
-        }
+            // Adjust index if we deleted the last page
+            if (currentPageIndex >= pages.length - 1) {
+                setCurrentPageIndex(Math.max(0, pages.length - 2));
+            }
+        }, true);
     };
 
     const goPrevPage = () => {
@@ -766,55 +994,79 @@ const BuilderContent = () => {
         }
     };
 
+    // --- Input Modal State ---
+    const [inputModal, setInputModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        placeholder: string;
+        onConfirm: (value: string) => void;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        placeholder: '',
+        onConfirm: () => { }
+    });
+
+    const savedRangeRef = useRef<Range | null>(null);
+
     // --- Variable Insertion ---
     const insertVariable = (type: 'text' | 'date' | 'currency' | 'signature') => {
         const selection = window.getSelection();
         if (!selection || !editorRef.current?.contains(selection.anchorNode)) {
-            alert('편집 영역에 커서를 위치시켜주세요.');
+            showAlert('편집 영역에 커서를 위치시켜주세요.');
             return;
         }
 
-        const label = prompt('이 필드의 이름(라벨)을 입력하세요: (예: 매수인 성명)');
-        if (!label) return;
+        // Save range
+        savedRangeRef.current = selection.getRangeAt(0).cloneRange();
 
-        const key = label.trim().replace(/\s+/g, '_');
+        setInputModal({
+            isOpen: true,
+            title: '필드 이름 입력',
+            message: '이 필드의 이름(라벨)을 입력하세요: (예: 매수인 성명)',
+            placeholder: '예: 매수인 성명',
+            onConfirm: (label) => {
+                if (!label || !savedRangeRef.current) return;
 
-        const span = document.createElement('span');
-        // Removed contentEditable="false" to allow formatting
-        span.className = 'contract-variable';
-        // Removed inline styles to use usage-based CSS (Visible in Builder, Invisible in Print/View)
-        // span.style.backgroundColor = '#e7f5ff';
-        // span.style.color = '#1971c2';
-        // span.style.padding = '2px 6px';
-        // span.style.borderRadius = '4px';
-        // span.style.border = '1px solid #a5d8ff';
-        span.style.margin = '0 2px';
-        // span.style.fontSize = '0.9em'; // Removed
-        span.style.fontWeight = '500';
-        span.style.display = 'inline'; // Changed from inline-block to inline for better formatting support
-        span.dataset.type = 'variable';
-        span.dataset.varType = type;
-        span.dataset.key = key;
-        span.dataset.label = label;
-        span.innerText = `{{${label}}}`;
+                const key = label.trim().replace(/\s+/g, '_');
+                const span = document.createElement('span');
+                span.className = 'contract-variable';
+                span.style.margin = '0 2px';
+                span.style.fontWeight = '500';
+                span.style.display = 'inline';
+                span.dataset.type = 'variable';
+                span.dataset.varType = type;
+                span.dataset.key = key;
+                span.dataset.label = label;
+                span.innerText = `{{${label}}}`;
 
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(span);
+                // Restore range and insert
+                const range = savedRangeRef.current;
+                range.deleteContents();
+                range.insertNode(span);
 
-        // Add a non-breaking space after to ensure cursor can move out
-        const space = document.createTextNode('\u00A0');
-        range.setStartAfter(span);
-        range.insertNode(space);
+                // Move cursor after the inserted span
+                range.setStartAfter(span);
+                range.setEndAfter(span);
+                selection.removeAllRanges();
+                selection.addRange(range);
 
-        range.setStartAfter(space);
-        range.setEndAfter(space);
-        selection.removeAllRanges();
-        selection.addRange(range);
+                // Add space after for easier typing
+                const space = document.createTextNode('\u00A0');
+                range.insertNode(space);
+                range.setStartAfter(space);
+                range.setEndAfter(space);
+                selection.removeAllRanges();
+                selection.addRange(range);
 
-        // Focus editor again just in case
-        addToHistory();
-        editorRef.current?.focus();
+                savedRangeRef.current = null;
+
+                // Focus editor again just in case
+                editorRef.current?.focus();
+            }
+        });
     };
 
     const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -862,7 +1114,7 @@ const BuilderContent = () => {
 
             if (!allowedKeys.includes(e.key)) {
                 e.preventDefault();
-                alert('페이지 공간이 부족합니다. 새로운 페이지를 추가하거나 내용을 줄여주세요.');
+                showAlert('페이지 공간이 부족합니다. 새로운 페이지를 추가하거나 내용을 줄여주세요.');
                 return;
             }
 
@@ -915,7 +1167,7 @@ const BuilderContent = () => {
         }
 
         if (!title.trim()) {
-            alert('템플릿 제목을 입력해주세요.');
+            showAlert('템플릿 제목을 입력해주세요.');
             return;
         }
 
@@ -1015,7 +1267,7 @@ const BuilderContent = () => {
                 localStorage.setItem('custom_templates', JSON.stringify(existing));
             }
 
-            alert('템플릿이 저장되었습니다! (클라우드 동기화 완료)');
+            showAlert('템플릿이 저장되었습니다! (클라우드 동기화 완료)');
 
             if (projectId && returnToProject) {
                 router.push('/contracts/project/' + projectId + '?newDoc=' + currentId);
@@ -1024,14 +1276,14 @@ const BuilderContent = () => {
             }
         } catch (e) {
             console.error('Save failed:', e);
-            alert('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+            showAlert('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
         } finally {
             setIsSaving(false);
         }
     };
 
     return (
-        <div style={styles.container} className="builder-container">
+        <div className={`builder-container ${styles.container}`}>
 
             {/* HIDDEN INPUT FOR IMAGE */}
             <input
@@ -1043,183 +1295,197 @@ const BuilderContent = () => {
             />
 
             {/* HEADER / TOOLBAR */}
-            <div style={styles.header} className="builder-header">
+            <div className={`builder-header ${styles.header}`}>
                 {/* Row 1: Meta + Actions */}
-                <div style={{ ...styles.toolbarRow, padding: '12px 20px 8px 20px', borderBottom: '1px solid #f8f9fa' }}>
+                <div className={styles.headerTop}>
                     <input
                         type="text"
                         placeholder="템플릿 제목 입력"
-                        style={styles.titleInput}
+                        className={styles.titleInput}
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                     />
-                    <select
-                        style={styles.select}
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                    >
-                        <option value="기타">카테고리 선택</option>
-                        <option value="부동산">부동산</option>
-                        <option value="고용/인사">고용/인사</option>
-                        <option value="비즈니스">비즈니스</option>
-                        <option value="법률">법률</option>
-                    </select>
 
-                    <div style={{ flex: 1 }} />
+                    <div className={styles.headerControls}>
+                        <select
+                            className={styles.categorySelect}
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                        >
+                            <option value="기타">카테고리 선택</option>
+                            <option value="부동산">부동산</option>
+                            <option value="고용/인사">고용/인사</option>
+                            <option value="비즈니스">비즈니스</option>
+                            <option value="법률">법률</option>
+                        </select>
 
-                    <button onClick={() => router.back()} style={styles.cancelBtn}>취소</button>
-                    <button
-                        onClick={handleSave}
-                        style={{ ...styles.saveBtn, opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
-                        disabled={isSaving}
-                    >
-                        <Save size={16} /> {isSaving ? '저장 중...' : '템플릿 저장'}
-                    </button>
+                        <button
+                            onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}
+                            style={{ ...inlineStyles.cancelBtn, padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title={isToolbarExpanded ? "도구 접기" : "도구 펼치기"}
+                        >
+                            {isToolbarExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </button>
+
+                        <button onClick={() => router.back()} style={inlineStyles.cancelBtn}>취소</button>
+                        <button
+                            onClick={handleSave}
+                            style={{ ...inlineStyles.saveBtn, opacity: isSaving ? 0.7 : 1, cursor: isSaving ? 'not-allowed' : 'pointer' }}
+                            disabled={isSaving}
+                            className={styles.saveButtonMobile}
+                        >
+                            <Save size={16} /> {isSaving ? '저장 중...' : '저장'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Separator Removed */}
 
                 {/* Row 2: Editor Tools */}
-                <div style={{ ...styles.toolbarRow, padding: '8px 20px' }}>
-                    <button onClick={() => execCmd('undo')} title="실행 취소" style={styles.toolBtn}><Undo size={18} /></button>
-                    <button onClick={() => execCmd('redo')} title="다시 실행" style={styles.toolBtn}><Redo size={18} /></button>
+                {isToolbarExpanded && (
+                    <>
+                        <div style={{ ...inlineStyles.toolbarRow, padding: '8px 20px' }}>
+                            <button onClick={() => execCmd('undo')} title="실행 취소" style={inlineStyles.toolBtn}><Undo size={18} /></button>
+                            <button onClick={() => execCmd('redo')} title="다시 실행" style={inlineStyles.toolBtn}><Redo size={18} /></button>
 
-                    <div style={styles.separator} />
+                            <div style={inlineStyles.separator} />
 
-                    <button onClick={() => execCmd('formatBlock', 'H1')} title="제목 1" style={styles.toolBtn}><Heading1 size={18} /></button>
-                    <button onClick={() => execCmd('formatBlock', 'H3')} title="제목 2" style={styles.toolBtn}><Heading2 size={18} /></button>
-                    <button
-                        onClick={() => execCmd('bold')}
-                        title="굵게"
-                        style={{ ...styles.toolBtn, backgroundColor: activeFormats.bold ? '#e9ecef' : 'transparent', color: activeFormats.bold ? '#1971c2' : '#495057' }}
-                    >
-                        <Bold size={18} />
-                    </button>
-                    <button
-                        onClick={() => execCmd('italic')}
-                        title="기울임"
-                        style={{ ...styles.toolBtn, backgroundColor: activeFormats.italic ? '#e9ecef' : 'transparent', color: activeFormats.italic ? '#1971c2' : '#495057' }}
-                    >
-                        <ItalicIcon size={18} />
-                    </button>
-                    <button
-                        onClick={() => execCmd('underline')}
-                        title="밑줄"
-                        style={{ ...styles.toolBtn, backgroundColor: activeFormats.underline ? '#e9ecef' : 'transparent', color: activeFormats.underline ? '#1971c2' : '#495057' }}
-                    >
-                        <UnderlineIcon size={18} />
-                    </button>
-                    <button
-                        onClick={() => execCmd('backColor', '#fff3cd')}
-                        title="형광펜"
-                        style={{ ...styles.toolBtn, backgroundColor: activeFormats.backColor ? '#fff3cd' : 'transparent', color: activeFormats.backColor ? '#e67700' : '#495057' }}
-                    >
-                        <Highlighter size={18} />
-                    </button>
-                    <button
-                        onClick={() => execCmd('foreColor', '#adb5bd')}
-                        title="안내 문구(연한 회색)"
-                        style={styles.toolBtn}
-                    >
-                        <MessageSquare size={18} color="#adb5bd" />
-                    </button>
-                    <button onClick={() => execCmd('removeFormat')} title="서식 지우기" style={styles.toolBtn}><Eraser size={18} /></button>
+                            <button onClick={() => execCmd('formatBlock', 'H1')} title="제목 1" style={inlineStyles.toolBtn}><Heading1 size={18} /></button>
+                            <button onClick={() => execCmd('formatBlock', 'H3')} title="제목 2" style={inlineStyles.toolBtn}><Heading2 size={18} /></button>
+                            <button
+                                onClick={() => execCmd('bold')}
+                                title="굵게"
+                                style={{ ...inlineStyles.toolBtn, backgroundColor: activeFormats.bold ? '#e9ecef' : 'transparent', color: activeFormats.bold ? '#1971c2' : '#495057' }}
+                            >
+                                <Bold size={18} />
+                            </button>
+                            <button
+                                onClick={() => execCmd('italic')}
+                                title="기울임"
+                                style={{ ...inlineStyles.toolBtn, backgroundColor: activeFormats.italic ? '#e9ecef' : 'transparent', color: activeFormats.italic ? '#1971c2' : '#495057' }}
+                            >
+                                <ItalicIcon size={18} />
+                            </button>
+                            <button
+                                onClick={() => execCmd('underline')}
+                                title="밑줄"
+                                style={{ ...inlineStyles.toolBtn, backgroundColor: activeFormats.underline ? '#e9ecef' : 'transparent', color: activeFormats.underline ? '#1971c2' : '#495057' }}
+                            >
+                                <UnderlineIcon size={18} />
+                            </button>
+                            <button
+                                onClick={() => execCmd('backColor', '#fff3cd')}
+                                title="형광펜"
+                                style={{ ...inlineStyles.toolBtn, backgroundColor: activeFormats.backColor ? '#fff3cd' : 'transparent', color: activeFormats.backColor ? '#e67700' : '#495057' }}
+                            >
+                                <Highlighter size={18} />
+                            </button>
+                            <button
+                                onClick={() => execCmd('foreColor', '#adb5bd')}
+                                title="안내 문구(연한 회색)"
+                                style={inlineStyles.toolBtn}
+                            >
+                                <MessageSquare size={18} color="#adb5bd" />
+                            </button>
+                            <button onClick={() => execCmd('removeFormat')} title="서식 지우기" style={inlineStyles.toolBtn}><Eraser size={18} /></button>
 
-                    <div style={styles.separator} />
+                            <div style={inlineStyles.separator} />
 
-                    {/* Font Size Selector */}
-                    <select
-                        style={{ ...styles.select, width: '70px', height: '30px', padding: '0 4px' }}
-                        value={currentFontSize}
-                        onChange={(e) => changeFontSize(e.target.value)}
-                        title="글자 크기"
-                    >
-                        {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 30, 36, 48, 60, 72].map(size => (
-                            <option key={size} value={size + 'pt'}>{size}pt</option>
-                        ))}
-                    </select>
+                            {/* Font Size Selector */}
+                            <select
+                                style={{ ...inlineStyles.select, width: '70px', height: '30px', padding: '0 4px' }}
+                                value={currentFontSize}
+                                onChange={(e) => changeFontSize(e.target.value)}
+                                title="글자 크기"
+                            >
+                                {[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 30, 36, 48, 60, 72].map(size => (
+                                    <option key={size} value={size + 'pt'}>{size}pt</option>
+                                ))}
+                            </select>
 
-                    <div style={styles.separator} />
+                            <div style={inlineStyles.separator} />
 
-                    {/* Line Height Selector */}
-                    <select
-                        style={{ ...styles.select, width: '70px', height: '30px', padding: '0 4px' }}
-                        onChange={(e) => changeLineHeight(e.target.value)}
-                        value={currentLineHeight}
-                        title="줄 간격"
-                    >
-                        <option value="1.0">1.0</option>
-                        <option value="1.15">1.15</option>
-                        <option value="1.3">1.3</option>
-                        <option value="1.4">1.4</option>
-                        <option value="1.5">1.5</option>
-                        <option value="1.6">1.6 (기본)</option>
-                        <option value="1.8">1.8</option>
-                        <option value="2.0">2.0</option>
-                        <option value="2.5">2.5</option>
-                        <option value="3.0">3.0</option>
-                    </select>
+                            {/* Line Height Selector */}
+                            <select
+                                style={{ ...inlineStyles.select, width: '70px', height: '30px', padding: '0 4px' }}
+                                onChange={(e) => changeLineHeight(e.target.value)}
+                                value={currentLineHeight}
+                                title="줄 간격"
+                            >
+                                <option value="1.0">1.0</option>
+                                <option value="1.15">1.15</option>
+                                <option value="1.3">1.3</option>
+                                <option value="1.4">1.4</option>
+                                <option value="1.5">1.5</option>
+                                <option value="1.6">1.6 (기본)</option>
+                                <option value="1.8">1.8</option>
+                                <option value="2.0">2.0</option>
+                                <option value="2.5">2.5</option>
+                                <option value="3.0">3.0</option>
+                            </select>
 
-                    {/* Paragraph Spacing Selector */}
-                    <select
-                        style={{ ...styles.select, width: '80px', height: '30px', padding: '0 4px' }}
-                        onChange={(e) => changeParagraphSpacing(e.target.value)}
-                        value={currentParagraphSpacing}
-                        title="문단 간격 (엔터키 공백)"
-                    >
-                        <option value="0px">0px</option>
-                        <option value="2px">2px</option>
-                        <option value="5px">5px (기본)</option>
-                        <option value="8px">8px</option>
-                        <option value="10px">10px</option>
-                        <option value="15px">15px</option>
-                        <option value="20px">20px</option>
-                        <option value="30px">30px</option>
-                    </select>
+                            {/* Paragraph Spacing Selector */}
+                            <select
+                                style={{ ...inlineStyles.select, width: '80px', height: '30px', padding: '0 4px' }}
+                                onChange={(e) => changeParagraphSpacing(e.target.value)}
+                                value={currentParagraphSpacing}
+                                title="문단 간격 (엔터키 공백)"
+                            >
+                                <option value="0px">0px</option>
+                                <option value="2px">2px</option>
+                                <option value="5px">5px (기본)</option>
+                                <option value="8px">8px</option>
+                                <option value="10px">10px</option>
+                                <option value="15px">15px</option>
+                                <option value="20px">20px</option>
+                                <option value="30px">30px</option>
+                            </select>
 
-                    <div style={styles.separator} />
+                            <div style={inlineStyles.separator} />
 
-                    <button onClick={() => execCmd('justifyLeft')} title="왼쪽" style={{ ...styles.toolBtn, backgroundColor: activeFormats.justifyLeft ? '#e9ecef' : 'transparent' }}><AlignLeft size={18} /></button>
-                    <button onClick={() => execCmd('justifyCenter')} title="가운데" style={{ ...styles.toolBtn, backgroundColor: activeFormats.justifyCenter ? '#e9ecef' : 'transparent' }}><AlignCenter size={18} /></button>
-                    <button onClick={() => execCmd('justifyRight')} title="오른쪽" style={{ ...styles.toolBtn, backgroundColor: activeFormats.justifyRight ? '#e9ecef' : 'transparent' }}><AlignRight size={18} /></button>
+                            <button onClick={() => execCmd('justifyLeft')} title="왼쪽" style={{ ...inlineStyles.toolBtn, backgroundColor: activeFormats.justifyLeft ? '#e9ecef' : 'transparent' }}><AlignLeft size={18} /></button>
+                            <button onClick={() => execCmd('justifyCenter')} title="가운데" style={{ ...inlineStyles.toolBtn, backgroundColor: activeFormats.justifyCenter ? '#e9ecef' : 'transparent' }}><AlignCenter size={18} /></button>
+                            <button onClick={() => execCmd('justifyRight')} title="오른쪽" style={{ ...inlineStyles.toolBtn, backgroundColor: activeFormats.justifyRight ? '#e9ecef' : 'transparent' }}><AlignRight size={18} /></button>
 
-                    <button onClick={() => execCmd('outdent')} title="내어쓰기 (Shift+Tab)" style={styles.toolBtn}><OutdentIcon size={18} /></button>
-                    <button onClick={() => execCmd('indent')} title="들여쓰기 (Tab)" style={styles.toolBtn}><IndentIcon size={18} /></button>
-                    <button onClick={applyHangingIndent} title="첫 줄 내어쓰기 (나머지 들여쓰기)" style={styles.toolBtn}><WrapText size={18} /></button>
+                            <button onClick={() => execCmd('outdent')} title="내어쓰기 (Shift+Tab)" style={inlineStyles.toolBtn}><OutdentIcon size={18} /></button>
+                            <button onClick={() => execCmd('indent')} title="들여쓰기 (Tab)" style={inlineStyles.toolBtn}><IndentIcon size={18} /></button>
+                            <button onClick={applyHangingIndent} title="첫 줄 내어쓰기 (나머지 들여쓰기)" style={inlineStyles.toolBtn}><WrapText size={18} /></button>
 
-                    <div style={styles.separator} />
+                            <div style={inlineStyles.separator} />
 
-                    <button onClick={insertTable} title="표 삽입" style={styles.toolBtn}><TableIcon size={18} /></button>
-                    <button onClick={addTableRow} title="행 추가" style={styles.toolBtn}><PlusSquare size={18} /></button>
-                    <button onClick={addTableCol} title="열 추가" style={styles.toolBtn}><Columns size={18} /></button>
-                    <button onClick={deleteTable} title="표 삭제" style={{ ...styles.toolBtn, color: '#fa5252' }}><Trash size={18} /></button>
+                            <button onClick={insertTable} title="표 삽입" style={inlineStyles.toolBtn}><TableIcon size={18} /></button>
+                            <button onClick={addTableRow} title="행 추가" style={inlineStyles.toolBtn}><PlusSquare size={18} /></button>
+                            <button onClick={addTableCol} title="열 추가" style={inlineStyles.toolBtn}><Columns size={18} /></button>
+                            <button onClick={deleteTable} title="표 삭제" style={{ ...inlineStyles.toolBtn, color: '#fa5252' }}><Trash size={18} /></button>
 
-                    <div style={styles.separator} />
+                            <div style={inlineStyles.separator} />
 
-                    <button onClick={triggerImageUpload} title="이미지 (JPG, PNG)" style={styles.toolBtn}><ImageIcon size={18} /></button>
-                    <button onClick={insertPageDivide} title="페이지 나누기 (점선)" style={styles.toolBtn}><Scissors size={18} /></button>
+                            <button onClick={triggerImageUpload} title="이미지 (JPG, PNG)" style={inlineStyles.toolBtn}><ImageIcon size={18} /></button>
+                            <button onClick={insertPageDivide} title="페이지 나누기 (점선)" style={inlineStyles.toolBtn}><Scissors size={18} /></button>
 
-                    <div style={styles.separator} />
+                            <div style={inlineStyles.separator} />
 
-                    <button onClick={addNewPage} title="새 페이지 추가" style={styles.toolBtn}><FilePlus size={18} /></button>
-                    <button onClick={deleteCurrentPage} title="현재 페이지 삭제" style={{ ...styles.toolBtn, color: '#fa5252' }}><FileMinus size={18} /></button>
+                            <button onClick={addNewPage} title="새 페이지 추가" style={inlineStyles.toolBtn}><FilePlus size={18} /></button>
+                            <button onClick={deleteCurrentPage} title="현재 페이지 삭제" style={{ ...inlineStyles.toolBtn, color: '#fa5252' }}><FileMinus size={18} /></button>
 
-                    {/* Check if variable insertions are needed here or in a separate row */}
-                </div>
+                            {/* Check if variable insertions are needed here or in a separate row */}
+                        </div>
 
-                {/* Row 3: Variables (Optional/Compact) */}
-                <div style={{ ...styles.toolbarRow, marginTop: '8px', paddingBottom: '4px' }}>
-                    <span style={styles.label}>변수 삽입:</span>
-                    <button onClick={() => insertVariable('text')} style={styles.varBtn}><Type size={14} /> 텍스트</button>
-                    <button onClick={() => insertVariable('date')} style={styles.varBtn}><Calendar size={14} /> 날짜</button>
-                    <button onClick={() => insertVariable('currency')} style={styles.varBtn}><Hash size={14} /> 금액</button>
-                    <button onClick={() => insertVariable('signature')} style={styles.varBtn}><PenTool size={14} /> 서명</button>
-                </div>
+                        {/* Row 3: Variables (Optional/Compact) */}
+                        <div style={{ ...inlineStyles.toolbarRow, marginTop: '8px', paddingBottom: '4px' }}>
+                            <span style={inlineStyles.label}>변수 삽입:</span>
+                            <button onClick={() => insertVariable('text')} style={inlineStyles.varBtn}><Type size={14} /> 텍스트</button>
+                            <button onClick={() => insertVariable('date')} style={inlineStyles.varBtn}><Calendar size={14} /> 날짜</button>
+                            <button onClick={() => insertVariable('currency')} style={inlineStyles.varBtn}><Hash size={14} /> 금액</button>
+                            <button onClick={() => insertVariable('signature')} style={inlineStyles.varBtn}><PenTool size={14} /> 서명</button>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* EDITOR CANVAS */}
-            <div style={styles.workspace} className="builder-workspace">
-                <div style={styles.pageContainer}>
+            <div className={`builder-workspace ${styles.workspace}`}>
+                <div className={styles.pageContainer}>
                     {/* Pagination Controls (Pill Shape) */}
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px',
@@ -1262,8 +1528,7 @@ const BuilderContent = () => {
                             onBlur={handleBlur}
                             onKeyDown={handleKeyDown}
                             onMouseDown={handleEditorMouseDown}
-                            style={styles.paper}
-                            className="contract-preview cv-builder-mode"
+                            className={`contract-preview cv-builder-mode ${styles.paper}`}
                             spellCheck={false}
                         />
 
@@ -1314,207 +1579,44 @@ const BuilderContent = () => {
                     )}
 
                     {/* Page Info Loop */}
-                    <div style={styles.pageInfo}>
+                    <div style={inlineStyles.pageInfo}>
                         {currentPageIndex + 1} / {pages.length} 페이지
                     </div>
                 </div>
             </div>
 
+
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                isDanger={confirmModal.isDanger}
+            />
+
+            <InputModal
+                isOpen={inputModal.isOpen}
+                onClose={() => setInputModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={inputModal.onConfirm}
+                title={inputModal.title}
+                message={inputModal.message}
+                placeholder={inputModal.placeholder}
+            />
         </div >
     );
 }
 
-const styles = {
-    container: {
-        display: 'flex',
-        flexDirection: 'column' as const,
-        height: '100vh',
-        backgroundColor: '#e9ecef', // Darker bg for contrast
-        overflow: 'hidden'
-    },
-    header: {
-        backgroundColor: 'white',
-        borderBottom: '1px solid #dee2e6',
-        display: 'flex',
-        flexDirection: 'column' as const,
-        padding: '0', // Removed general padding to control row spacing
-        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-        zIndex: 10
-    },
-    toolbarRow: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        flexWrap: 'wrap' as const,
-        padding: '0 20px' // Horizontal padding only, vertical handled individually
-    },
-    separator: {
-        width: '1px',
-        height: '24px',
-        backgroundColor: '#dee2e6',
-        margin: '0 5px'
-    },
-    titleInput: {
-        border: '1px solid #ced4da',
-        borderRadius: '4px',
-        padding: '6px 12px',
-        fontSize: '14px',
-        width: '240px',
-        fontWeight: 600
-    },
-    select: {
-        border: '1px solid #ced4da',
-        borderRadius: '4px',
-        padding: '6px',
-        fontSize: '14px'
-    },
-    toolBtn: {
-        background: 'none',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        padding: '6px',
-        color: '#495057',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'all 0.2s',
-        minWidth: '32px'
-    },
-    varBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '4px',
-        padding: '4px 10px',
-        backgroundColor: '#f1f3f5',
-        color: '#495057',
-        border: '1px solid #dee2e6',
-        borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: 600,
-        cursor: 'pointer',
-        transition: 'all 0.2s'
-    },
-    label: {
-        fontSize: '12px',
-        fontWeight: 600,
-        color: '#868e96',
-        marginRight: '6px'
-    },
-    cancelBtn: {
-        padding: '8px 16px',
-        border: '1px solid #dee2e6',
-        backgroundColor: 'white',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        fontSize: '14px',
-        fontWeight: 500
-    },
-    saveBtn: {
-        padding: '8px 16px',
-        backgroundColor: '#4c6ef5',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        fontSize: '14px',
-        fontWeight: 600,
-        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-    },
-    workspace: {
-        flex: 1,
-        overflowY: 'auto' as const,
-        overflowX: 'auto' as const, // Enable horizontal scroll if width < A4
-        display: 'flex',
-        justifyContent: 'center',
-        padding: '40px 20px 100px 20px', // Add side padding to prevent touching edges
-        backgroundColor: '#e9ecef'
-    },
-    pageContainer: {
-        position: 'relative' as const,
-        display: 'flex',
-        flexDirection: 'column' as const,
-        gap: '4px',
-        alignItems: 'center'
-    },
-    paper: {
-        width: '210mm',
-        minWidth: '210mm', // Prevent shrinking
-        height: '297mm', // Fixed A4 Height
-        minHeight: '297mm',
-        backgroundColor: 'white',
-        padding: '5mm 10mm',
-        letterSpacing: '-0.5px',
-        wordSpacing: '-1px',
-        boxSizing: 'border-box' as const,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        position: 'relative' as const,
-        outline: 'none',
-        fontSize: '16px',
-        lineHeight: '1.6',
-        color: '#212529',
-        overflow: 'hidden', // Enforce A4 constraint
-    },
-    pageInfo: {
-        marginTop: '8px',
-        fontSize: '12px',
-        color: '#868e96',
-        fontWeight: 500
-    },
-    paginationBar: {
-        height: '60px',
-        backgroundColor: 'white',
-        borderTop: '1px solid #dee2e6',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 30px',
-        position: 'fixed' as const,
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 20
-    },
-    pageNav: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px'
-    },
-    navBtn: {
-        backgroundColor: 'white',
-        border: '1px solid #dee2e6',
-        cursor: 'pointer',
-        color: '#495057',
-        width: '40px', // Fixed square size
-        height: '40px',
-        borderRadius: '4px', // Square with slight radius
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'all 0.2s',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-    },
-    pageIndicator: {
-        fontSize: '16px',
-        fontWeight: 700,
-        fontFamily: 'monospace',
-        color: '#212529'
-    },
-    pageActionBtn: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        padding: '8px 12px',
-        backgroundColor: 'white',
-        border: '1px solid #ced4da',
-        borderRadius: '4px',
-        fontSize: '13px',
-        fontWeight: 600,
-        cursor: 'pointer',
-        color: '#495057'
-    }
-};
+
+
+
 
 export default function TemplateBuilderPage() {
     return (

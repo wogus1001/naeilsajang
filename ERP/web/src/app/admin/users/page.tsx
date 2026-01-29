@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, CheckCircle, XCircle, Shield, User, Clock, Key, Lock } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 // Reuse some styles but inline for admin specific needs to avoid module weirdness
 const styles = {
@@ -57,6 +59,23 @@ export default function AdminUsersPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
+    // Alert & Confirm State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+    const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+    const showConfirm = (message: string, onConfirm: () => void, isDanger: boolean = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
+
     useEffect(() => {
         // Auth check
         const userStr = localStorage.getItem('user');
@@ -82,29 +101,29 @@ export default function AdminUsersPage() {
         }
     };
 
-    const handleApprove = async (user: any) => {
-        if (!confirm(`${user.name}님의 가입을 승인하시겠습니까?`)) return;
+    const handleApprove = (user: any) => {
+        showConfirm(`${user.name}님의 가입을 승인하시겠습니까?`, async () => {
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: user.uuid,
+                        status: 'active'
+                    })
+                });
 
-        try {
-            const res = await fetch('/api/users', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: user.uuid,
-                    status: 'active'
-                })
-            });
-
-            if (res.ok) {
-                alert('승인되었습니다.');
-                fetchUsers();
-            } else {
-                alert('승인 처리 실패');
+                if (res.ok) {
+                    showAlert('승인되었습니다.');
+                    fetchUsers();
+                } else {
+                    showAlert('승인 처리 실패');
+                }
+            } catch (e) {
+                console.error(e);
+                showAlert('오류가 발생했습니다.');
             }
-        } catch (e) {
-            console.error(e);
-            alert('오류가 발생했습니다.');
-        }
+        });
     };
 
     const handleDelete = async () => {
@@ -119,11 +138,11 @@ export default function AdminUsersPage() {
                 const data = await res.json();
                 console.error('Delete failed response:', data);
                 // Production-friendly message
-                alert(`삭제 실패: ${data.error || '알 수 없는 오류가 발생했습니다.'}`);
+                showAlert(`삭제 실패: ${data.error || '알 수 없는 오류가 발생했습니다.'}`);
             }
         } catch (error) {
             console.error(error);
-            alert('삭제 중 오류 발생');
+            showAlert('삭제 중 오류 발생');
         }
     };
 
@@ -157,55 +176,55 @@ export default function AdminUsersPage() {
     const handlePasswordReset = async () => {
         if (!resetTargetId || !newPassword) return;
         if (newPassword.length < 6) {
-            alert('비밀번호는 6자 이상이어야 합니다.');
+            showAlert('비밀번호는 6자 이상이어야 합니다.');
             return;
         }
 
-        if (!confirm('정말 이 사용자의 비밀번호를 변경하시겠습니까?')) return;
+        showConfirm('정말 이 사용자의 비밀번호를 변경하시겠습니까?', async () => {
+            setResetLoading(true);
+            try {
+                // Get current session token
+                const supabase = createClient();
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
 
-        setResetLoading(true);
-        try {
-            // Get current session token
-            const supabase = createClient();
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
+                console.log('[DEBUG-CLIENT] Reset Password Token:', token ? 'Token exists' : 'Token missing');
+                if (!token) {
+                    showAlert('로그인 세션이 만료된 것 같습니다. 새로고침 후 다시 시도해주세요.');
+                    setResetLoading(false);
+                    return;
+                }
 
-            console.log('[DEBUG-CLIENT] Reset Password Token:', token ? 'Token exists' : 'Token missing');
-            if (!token) {
-                alert('로그인 세션이 만료된 것 같습니다. 새로고침 후 다시 시도해주세요.');
+                const res = await fetch('/api/admin/users/reset-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        userId: resetTargetId,
+                        newPassword: newPassword
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    showAlert('비밀번호가 성공적으로 변경되었습니다.');
+                    setResetTargetId(null);
+                    setNewPassword('');
+                } else {
+                    console.error('Reset failed data:', data);
+                    // Production-friendly message
+                    showAlert(`변경 실패: ${data.error || '알 수 없는 오류가 발생했습니다.'}`);
+                }
+            } catch (e: any) {
+                console.error('Password reset failed', e);
+                showAlert('오류가 발생했습니다.');
+            } finally {
                 setResetLoading(false);
-                return;
             }
-
-            const res = await fetch('/api/admin/users/reset-password', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    userId: resetTargetId,
-                    newPassword: newPassword
-                })
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                alert('비밀번호가 성공적으로 변경되었습니다.');
-                setResetTargetId(null);
-                setNewPassword('');
-            } else {
-                console.error('Reset failed data:', data);
-                // Production-friendly message
-                alert(`변경 실패: ${data.error || '알 수 없는 오류가 발생했습니다.'}`);
-            }
-        } catch (e: any) {
-            console.error('Password reset failed', e);
-            alert('오류가 발생했습니다.');
-        } finally {
-            setResetLoading(false);
-        }
+        }, true);
     };
 
     if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading...</div>;
@@ -367,6 +386,22 @@ export default function AdminUsersPage() {
                     </div>
                 </div>
             )}
+
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                isDanger={confirmModal.isDanger}
+            />
         </div>
     );
 }

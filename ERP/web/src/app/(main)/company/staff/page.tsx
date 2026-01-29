@@ -3,12 +3,39 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserCheck, Shield, Users as UsersIcon, AlertCircle } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 export default function StaffManagementPage() {
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
     const [staffList, setStaffList] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; isDanger?: boolean }>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
 
     useEffect(() => {
         const userStr = localStorage.getItem('user');
@@ -18,8 +45,7 @@ export default function StaffManagementPage() {
         }
         const parsedUser = JSON.parse(userStr);
         if (parsedUser.role !== 'manager') {
-            alert('접근 권한이 없습니다.');
-            router.push('/dashboard');
+            showAlert('접근 권한이 없습니다.', 'error', () => router.push('/dashboard'));
             return;
         }
         setUser(parsedUser);
@@ -46,38 +72,39 @@ export default function StaffManagementPage() {
         else if (action === 'promote') confirmMsg = '이 직원에게 팀장 권한을 부여하시겠습니까?';
         else if (action === 'demote') confirmMsg = '정말로 팀장 권한을 내려놓고 직원으로 변경하시겠습니까?';
 
-        if (!confirm(confirmMsg)) return;
+        showConfirm(confirmMsg, async () => {
+            try {
+                const res = await fetch('/api/company/staff', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        targetUserId,
+                        action,
+                        requesterId: user.id
+                    })
+                });
 
-        try {
-            const res = await fetch('/api/company/staff', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    targetUserId,
-                    action,
-                    requesterId: user.id
-                })
-            });
-
-            if (res.ok) {
-                alert('처리되었습니다.');
-                // If I demoted myself, I am no longer a manager. Reload to trigger redirects or UI updates.
-                if (action === 'demote' && (targetUserId === user.id || targetUserId === user.uid)) {
-                    // Update local storage user
-                    const updatedUser = { ...user, role: 'staff' };
-                    localStorage.setItem('user', JSON.stringify(updatedUser));
-                    window.location.href = '/dashboard'; // Redirect out as I lost access to this page
+                if (res.ok) {
+                    showAlert('처리되었습니다.', 'success', () => {
+                        // If I demoted myself, I am no longer a manager. Reload to trigger redirects or UI updates.
+                        if (action === 'demote' && (targetUserId === user.id || targetUserId === user.uid)) {
+                            // Update local storage user
+                            const updatedUser = { ...user, role: 'staff' };
+                            localStorage.setItem('user', JSON.stringify(updatedUser));
+                            window.location.href = '/dashboard'; // Redirect out as I lost access to this page
+                        } else {
+                            fetchStaff(user.companyName);
+                        }
+                    });
                 } else {
-                    fetchStaff(user.companyName);
+                    const data = await res.json();
+                    showAlert(data.error || '오류가 발생했습니다.', 'error');
                 }
-            } else {
-                const data = await res.json();
-                alert(data.error || '오류가 발생했습니다.');
+            } catch (error) {
+                console.error('Action error:', error);
+                showAlert('처리 중 오류가 발생했습니다.', 'error');
             }
-        } catch (error) {
-            console.error('Action error:', error);
-            alert('처리 중 오류가 발생했습니다.');
-        }
+        }, action === 'demote');
     };
 
     if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
@@ -200,6 +227,19 @@ export default function StaffManagementPage() {
                     </div>
                 </div>
             </div>
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                message={confirmModal.message}
+                isDanger={confirmModal.isDanger}
+            />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div>
     );
 }

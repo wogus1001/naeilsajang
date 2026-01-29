@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
 
+
+## [v1.1.17] - 2026-01-29
+
+### Fixed (수정됨)
+- **Contract Builder Mobile Layout (계약서 빌더 모바일 레이아웃 수정)**
+  - **Header Structure**: Refactored header to use CSS/Flexbox (removed inline styles) for better responsiveness.
+    - 헤더 레이아웃을 CSS/Flexbox 기반으로 리팩토링하여 모바일 가독성을 개선했습니다 (인라인 스타일 제거).
+  - **Button Spacing**: Optimized button placement and wrapping on small screens. Renamed "Template Save" to "Save" (`저장`).
+    - 모바일 화면에서 버튼이 겹치지 않도록 줄바꿈 처리를 적용하고, "템플릿 저장" 버튼명을 "저장"으로 단축했습니다.
+  - **Lint Fix**: Resolved duplicate `inlineStyles` declaration error.
+    - 중복 선언된 스타일 코드(Lint 오류)를 제거했습니다.
+
+- **Contract Selection Layout (계약 탬플릿 선택 화면 개선)**
+  - **Title Wrapping**: Applied `keep-all` to "Contract Template Selection" and "Service Integration Needed" texts to prevent awkward truncation.
+    - "계약 템플릿 선택" 및 "서비스 연동이 필요합니다" 텍스트에 줄바꿈 방지 스타일을 적용했습니다 (`keep-all`).
+  - **Container Padding**: Adjusted padding for the "Login Required" card to fit better on mobile screens.
+    - "서비스 연동" 안내 카드의 여백(Padding)을 줄여 모바일 화면 공간 효율을 높였습니다.
+
 ## [v1.1.13] - 2026-01-23
 
 ### Fixed (수정됨)

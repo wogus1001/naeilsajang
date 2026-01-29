@@ -4,6 +4,7 @@ import React from 'react';
 import { Calendar, FileText, Users, Briefcase, ChevronRight, Plus, Clock, CheckCircle2, BarChart3, Megaphone, StickyNote, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { AlertModal } from '@/components/common/AlertModal';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -28,6 +29,21 @@ export default function DashboardPage() {
     const [newNotice, setNewNotice] = React.useState({ title: '', content: '', type: 'team', isPinned: false });
     const [isSavingNotice, setIsSavingNotice] = React.useState(false);
     const [userData, setUserData] = React.useState<any>(null);
+
+    const [alertConfig, setAlertConfig] = React.useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     React.useEffect(() => {
         // Mock user ID - in real app, get from auth context or session
@@ -112,7 +128,10 @@ export default function DashboardPage() {
     };
 
     const handleCreateNotice = async () => {
-        if (!newNotice.title || !newNotice.content) return alert('제목과 내용을 입력해주세요.');
+        if (!newNotice.title || !newNotice.content) {
+            showAlert('제목과 내용을 입력해주세요.', 'error');
+            return;
+        }
 
         setIsSavingNotice(true);
         try {
@@ -129,14 +148,14 @@ export default function DashboardPage() {
             });
 
             if (res.ok) {
-                alert('공지사항이 등록되었습니다.');
+                showAlert('공지사항이 등록되었습니다.', 'success');
                 setIsNoticeModalOpen(false);
                 setNewNotice({ title: '', content: '', type: 'team', isPinned: false });
                 fetchDashboardNotices(); // Refresh list
             }
         } catch (error) {
             console.error(error);
-            alert('등록 실패');
+            showAlert('등록 실패', 'error');
         } finally {
             setIsSavingNotice(false);
         }
@@ -170,14 +189,14 @@ export default function DashboardPage() {
                 const data = await res.json();
                 if (!data.connected) {
                     // Alert for disconnected state
-                    alert('전자계약 서비스 연동이 해제되어 있습니다.\n[설정] > [외부 서비스 연동]에서 연동을 진행해주세요.');
+                    showAlert('전자계약 서비스 연동이 해제되어 있습니다.\n[설정] > [외부 서비스 연동]에서 연동을 진행해주세요.', 'error');
                     return;
                 }
                 // If connected, go to contracts (signatures tab)
                 router.push('/contracts?tab=signatures');
             } catch (error) {
                 console.error('Failed to check connection status', error);
-                alert('연동 상태 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+                showAlert('연동 상태 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
             }
         } else {
             // Project based contract
@@ -498,27 +517,34 @@ export default function DashboardPage() {
                             <label htmlFor="isPinnedCheck" style={{ fontSize: '14px', color: '#495057', cursor: 'pointer' }}>상단 고정 (📌)</label>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                             <button
                                 onClick={() => setIsNoticeModalOpen(false)}
-                                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', backgroundColor: '#f1f3f5', color: '#495057', fontWeight: 600, cursor: 'pointer' }}
+                                style={{
+                                    padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#f1f3f5',
+                                    color: '#495057', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
+                                }}
                             >취소</button>
                             <button
                                 onClick={handleCreateNotice}
                                 disabled={isSavingNotice}
                                 style={{
-                                    padding: '10px 24px', borderRadius: '8px', border: 'none',
-                                    backgroundColor: '#1971c2', color: 'white', fontWeight: 600, cursor: 'pointer',
+                                    padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#339af0',
+                                    color: 'white', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
                                     opacity: isSavingNotice ? 0.7 : 1
                                 }}
-                            >
-                                {isSavingNotice ? '저장 중...' : '공지하기'}
-                            </button>
+                            >{isSavingNotice ? '저장 중...' : '등록하기'}</button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
+        </div >
     );
 }
 

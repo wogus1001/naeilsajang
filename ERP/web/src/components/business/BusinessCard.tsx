@@ -6,6 +6,8 @@ import styles from '@/app/(main)/customers/register/page.module.css'; // Reusing
 import WorkHistoryModal from '../customers/WorkHistoryModal';
 import PropertySelector from '../customers/PropertySelector';
 import PropertyCard from '../properties/PropertyCard';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 interface BusinessCardData {
     id?: string;
@@ -85,6 +87,31 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
     // Edit State for Work History
     const [editingHistoryIndex, setEditingHistoryIndex] = useState<number | null>(null);
+
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; isDanger?: boolean }>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
 
     // Load Data & Managers
     useEffect(() => {
@@ -295,16 +322,18 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                     }
                 }
 
-                alert('저장되었습니다.');
-                if (onSuccess) onSuccess();
-                else onClose();
+
+                showAlert('저장되었습니다.', 'success', () => {
+                    if (onSuccess) onSuccess();
+                    else onClose();
+                });
             } else {
                 const savedData = await res.json();
-                alert(`저장에 실패했습니다.\n사유: ${savedData.error || '알 수 없는 오류'}`);
+                showAlert(`저장에 실패했습니다.\n사유: ${savedData.error || '알 수 없는 오류'}`, 'error');
             }
         } catch (error) {
             console.error(error);
-            alert('오류가 발생했습니다.');
+            showAlert('오류가 발생했습니다.', 'error');
         } finally {
             setLoading(false);
         }
@@ -474,27 +503,27 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
     };
 
     const handleDeleteHistory = async (index: number) => {
-        if (!confirm('작업내역을 삭제하시겠습니까?')) return;
+        showConfirm('작업내역을 삭제하시겠습니까?', async () => {
+            const itemToDelete = formData.history[index];
 
-        const itemToDelete = formData.history[index];
+            const updatedHistory = formData.history.filter((_, i) => i !== index);
+            const updatedData = { ...formData, history: updatedHistory };
+            setFormData(updatedData);
 
-        const updatedHistory = formData.history.filter((_, i) => i !== index);
-        const updatedData = { ...formData, history: updatedHistory };
-        setFormData(updatedData);
-
-        if (formData.id) {
-            try {
-                await fetch('/api/business-cards', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedData)
-                });
-                // Sync Delete to Property
-                if (itemToDelete.targetId) {
-                    await deleteWorkHistoryFromProperty(itemToDelete.targetId, itemToDelete);
-                }
-            } catch (e) { console.error(e) }
-        }
+            if (formData.id) {
+                try {
+                    await fetch('/api/business-cards', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedData)
+                    });
+                    // Sync Delete to Property
+                    if (itemToDelete.targetId) {
+                        await deleteWorkHistoryFromProperty(itemToDelete.targetId, itemToDelete);
+                    }
+                } catch (e) { console.error(e) }
+            }
+        });
     };
 
     // --- LOGIC: Promoted Properties ---
@@ -591,7 +620,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 });
 
                 if (res.ok) {
-                    alert('연동되었습니다.');
+                    showAlert('연동되었습니다.', 'success');
 
                     // Optimistic Update: Immediate Value Change
                     setFormData(prev => ({
@@ -613,11 +642,11 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                         }));
                     }
                 } else {
-                    alert('연동 실패');
+                    showAlert('연동 실패', 'error');
                 }
             } catch (e) {
                 console.error(e);
-                alert('오류가 발생했습니다.');
+                showAlert('오류가 발생했습니다.', 'error');
             } finally {
                 setLinkingPromotedItem(null);
                 setIsPropertySelectorOpen(false);
@@ -631,7 +660,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         const newItems = selectedProperties.filter((p: any) => !currentIds.includes(p.id));
 
         if (newItems.length === 0) {
-            alert('이미 추가된 물건입니다.');
+            showAlert('이미 추가된 물건입니다.', 'info');
             return;
         }
 
@@ -662,54 +691,57 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
     };
 
     const handleSync = async () => {
-        if (!confirm('DB 데이터와 동기화하시겠습니까?')) return;
-        try {
-            const res = await fetch('/api/business-cards/sync', { method: 'POST' });
-            const result = await res.json();
-            if (res.ok) {
-                const dbg = result.debug || {};
-                let debugMsg = `\n(Debug - Found: ${dbg.promotedFound || 0}, Matched: ${dbg.promotedMatches || 0})`;
-                if (dbg.lastFailure) debugMsg += `\n[Last Error]: ${dbg.lastFailure}`;
+        showConfirm('DB 데이터와 동기화하시겠습니까?', async () => {
+            try {
+                const res = await fetch('/api/business-cards/sync', { method: 'POST' });
+                const result = await res.json();
+                if (res.ok) {
+                    const dbg = result.debug || {};
+                    let debugMsg = `\n(Debug - Found: ${dbg.promotedFound || 0}, Matched: ${dbg.promotedMatches || 0})`;
+                    if (dbg.lastFailure) debugMsg += `\n[Last Error]: ${dbg.lastFailure}`;
 
-                alert(`동기화 완료\n- 작업내역 연결: ${result.results.history?.matched || 0}건\n- 추진물건 연결: ${result.results.promoted?.matched || 0}건${debugMsg}`);
+                    showAlert(`동기화 완료\n- 작업내역 연결: ${result.results.history?.matched || 0}건\n- 추진물건 연결: ${result.results.promoted?.matched || 0}건${debugMsg}`, 'success');
 
-                // Refresh data
-                if (id) {
-                    const loadRes = await fetch(`/api/business-cards?id=${id}`);
-                    if (loadRes.ok) {
-                        const newData = await loadRes.json();
-                        // Sanitize nulls
-                        const sanitized = {
-                            ...newData,
-                            name: newData.name || '',
-                            category: newData.category || '',
-                            position: newData.position || '',
-                            companyName: newData.companyName || '',
-                            companyAddress: newData.companyAddress || '',
-                            department: newData.department || '',
-                            homeAddress: newData.homeAddress || '',
-                            mobile: newData.mobile || '',
-                            companyPhone1: newData.companyPhone1 || '',
-                            companyPhone2: newData.companyPhone2 || '',
-                            fax: newData.fax || '',
-                            homePhone: newData.homePhone || '',
-                            homepage: newData.homepage || '',
-                            email: newData.email || '',
-                            memo: newData.memo || '',
-                            history: newData.history || [],
-                            promotedProperties: newData.promotedProperties || []
-                        };
+                    // Refresh data
+                    if (id) {
+                        const loadRes = await fetch(`/api/business-cards?id=${id}`);
+                        if (loadRes.ok) {
+                            const newData = await loadRes.json();
+                            // Sanitize nulls
+                            // ... (logic handled in useEffect mainly, but here we do it ad-hoc or could trust useEffect if we trigger it?)
+                            // We replicated logic in original code
+                            const sanitized = {
+                                ...newData,
+                                name: newData.name || '',
+                                category: newData.category || '',
+                                position: newData.position || '',
+                                companyName: newData.companyName || '',
+                                companyAddress: newData.companyAddress || '',
+                                department: newData.department || '',
+                                homeAddress: newData.homeAddress || '',
+                                mobile: newData.mobile || '',
+                                companyPhone1: newData.companyPhone1 || '',
+                                companyPhone2: newData.companyPhone2 || '',
+                                fax: newData.fax || '',
+                                homePhone: newData.homePhone || '',
+                                homepage: newData.homepage || '',
+                                email: newData.email || '',
+                                memo: newData.memo || '',
+                                history: newData.history || [],
+                                promotedProperties: newData.promotedProperties || []
+                            };
 
-                        setFormData(sanitized);
+                            setFormData(sanitized);
+                        }
                     }
+                } else {
+                    showAlert('동기화 실패: ' + (result.error || '알 수 없는 오류'), 'error');
                 }
-            } else {
-                alert('동기화 실패: ' + (result.error || '알 수 없는 오류'));
+            } catch (e) {
+                console.error(e);
+                showAlert('오류가 발생했습니다.', 'error');
             }
-        } catch (e) {
-            console.error(e);
-            alert('오류가 발생했습니다.');
-        }
+        });
     };
 
     const handleTogglePromotedSelect = (id: string, checked: boolean) => {
@@ -744,60 +776,61 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
     const handleDeletePromotedProperties = async () => {
         if (selectedPromotedIds.length === 0) return;
-        if (!confirm('선택한 물건을 삭제하시겠습니까?')) return;
+        showConfirm('선택한 물건을 삭제하시겠습니까?', async () => {
+            const itemsToDelete = (formData.promotedProperties || []).filter((p: any) => selectedPromotedIds.includes(p.id));
 
-        const itemsToDelete = (formData.promotedProperties || []).filter((p: any) => selectedPromotedIds.includes(p.id));
+            const updatedList = (formData.promotedProperties || []).filter((p: any) => !selectedPromotedIds.includes(p.id));
+            const updatedData = { ...formData, promotedProperties: updatedList };
+            setFormData(updatedData);
+            setSelectedPromotedIds([]);
 
-        const updatedList = (formData.promotedProperties || []).filter((p: any) => !selectedPromotedIds.includes(p.id));
-        const updatedData = { ...formData, promotedProperties: updatedList };
-        setFormData(updatedData);
-        setSelectedPromotedIds([]);
+            if (formData.id) {
+                await fetch('/api/business-cards', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                });
 
-        if (formData.id) {
-            await fetch('/api/business-cards', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedData)
-            });
-
-            // Sync Deletion to Property
-            for (const item of itemsToDelete) {
-                if (item.id) {
-                    await deletePromotedCustomerFromProperty(item.id, formData.id);
+                // Sync Deletion to Property
+                for (const item of itemsToDelete) {
+                    if (item.id) {
+                        await deletePromotedCustomerFromProperty(item.id, formData.id);
+                    }
                 }
             }
-        }
+        });
     };
 
     // --- Render ---
 
     const handleDelete = async () => {
         if (!id) return;
-        if (!confirm('삭제하시겠습니까?')) return;
-
-        setLoading(true);
-        try {
-            const res = await fetch(`/api/business-cards?id=${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                alert('삭제되었습니다.');
-                if (onSuccess) onSuccess();
-                else onClose();
-            } else {
-                alert('삭제 실패');
+        showConfirm('삭제하시겠습니까?', async () => {
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/business-cards?id=${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    showAlert('삭제되었습니다.', 'success', () => {
+                        if (onSuccess) onSuccess();
+                        else onClose();
+                    });
+                } else {
+                    showAlert('삭제 실패', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showAlert('오류 발생', 'error');
+            } finally {
+                setLoading(false);
             }
-        } catch (e) {
-            console.error(e);
-            alert('오류 발생');
-        } finally {
-            setLoading(false);
-        }
+        }, true);
     };
 
     const handleReset = () => {
-        if (confirm('작성 내용을 초기화하시겠습니까?')) {
+        showConfirm('작성 내용을 초기화하시겠습니까?', () => {
             setFormData(INITIAL_DATA);
             setIsDirectCategory(false);
-        }
+        }, true);
     };
 
     const getSelectedManagerId = () => {
@@ -1061,8 +1094,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                                 setIsWorkModalOpen(true);
                             }}>+ 작업추가</button>
                         </div>
-                        <div className={styles.panelContent} style={{ padding: 0 }}>
-                            <table className={styles.historyTable} style={{ tableLayout: 'fixed', width: '100%' }}>
+                        <div className={styles.panelContent} style={{ padding: 0, overflowX: 'auto' }}>
+                            <table className={styles.historyTable} style={{ tableLayout: 'fixed', width: '100%', minWidth: '600px' }}>
                                 <colgroup><col style={{ width: 40 }} /><col style={{ width: 100 }} /><col style={{ width: 70 }} /><col style={{ width: 120 }} /><col /><col style={{ width: 50 }} /></colgroup>
                                 <thead>
                                     <tr>
@@ -1126,7 +1159,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                                 <span>추진물건</span>
                                 <button className={`${styles.headerBtn} ${styles.headerBtnPrimary}`} onClick={handleAddPromotedProperty}>+ 점포</button>
                                 <button
-                                    className={`${styles.headerBtn} ${styles.headerBtnPrimary}`}
+                                    className={`${styles.headerBtn} ${styles.headerBtnPrimary} ${styles.mobileHidden}`}
                                     onClick={handleSync}
                                     title="DB 동기화"
                                     style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px' }}
@@ -1138,8 +1171,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                                 - 제거
                             </button>
                         </div>
-                        <div className={styles.panelContent} style={{ padding: 0 }}>
-                            <table className={styles.historyTable} style={{ tableLayout: 'fixed', width: '100%' }}>
+                        <div className={styles.panelContent} style={{ padding: 0, overflowX: 'auto' }}>
+                            <table className={styles.historyTable} style={{ tableLayout: 'fixed', width: '100%', minWidth: '600px' }}>
                                 <colgroup><col style={{ width: 40 }} /><col style={{ width: 40 }} /><col style={{ width: 90 }} /><col style={{ width: 120 }} /><col style={{ width: 70 }} /><col style={{ width: 70 }} /><col /></colgroup>
                                 <thead>
                                     <tr>
@@ -1163,7 +1196,6 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                                                         type="checkbox"
                                                         checked={selectedPromotedIds.includes(item.id)}
                                                         onChange={(e) => handleTogglePromotedSelect(item.id, e.target.checked)}
-                                                        disabled={!item.propertyId} // Disable if not linked (Draft)
                                                     />
                                                 </td>
                                                 <td>{i + 1}</td>
@@ -1208,25 +1240,15 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
             {/* Footer */}
             <div className={styles.footer}>
-                <div className={styles.footerLeft}>
-                    <button className={styles.footerBtn} onClick={handleSave} disabled={loading}>
-                        <Save size={16} /> 저장
-                    </button>
-                    {id && (
-                        <button className={styles.footerBtn} onClick={handleDelete} disabled={loading}>
-                            <Trash2 size={16} /> 삭제
-                        </button>
-                    )}
-                </div>
-                {/* Navigation Buttons */}
+                {/* Navigation Buttons - Top on Mobile */}
                 {onNavigate && (
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <div className={styles.footerNav}>
                         <button
                             className={styles.footerBtn}
                             onClick={() => onNavigate('first')}
                             disabled={!canNavigate?.first}
                             title="처음"
-                            style={{ padding: '6px' }}
+                            style={{ padding: '6px', flex: '0 0 auto', width: 'auto' }}
                         >
                             <ChevronsLeft size={18} />
                         </button>
@@ -1235,7 +1257,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                             onClick={() => onNavigate('prev')}
                             disabled={!canNavigate?.prev}
                             title="이전"
-                            style={{ padding: '6px' }}
+                            style={{ padding: '6px', flex: '0 0 auto', width: 'auto' }}
                         >
                             <ChevronLeft size={18} />
                         </button>
@@ -1244,7 +1266,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                             onClick={() => onNavigate('next')}
                             disabled={!canNavigate?.next}
                             title="다음"
-                            style={{ padding: '6px' }}
+                            style={{ padding: '6px', flex: '0 0 auto', width: 'auto' }}
                         >
                             <ChevronRight size={18} />
                         </button>
@@ -1253,13 +1275,23 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                             onClick={() => onNavigate('last')}
                             disabled={!canNavigate?.last}
                             title="마지막"
-                            style={{ padding: '6px' }}
+                            style={{ padding: '6px', flex: '0 0 auto', width: 'auto' }}
                         >
                             <ChevronsRight size={18} />
                         </button>
                     </div>
                 )}
-                <div className={styles.footerRight}>
+
+                {/* Action Buttons - Bottom on Mobile */}
+                <div className={styles.footerActions}>
+                    <button className={styles.footerBtn} onClick={handleSave} disabled={loading}>
+                        <Save size={16} /> 저장
+                    </button>
+                    {id && (
+                        <button className={styles.footerBtn} onClick={handleDelete} disabled={loading}>
+                            <Trash2 size={16} /> 삭제
+                        </button>
+                    )}
                     <button className={styles.footerBtn} onClick={handleReset}>
                         <Plus size={16} /> 신규
                     </button>
@@ -1312,6 +1344,19 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 )
             }
 
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                message={confirmModal.message}
+                isDanger={confirmModal.isDanger}
+            />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div >
     );
 }

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
 
 export default function NoticeEditPage() {
     const router = useRouter();
@@ -15,12 +16,16 @@ export default function NoticeEditPage() {
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
 
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const showAlert = (message: string) => setAlertConfig({ isOpen: true, message, title: '알림' });
+    const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
     useEffect(() => {
         const userStr = localStorage.getItem('user');
         if (userStr) {
             setUser(JSON.parse(userStr));
         } else {
-            alert('로그인이 필요합니다.');
+            showAlert('로그인이 필요합니다.');
             router.push('/login');
             return;
         }
@@ -36,12 +41,12 @@ export default function NoticeEditPage() {
                     setType(data.type);
                     setIsPinned(data.isPinned || false);
                 } else {
-                    alert('공지사항을 찾을 수 없습니다.');
+                    showAlert('공지사항을 찾을 수 없습니다.');
                     router.push('/board/notices');
                 }
             } catch (error) {
                 console.error(error);
-                alert('데이터 불러오기 오류');
+                showAlert('데이터 불러오기 오류');
             } finally {
                 setInitialLoading(false);
             }
@@ -68,14 +73,14 @@ export default function NoticeEditPage() {
             });
 
             if (res.ok) {
-                alert('공지사항이 수정되었습니다.');
+                showAlert('공지사항이 수정되었습니다.');
                 router.push(`/board/notices/${params?.id}`);
             } else {
-                alert('수정 실패');
+                showAlert('수정 실패');
             }
         } catch (error) {
             console.error(error);
-            alert('오류 발생');
+            showAlert('오류 발생');
         } finally {
             setLoading(false);
         }
@@ -242,6 +247,12 @@ export default function NoticeEditPage() {
                     </button>
                 </form>
             </div>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
         </div>
     );
 }

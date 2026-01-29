@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import styles from './page.module.css';
 import { User, Lock, Save, AlertCircle, CheckCircle, Shield } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 export default function ProfilePage() {
     const [user, setUser] = useState<any>(null);
@@ -21,6 +23,31 @@ export default function ProfilePage() {
     const [isIdChecked, setIsIdChecked] = useState(true); // Default true if unchanged
     const [idCheckMessage, setIdCheckMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; isDanger?: boolean }>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
+
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
@@ -28,9 +55,10 @@ export default function ProfilePage() {
 
             // [CRITICAL FIX] If session is old and missing UID, force re-login to ensure UUID availability
             if (!parsed.uid) {
-                alert('시스템 업데이트로 인해 보안 정보 갱신이 필요합니다.\n다시 로그인해주세요.');
-                localStorage.removeItem('user');
-                window.location.href = '/login';
+                showAlert('시스템 업데이트로 인해 보안 정보 갱신이 필요합니다.\n다시 로그인해주세요.', 'info', () => {
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                });
                 return;
             }
 
@@ -102,18 +130,18 @@ export default function ProfilePage() {
         if (!user) return;
 
         if (formData.id !== user.id && !isIdChecked) {
-            alert('아이디 중복 확인을 해주세요.');
+            showAlert('아이디 중복 확인을 해주세요.', 'error');
             return;
         }
 
         // Validation for password change
         if (formData.newPassword) {
             if (!formData.oldPassword) {
-                alert('비밀번호를 변경하려면 기존 비밀번호를 입력해주세요.');
+                showAlert('비밀번호를 변경하려면 기존 비밀번호를 입력해주세요.', 'error');
                 return;
             }
             if (formData.newPassword !== formData.confirmPassword) {
-                alert('새 비밀번호가 일치하지 않습니다.');
+                showAlert('새 비밀번호가 일치하지 않습니다.', 'error');
                 return;
             }
         }
@@ -137,37 +165,38 @@ export default function ProfilePage() {
             const data = await res.json();
 
             if (res.ok) {
-                alert('회원정보가 수정되었습니다.');
+                showAlert('회원정보가 수정되었습니다.', 'success', () => {
+                    const updatedUser = { ...data.user, uid: user.uid }; // Preserve UUID
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    setUser(updatedUser);
 
-                const updatedUser = { ...data.user, uid: user.uid }; // Preserve UUID
-                localStorage.setItem('user', JSON.stringify(updatedUser));
-                setUser(updatedUser);
+                    // Reset password fields
+                    setFormData(prev => ({
+                        ...prev,
+                        oldPassword: '',
+                        newPassword: '',
+                        confirmPassword: ''
+                    }));
 
-                // Reset password fields
-                setFormData(prev => ({
-                    ...prev,
-                    oldPassword: '',
-                    newPassword: '',
-                    confirmPassword: ''
-                }));
-
-                // If ID changed, logout
-                if (data.user.id !== user.id) {
-                    alert('아이디가 변경되었습니다. 다시 로그인해주세요.');
-                    localStorage.removeItem('user');
-                    window.location.href = '/login';
-                } else {
-                    window.location.reload();
-                }
+                    // If ID changed, logout
+                    if (data.user.id !== user.id) {
+                        showAlert('아이디가 변경되었습니다. 다시 로그인해주세요.', 'info', () => {
+                            localStorage.removeItem('user');
+                            window.location.href = '/login';
+                        });
+                    } else {
+                        window.location.reload();
+                    }
+                });
 
             } else {
                 console.error('Update failed response:', data);
-                alert(`수정 실패: ${data.error || JSON.stringify(data)}`);
+                showAlert(`수정 실패: ${data.error || JSON.stringify(data)}`, 'error');
             }
 
         } catch (error) {
             console.error('Update failed:', error);
-            alert('오류가 발생했습니다.');
+            showAlert('오류가 발생했습니다.', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -357,19 +386,19 @@ export default function ProfilePage() {
                                 <button
                                     type="button"
                                     onClick={async () => {
-                                        if (!confirm('정말 연동을 해제하시겠습니까?')) return;
-                                        try {
-                                            const res = await fetch(`/api/ucansign/disconnect?userId=${user.id}`, { method: 'DELETE' });
-                                            if (res.ok) {
-                                                alert('연동이 해제되었습니다.');
-                                                window.location.reload();
-                                            } else {
-                                                alert('해제 실패');
+                                        showConfirm('정말 연동을 해제하시겠습니까?', async () => {
+                                            try {
+                                                const res = await fetch(`/api/ucansign/disconnect?userId=${user.id}`, { method: 'DELETE' });
+                                                if (res.ok) {
+                                                    showAlert('연동이 해제되었습니다.', 'success', () => window.location.reload());
+                                                } else {
+                                                    showAlert('해제 실패', 'error');
+                                                }
+                                            } catch (e) {
+                                                console.error(e);
+                                                showAlert('오류 발생', 'error');
                                             }
-                                        } catch (e) {
-                                            console.error(e);
-                                            alert('오류 발생');
-                                        }
+                                        }, true);
                                     }}
                                     style={{
                                         padding: '10px 20px',
@@ -415,24 +444,25 @@ export default function ProfilePage() {
                                 <button
                                     type="button"
                                     onClick={async () => {
-                                        if (!confirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+                                        showConfirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.', async () => {
+                                            try {
+                                                const res = await fetch(`/api/users?id=${user.uid || user.id}`, { method: 'DELETE' });
+                                                const data = await res.json();
 
-                                        try {
-                                            const res = await fetch(`/api/users?id=${user.uid || user.id}`, { method: 'DELETE' });
-                                            const data = await res.json();
-
-                                            if (res.ok) {
-                                                alert('탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.');
-                                                localStorage.removeItem('user');
-                                                window.location.href = '/login';
-                                            } else {
-                                                console.error('Withdraw failed response:', data);
-                                                alert(`탈퇴 실패: ${data.error || JSON.stringify(data)}`);
+                                                if (res.ok) {
+                                                    showAlert('탈퇴가 완료되었습니다. 이용해 주셔서 감사합니다.', 'success', () => {
+                                                        localStorage.removeItem('user');
+                                                        window.location.href = '/login';
+                                                    });
+                                                } else {
+                                                    console.error('Withdraw failed response:', data);
+                                                    showAlert(`탈퇴 실패: ${data.error || JSON.stringify(data)}`, 'error');
+                                                }
+                                            } catch (e) {
+                                                console.error(e);
+                                                showAlert('오류가 발생했습니다.', 'error');
                                             }
-                                        } catch (e) {
-                                            console.error(e);
-                                            alert('오류가 발생했습니다.');
-                                        }
+                                        }, true);
                                     }}
                                     style={{
                                         padding: '10px 20px',
@@ -459,6 +489,19 @@ export default function ProfilePage() {
                     </div>
                 </form>
             </div>
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                message={confirmModal.message}
+                isDanger={confirmModal.isDanger}
+            />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div>
     );
 }

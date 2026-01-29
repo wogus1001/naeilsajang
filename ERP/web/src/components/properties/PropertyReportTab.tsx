@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Printer, Check, ChevronDown, Layout, FileText, PieChart, ArrowLeft, Star } from 'lucide-react';
 import PropertyReportPrint from './reports/PropertyReportPrint';
+import { AlertModal } from '@/components/common/AlertModal';
 
 interface PropertyReportTabProps {
     data: any;
@@ -24,6 +25,21 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
     const [isPrinting, setIsPrinting] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
     const [isSaving, setIsSaving] = useState(false); // Local saving state for feedback
+
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     // Helper to get user-specific favorite key
     const getFavoriteKey = () => {
@@ -52,6 +68,33 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
         }
     }, [initialDirectPreview]);
 
+    // Mobile Detection & Scale Calculation
+    const [isMobile, setIsMobile] = useState(false);
+    const [scale, setScale] = useState(1);
+
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            const mobile = width <= 768;
+            setIsMobile(mobile);
+
+            if (mobile) {
+                // A4 width ~794px (210mm at 96dpi). 
+                // We calculate scale to fit screen width with some padding (40px)
+                const targetWidth = 794;
+                const availableWidth = width - 30; // 15px padding each side
+                const newScale = Math.min(availableWidth / targetWidth, 1);
+                setScale(newScale);
+            } else {
+                setScale(1);
+            }
+        };
+
+        handleResize(); // Initial check
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     const formatOptions: FormatOption[] = [
         { id: '1', label: '인쇄형식 1', description: '상세형', icon: <Layout size={24} /> },
         { id: '2', label: '인쇄형식 2', description: '요약형', icon: <FileText size={24} /> },
@@ -66,6 +109,13 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
     const handleFormatClick = (id: string) => {
         setSelectedFormat(id);
         setIsPreviewOpen(true);
+
+        // On mobile, auto-trigger print (Direct PDF Save workflow)
+        if (window.innerWidth <= 768) {
+            setTimeout(() => {
+                handlePrint();
+            }, 800); // Wait for render
+        }
     };
 
     const handleToggleFavorite = (e: React.MouseEvent, id: string) => {
@@ -88,7 +138,7 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
         setTimeout(() => {
             window.print();
             setIsPrinting(false);
-        }, 100);
+        }, 500);
     };
 
     const handleSaveReport = async () => {
@@ -97,7 +147,7 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
             await onSave();
             setTimeout(() => {
                 setIsSaving(false);
-                alert('저장되었습니다.');
+                showAlert('저장되었습니다.', 'success');
             }, 500);
         }
     };
@@ -112,15 +162,16 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
                 visibility: visible;
             }
             #property-report-print-area {
-                position: fixed !important;
+                position: fixed !important; /* Revert to fixed for reliable print overlay */
                 left: 0 !important;
                 top: 0 !important;
-                width: 100vw !important;
-                min-height: 100vh !important;
+                width: 210mm !important;
+                min-height: 297mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 background-color: white !important;
                 z-index: 2147483647 !important;
+                transform: none !important;
             }
             
             @page {
@@ -298,31 +349,32 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            padding: '0 20px',
+                            padding: isMobile ? '0 10px' : '0 20px',
                             boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                         }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#333' }}>
+                            <div style={{ fontWeight: 'bold', fontSize: isMobile ? '13px' : '16px', color: '#333' }}>
                                 미리보기: {formatOptions.find(f => f.id === selectedFormat)?.label}
                             </div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
+                            <div style={{ display: 'flex', gap: isMobile ? '6px' : '10px' }}>
                                 <button
                                     onClick={handlePrint}
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '8px',
-                                        padding: '8px 16px',
+                                        padding: isMobile ? '6px 10px' : '8px 16px',
                                         backgroundColor: '#339af0',
                                         color: 'white',
                                         border: 'none',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
                                         fontWeight: 600,
-                                        fontSize: '14px'
+                                        fontSize: isMobile ? '12px' : '14px',
+                                        whiteSpace: 'nowrap'
                                     }}
                                 >
-                                    <Printer size={16} />
-                                    리포트 인쇄 / PDF 저장
+                                    <Printer size={isMobile ? 14 : 16} />
+                                    {isMobile ? 'PDF 저장' : '리포트 인쇄 / PDF 저장'}
                                 </button>
                                 <button
                                     onClick={handleClosePreview}
@@ -365,7 +417,10 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
                                     width: '210mm', // A4 Width
                                     minHeight: '297mm', // A4 Height
                                     boxSizing: 'border-box',
-                                    transition: 'transform 0.2s'
+                                    transition: 'transform 0.2s',
+                                    transform: isMobile ? `scale(${scale})` : 'none',
+                                    transformOrigin: 'top center',
+                                    marginBottom: isMobile ? `-${(1 - scale) * 290}mm` : 0 // Reduce bottom gap caused by scaling
                                 }}
                                 onClick={(e) => e.stopPropagation()} // Prevent close on report click
                             >
@@ -383,6 +438,12 @@ const PropertyReportTab: React.FC<PropertyReportTabProps> = ({ data, onChange, o
                     </div>
                 )
             }
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div >
     );
 };

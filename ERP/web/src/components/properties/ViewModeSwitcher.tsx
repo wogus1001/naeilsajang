@@ -1,6 +1,8 @@
 import React from 'react';
 import { LayoutTemplate, Sidebar, Maximize2, MoreHorizontal } from 'lucide-react';
 
+import styles from './ViewModeSwitcher.module.css';
+
 export type ViewMode = 'center' | 'side' | 'page';
 
 interface ViewModeSwitcherProps {
@@ -20,41 +22,18 @@ export default function ViewModeSwitcher({ currentMode, onModeChange }: ViewMode
     const currentLabel = modes.find(m => m.id === currentMode)?.label || '보기 설정';
 
     return (
-        <div style={{ position: 'relative', zIndex: 2000 }}>
+        <div className={styles.container}>
             <button
                 type="button"
+                className={styles.triggerBtn}
                 onClick={() => setIsOpen(!isOpen)}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '8px 16px',
-                    border: '1px solid #dee2e6',
-                    borderRadius: 6,
-                    backgroundColor: '#fff',
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    color: '#333'
-                }}
             >
                 <MoreHorizontal size={16} />
-                <span>{currentLabel}</span>
+                <span className={styles.triggerLabel}>{currentLabel}</span>
             </button>
 
             {isOpen && (
-                <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: 4,
-                    backgroundColor: '#fff',
-                    border: '1px solid #dee2e6',
-                    borderRadius: 4,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                    zIndex: 2001,
-                    minWidth: 160,
-                    padding: 4
-                }}>
+                <div className={styles.dropdown}>
                     {modes.map(mode => {
                         const Icon = mode.icon;
                         const isSelected = currentMode === mode.id;
@@ -62,28 +41,15 @@ export default function ViewModeSwitcher({ currentMode, onModeChange }: ViewMode
                             <button
                                 key={mode.id}
                                 type="button"
+                                className={`${styles.optionBtn} ${isSelected ? styles.selected : ''}`}
                                 onClick={() => {
                                     onModeChange(mode.id as ViewMode);
                                     setIsOpen(false);
                                 }}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    width: '100%',
-                                    padding: '8px 12px',
-                                    border: 'none',
-                                    backgroundColor: isSelected ? '#e7f5ff' : 'transparent',
-                                    color: isSelected ? '#1971c2' : '#495057',
-                                    cursor: 'pointer',
-                                    textAlign: 'left',
-                                    fontSize: 13,
-                                    borderRadius: 4
-                                }}
                             >
                                 <Icon size={14} />
                                 {mode.label}
-                                {isSelected && <span style={{ marginLeft: 'auto' }}>✓</span>}
+                                {isSelected && <span className={styles.checkIcon}>✓</span>}
                             </button>
                         );
                     })}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Search, Check, RefreshCw } from 'lucide-react';
 import styles from './PropertySelectorModal.module.css';
 import PropertyCard from './PropertyCard';
+import { AlertModal } from '@/components/common/AlertModal';
 
 interface PropertySelectorModalProps {
     isOpen: boolean;
@@ -15,6 +16,21 @@ export default function PropertySelectorModal({ isOpen, onClose, onSelect }: Pro
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [viewPropertyId, setViewPropertyId] = useState<string | null>(null); // For double-click popup
+
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -53,7 +69,7 @@ export default function PropertySelectorModal({ isOpen, onClose, onSelect }: Pro
                 onClose();
             }
         } else {
-            alert('물건을 선택해주세요.');
+            showAlert('물건을 선택해주세요.', 'error');
         }
     };
 
@@ -175,6 +191,12 @@ export default function PropertySelectorModal({ isOpen, onClose, onSelect }: Pro
                     </div>
                 </div>
             )}
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div>
     );
 };

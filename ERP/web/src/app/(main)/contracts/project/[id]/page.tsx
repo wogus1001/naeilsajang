@@ -12,6 +12,9 @@ import { CONTRACT_TEMPLATES, getTemplateById, getAllTemplates } from '@/lib/temp
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import EditProjectModal from '../../_components/EditProjectModal';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
+import styles from './page.module.css';
 
 const STATUS_OPTIONS = [
     { value: 'draft', label: '진행예정', color: '#868e96', bg: '#f8f9fa' },
@@ -59,6 +62,24 @@ function ProjectEditor() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [modalCategory, setModalCategory] = useState<string>('사업체 양도양수');
     const [currentPage, setCurrentPage] = useState(0);
+    const [mobileTab, setMobileTab] = useState<'docs' | 'form' | 'preview'>('docs');
+
+    // Alert & Confirm State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+    const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+    const showConfirm = (message: string, onConfirm: () => void, isDanger: boolean = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
 
     // Reset pagination on doc change
     useEffect(() => {
@@ -264,16 +285,17 @@ function ProjectEditor() {
     // Handlers
     const handleDeleteDocument = (docId: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm('문서를 삭제하시겠습니까?')) return;
 
-        setProject(prev => {
-            const newDocs = prev.documents.filter(d => d.id !== docId);
-            return { ...prev, documents: newDocs };
+        showConfirm('문서를 삭제하시겠습니까?', () => {
+            setProject(prev => {
+                const newDocs = prev.documents.filter(d => d.id !== docId);
+                return { ...prev, documents: newDocs };
+            });
+
+            if (activeDocId === docId) {
+                setActiveDocId(project.documents.find(d => d.id !== docId)?.id || '');
+            }
         });
-
-        if (activeDocId === docId) {
-            setActiveDocId(project.documents.find(d => d.id !== docId)?.id || '');
-        }
     };
 
     const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
@@ -281,22 +303,22 @@ function ProjectEditor() {
 
         // Guard: Prevent deleting system templates
         if (CONTRACT_TEMPLATES.find(t => t.id === templateId)) {
-            alert('기본 제공 템플릿은 삭제할 수 없습니다.');
+            showAlert('기본 제공 템플릿은 삭제할 수 없습니다.');
             return;
         }
 
-        if (!confirm('정말 삭제하시겠습니까?\n삭제된 템플릿은 복구할 수 없으며, 저장된 양식 목록에서도 완전히 사라집니다.')) return;
+        showConfirm('정말 삭제하시겠습니까?\n삭제된 템플릿은 복구할 수 없으며, 저장된 양식 목록에서도 완전히 사라집니다.', () => {
+            // 1. Remove from LocalStorage
+            const stored = localStorage.getItem('custom_templates');
+            if (stored) {
+                const parsed = JSON.parse(stored) as ContractTemplate[];
+                const filtered = parsed.filter(t => t.id !== templateId);
+                localStorage.setItem('custom_templates', JSON.stringify(filtered));
+            }
 
-        // 1. Remove from LocalStorage
-        const stored = localStorage.getItem('custom_templates');
-        if (stored) {
-            const parsed = JSON.parse(stored) as ContractTemplate[];
-            const filtered = parsed.filter(t => t.id !== templateId);
-            localStorage.setItem('custom_templates', JSON.stringify(filtered));
-        }
-
-        // 2. Update State
-        setAllTemplates(prev => prev.filter(t => t.id !== templateId));
+            // 2. Update State
+            setAllTemplates(prev => prev.filter(t => t.id !== templateId));
+        }, true);
     };
 
     const handleAddDocument = (template: ContractTemplate) => {
@@ -338,16 +360,16 @@ function ProjectEditor() {
 
     const handleReset = () => {
         if (!activeDoc) return;
-        if (!confirm('작성된 내용을 모두 지우고 초기화하시겠습니까?')) return;
-
-        setProject(prev => ({
-            ...prev,
-            documents: prev.documents.map(d =>
-                d.id === activeDocId
-                    ? { ...d, formData: {} }
-                    : d
-            )
-        }));
+        showConfirm('작성된 내용을 모두 지우고 초기화하시겠습니까?', () => {
+            setProject(prev => ({
+                ...prev,
+                documents: prev.documents.map(d =>
+                    d.id === activeDocId
+                        ? { ...d, formData: {} }
+                        : d
+                )
+            }));
+        });
     };
 
     const handleSave = async () => {
@@ -374,13 +396,13 @@ function ProjectEditor() {
             });
 
             if (res.ok) {
-                alert('프로젝트가 저장되었습니다.');
+                showAlert('프로젝트가 저장되었습니다.');
             } else {
                 throw new Error('Server error');
             }
         } catch (e) {
             console.error('Save failed', e);
-            alert('저장 중 오류가 발생했습니다.');
+            showAlert('저장 중 오류가 발생했습니다.');
         }
     };
 
@@ -389,74 +411,99 @@ function ProjectEditor() {
     };
 
     const handlePdf = async () => {
-        const element = document.getElementById('print-area');
-        if (!element) return;
+        const original = document.getElementById('print-area');
+        if (!original) return;
+
+        // 1. Create a clone to manipulate without affecting the UI
+        const clone = original.cloneNode(true) as HTMLElement;
+
+        // 2. Set styles to force desktop A4 rendering (off-screen)
+        // Ensure the clone wrapper has the correct width so flow is correct
+        clone.style.position = 'fixed';
+        clone.style.top = '-10000px';
+        clone.style.left = '0';
+        clone.style.width = '210mm'; // Force A4 width standard
+        clone.style.height = 'auto';
+        clone.style.zIndex = '-1';
+        clone.style.background = 'white';
+
+        // Append to body to make it part of the DOM for rendering
+        document.body.appendChild(clone);
 
         try {
-            // High quality capture
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                backgroundColor: '#ffffff',
-                logging: false,
-                useCORS: true
-            });
-
-            const imgData = canvas.toDataURL('image/png');
-            // A4 dimensions in mm
+            // 3. Find all pages in the clone and force them nicely visible
+            const pages = clone.querySelectorAll('.contract-page');
             const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+            const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
 
-            // Calculate height to fit width
-            const imgProps = pdf.getImageProperties(imgData);
-            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            for (let i = 0; i < pages.length; i++) {
+                const page = pages[i] as HTMLElement;
 
-            // If height is greater than A4, we might need multiple pages (simple version: scaled fit or overflow)
-            // For now, simple single page fit or multipage
+                // Force visibility and reset transforms (fixing mobile scaling issue)
+                page.style.display = 'block';
+                page.style.transform = 'none';
+                page.style.width = '100%'; // relative to the 210mm container
+                page.style.minWidth = '210mm';
+                page.style.margin = '0';
+                page.style.boxShadow = 'none';
+                page.style.border = 'none';
 
-            let heightLeft = imgHeight;
-            let position = 0;
+                // 4. Capture each page individually
+                const canvas = await html2canvas(page, {
+                    scale: 2, // 2x scale for decent retina-like quality
+                    logging: false,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    windowWidth: 1200 // Simulate desktop window width
+                });
 
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
-            heightLeft -= pdfHeight;
+                const imgData = canvas.toDataURL('image/png');
+                const imgProps = pdf.getImageProperties(imgData);
+                const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-            // TODO: Add loop for multi-page if needed by content
+                if (i > 0) pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeight);
+            }
 
             pdf.save(`${activeDoc?.name || 'contract'}.pdf`);
         } catch (error) {
             console.error('PDF generation failed', error);
-            alert('PDF 생성 중 오류가 발생했습니다.');
+            showAlert('PDF 생성 중 오류가 발생했습니다.');
+        } finally {
+            // 5. Cleanup
+            document.body.removeChild(clone);
         }
     };
 
     const handleUpdateProject = (updatedProject: ContractProject) => {
         setProject(updatedProject);
         // Persistence handled by useEffect([project])
-        alert('프로젝트 정보가 수정되었습니다.');
+        showAlert('프로젝트 정보가 수정되었습니다.');
     };
 
     const handleDeleteProject = async () => {
-        if (!confirm('정말 삭제하시겠습니까?')) return;
+        showConfirm('정말 삭제하시겠습니까?', async () => {
+            try {
+                const storedUser = localStorage.getItem('user');
+                const uid = storedUser ? JSON.parse(storedUser).id : null;
+                const userIdQuery = uid ? `?userId=${uid}` : '';
 
-        try {
-            const storedUser = localStorage.getItem('user');
-            const uid = storedUser ? JSON.parse(storedUser).id : null;
-            const userIdQuery = uid ? `?userId=${uid}` : '';
+                const res = await fetch(`/api/projects/${project.id}${userIdQuery}`, {
+                    method: 'DELETE'
+                });
 
-            const res = await fetch(`/api/projects/${project.id}${userIdQuery}`, {
-                method: 'DELETE'
-            });
-
-            if (res.ok) {
-                alert('프로젝트가 삭제되었습니다.');
-                router.replace('/contracts');
-            } else {
-                alert('삭제 실패');
+                if (res.ok) {
+                    showAlert('프로젝트가 삭제되었습니다.');
+                    router.replace('/contracts');
+                } else {
+                    showAlert('삭제 실패');
+                }
+            } catch (e) {
+                console.error(e);
+                showAlert('삭제 중 오류가 발생했습니다.');
             }
-        } catch (e) {
-            console.error(e);
-            alert('삭제 중 오류가 발생했습니다.');
-        }
+        }, true);
     };
 
     // --- RENDERERS ---
@@ -467,19 +514,54 @@ function ProjectEditor() {
         // Persistence is already handled by the useEffect watching [project]
     };
 
+    // Helper: Render Pagination Controls
+    const renderPagination = () => (
+        <div className="contract-pagination-controls" style={{
+            display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px',
+            backgroundColor: 'white', padding: '10px 20px', borderRadius: '30px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #dee2e6',
+            justifyContent: 'center'
+        }}>
+            <button
+                onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                style={{
+                    border: 'none', background: 'none', cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', color: currentPage === 0 ? '#adb5bd' : '#228be6'
+                }}
+            >
+                <ChevronLeft size={20} />
+            </button>
+            <span style={{ fontWeight: 600, fontSize: '15px' }}>
+                {currentPage + 1} / {pagesRaw?.length || 1}
+            </span>
+            <button
+                onClick={() => setCurrentPage(p => Math.min((pagesRaw?.length || 1) - 1, p + 1))}
+                disabled={!pagesRaw || currentPage >= pagesRaw.length - 1}
+                style={{
+                    border: 'none', background: 'none', cursor: (!pagesRaw || currentPage >= pagesRaw.length - 1) ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', color: (!pagesRaw || currentPage >= pagesRaw.length - 1) ? '#adb5bd' : '#228be6'
+                }}
+            >
+                <ChevronRight size={20} />
+            </button>
+        </div>
+    );
+
     const renderFormInput = (field: FormField) => {
         const val = effectiveData[field.key] || '';
 
         if (field.type === 'section') {
-            return <div key={field.key} style={styles.sectionHeader}>{field.label}</div>;
+            return <div key={field.key} className={styles.sectionHeader}>{field.label}</div>;
         }
 
         return (
-            <div key={field.key} style={styles.fieldGroup}>
-                <label style={styles.label}>{field.label}</label>
+            <div key={field.key} className={styles.fieldGroup}>
+                <label className={styles.label}>{field.label}</label>
                 {field.type === 'textarea' ? (
                     <textarea
-                        style={{ ...styles.input, minHeight: '80px', resize: 'vertical' }}
+                        className={styles.input}
+                        style={{ minHeight: '80px', resize: 'vertical' }}
                         value={val}
                         onChange={(e) => handleFieldChange(field.key, e.target.value)}
                         placeholder={field.placeholder}
@@ -487,7 +569,7 @@ function ProjectEditor() {
                 ) : (
                     <input
                         type={field.type === 'date' ? 'date' : 'text'}
-                        style={styles.input}
+                        className={styles.input}
                         value={val}
                         onChange={(e) => {
                             // If it's a 'money' field, we might want to strip non-digits for number storage
@@ -529,9 +611,8 @@ function ProjectEditor() {
                     return (
                         <div
                             key={index}
-                            className={`contract-page contract-preview ${isVisible ? 'page-visible' : 'page-hidden'}`}
+                            className={`contract-page contract-preview ${isVisible ? 'page-visible' : 'page-hidden'} ${styles.paper}`}
                             style={{
-                                ...styles.paper,
                                 display: isVisible ? 'block' : 'none', // Screen visibility
                                 marginBottom: '0', // No gap in pagination view
                                 position: 'relative'
@@ -560,20 +641,21 @@ function ProjectEditor() {
     };
 
     return (
-        <div className="layout-container" style={styles.container}>
+        <div className={`layout-container ${styles.container}`}>
             <style jsx global>{`
                 @media print {
                     /* Hide UI elements */
-                    .layout-sidebar, 
-                    .layout-toolbar, 
-                    .layout-form-panel {
+                    .layout-sidebar,
+                    .layout-toolbar,
+                    .layout-form-panel,
+                    .${styles.mobileTabBar} {
                         display: none !important;
                     }
 
                     /* Reset structural containers to simple blocks to allow flow */
-                    .layout-container, 
-                    .layout-main, 
-                    .layout-workspace, 
+                    .layout-container,
+                    .layout-main,
+                    .layout-workspace,
                     .layout-preview-panel {
                         display: block !important;
                         position: static !important;
@@ -587,7 +669,6 @@ function ProjectEditor() {
                         box-shadow: none !important;
                     }
 
-                    /* Document Content */
                     /* Document Content */
                     #print-area {
                         width: 100% !important;
@@ -603,20 +684,19 @@ function ProjectEditor() {
                         width: 100% !important;
                         max-width: none !important;
                         margin: 0 !important;
-                        margin: 0 !important;
-                        padding: 5mm 10mm !important; 
+                        padding: 5mm 10mm !important;
                         letter-spacing: -0.5px !important;
                         word-spacing: -1px !important;
                         box-sizing: border-box !important;
                         background-color: white !important;
-                        box-shadow: none !important; /* Printing usually doesn't need shadow */
+                        box-shadow: none !important;
                         border: none !important;
                         height: 297mm !important;
                         overflow: hidden !important;
                         page-break-after: always;
+                        transform: none !important;
                     }
 
-                    /* Table Padding Override */
                     table td, table th { padding: 4px !important; }
 
                     .contract-page:last-child {
@@ -638,37 +718,36 @@ function ProjectEditor() {
                     }
                 }
 
-                /* Common Document Styling for both Builder and Viewer */
+                /* Common Document Styling */
                 #print-area h1, .contract-preview h1 { margin: 0 0 40px 0; padding: 0; line-height: 1.2; font-size: 2.2em; font-weight: 700; text-align: center; }
                 #print-area h2, .contract-preview h2 { margin: 30px 0 15px 0; padding: 0; line-height: 1.3; font-size: 1.5em; font-weight: 700; border-bottom: 2px solid #333; padding-bottom: 5px; }
                 #print-area h3, .contract-preview h3 { margin: 25px 0 10px 0; padding: 0; line-height: 1.3; font-size: 1.25em; font-weight: 700; }
                 #print-area p, .contract-preview p { margin: 5px 0; line-height: 1.6; word-break: keep-all; overflow-wrap: break-word; }
-                
+
                 #print-area .section, .contract-preview .section { margin-bottom: 30px; }
-                
-                #print-area table, .contract-preview table { 
-                    width: 100% !important; 
-                    border-collapse: collapse !important; 
+
+                #print-area table, .contract-preview table {
+                    width: 100% !important;
+                    border-collapse: collapse !important;
                     margin-bottom: 20px !important;
-                    table-layout: fixed !important; 
+                    table-layout: fixed !important;
                 }
-                #print-area table td, .contract-preview table td { 
-                    border: 1px solid #adb5bd !important; 
-                    padding: 5px 6px !important; 
+                #print-area table td, .contract-preview table td {
+                    border: 1px solid #adb5bd !important;
+                    padding: 5px 6px !important;
                     word-break: keep-all !important;
                 }
-                #print-area table .label, .contract-preview table .label { 
-                    background-color: #f8f9fa !important; 
-                    font-weight: 600 !important; 
+                #print-area table .label, .contract-preview table .label {
+                    background-color: #f8f9fa !important;
+                    font-weight: 600 !important;
                     width: 120px;
                 }
                 #print-area table .money, .contract-preview table .money { text-align: right !important; }
-                
+
                 #print-area .footer-sign, .contract-preview .footer-sign { margin-top: 50px; display: flex; flex-direction: column; gap: 15px; }
                 #print-area .signer, .contract-preview .signer { font-size: 1.1em; }
                 #print-area .date, .contract-preview .date { margin-top: 20px; text-align: center; font-size: 1.1em; }
 
-                /* Page Breaking */
                 #print-area > div:not(:last-child) {
                     page-break-after: always;
                 }
@@ -679,8 +758,30 @@ function ProjectEditor() {
                 }
             `}</style>
 
+            {/* MOBILE TAB BAR */}
+            <div className={styles.mobileTabBar}>
+                <div
+                    className={`${styles.mobileTab} ${mobileTab === 'docs' ? styles.mobileTabActive : ''}`}
+                    onClick={() => setMobileTab('docs')}
+                >
+                    <FileText size={16} style={{ marginRight: 6 }} /> 문서 목록
+                </div>
+                <div
+                    className={`${styles.mobileTab} ${mobileTab === 'form' ? styles.mobileTabActive : ''}`}
+                    onClick={() => setMobileTab('form')}
+                >
+                    <PenTool size={16} style={{ marginRight: 6 }} /> 내용 입력
+                </div>
+                <div
+                    className={`${styles.mobileTab} ${mobileTab === 'preview' ? styles.mobileTabActive : ''}`}
+                    onClick={() => setMobileTab('preview')}
+                >
+                    <Layout size={16} style={{ marginRight: 6 }} /> 미리보기
+                </div>
+            </div>
+
             {/* 1. SIDEBAR (Task 1: Structure) */}
-            <div className="layout-sidebar" style={styles.sidebar}>
+            <div className={`layout-sidebar ${styles.sidebar} ${mobileTab !== 'docs' ? styles.hiddenOnMobile : ''}`}>
                 <div style={{ padding: '20px', borderBottom: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                         <h2 style={{ fontSize: '16px', margin: 0, marginBottom: '4px' }}>{project.title}</h2>
@@ -745,10 +846,8 @@ function ProjectEditor() {
                     {categories.map(cat => (
                         <div
                             key={cat}
-                            style={{
-                                ...(activeCategory === cat ? { ...styles.categoryTab, ...styles.categoryTabActive } : styles.categoryTab),
-                                whiteSpace: 'nowrap'
-                            }}
+                            className={activeCategory === cat ? `${styles.categoryTab} ${styles.categoryTabActive}` : styles.categoryTab}
+                            style={{ whiteSpace: 'nowrap' }}
                             onClick={() => setActiveCategory(cat)}
                         >
                             {cat}
@@ -767,8 +866,8 @@ function ProjectEditor() {
                         return (
                             <div
                                 key={doc.id}
-                                style={activeDocId === doc.id ? { ...styles.docItem, ...styles.docItemActive } : styles.docItem}
-                                onClick={() => setActiveDocId(doc.id)}
+                                className={activeDocId === doc.id ? `${styles.docItem} ${styles.docItemActive}` : styles.docItem}
+                                onClick={() => { setActiveDocId(doc.id); setMobileTab('form'); }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, overflow: 'hidden' }}>
                                     <FileText size={16} />
@@ -934,17 +1033,18 @@ function ProjectEditor() {
             }
 
             {/* 2. MAIN WORKSPACE (Task 2 & 3) */}
-            <div className="layout-main" style={styles.main}>
+            <div className={`layout-main ${styles.main} ${(mobileTab !== 'form' && mobileTab !== 'preview') ? styles.hiddenOnMobile : ''}`}>
                 {/* Toolbar */}
-                <div className="layout-toolbar" style={styles.toolbar}>
+                <div className={`layout-toolbar ${styles.toolbar}`}>
                     <div style={{ fontWeight: 600, fontSize: '16px' }}>
                         {activeDoc?.name}
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button style={btnStyle} onClick={handleReset} title="내용 초기화"><RotateCcw size={16} /> 초기화</button>
+                        <button className={styles.btn} onClick={handleReset} title="내용 초기화"><RotateCcw size={16} /> <span className={styles.hiddenOnMobile}>초기화</span></button>
                         {activeTemplate && (
                             <button
-                                style={{ ...btnStyle, color: '#228be6', borderColor: '#a5d8ff' }}
+                                className={styles.btn}
+                                style={{ color: '#228be6', borderColor: '#a5d8ff' }}
                                 onClick={() => {
                                     window.location.href = `/contracts/builder?templateId=${activeTemplate.id}&projectId=${project.id}&returnToProject=true`;
                                 }}
@@ -953,15 +1053,16 @@ function ProjectEditor() {
                                 <PenTool size={16} /> 양식 수정
                             </button>
                         )}
-                        <button style={btnStyle} onClick={handleSave}><Save size={16} /> 저장</button>
-                        <button style={btnStyle} onClick={handlePrint}><Printer size={16} /> 인쇄</button>
-                        <button style={btnStyle} onClick={handlePdf}><Download size={16} /> PDF</button>
+                        <button className={styles.btn} onClick={handleSave}><Save size={16} /> <span className={styles.hiddenOnMobile}>저장</span></button>
+                        <button className={`${styles.btn} ${styles.hiddenOnMobile}`} onClick={handlePrint}><Printer size={16} /> <span className={styles.hiddenOnMobile}>인쇄</span></button>
+                        <button className={styles.btn} onClick={handlePdf}><Download size={16} /> <span className={styles.hiddenOnMobile}>PDF</span></button>
                     </div>
                 </div>
 
-                <div className="layout-workspace" style={styles.workspace}>
+                <div className={`layout-workspace ${styles.workspace}`}>
                     {/* LEFT: Dynamic Form Engine (Task 3) */}
-                    <div className="layout-form-panel" style={styles.formPanel}>
+                    <div className={`layout-form-panel ${styles.formPanel} ${mobileTab !== 'form' ? styles.hiddenOnMobile : ''}`}>
+                        {renderPagination()}
                         {activeTemplate ? (
                             (currentSchema || []).map(renderFormInput)
                         ) : (
@@ -970,38 +1071,10 @@ function ProjectEditor() {
                     </div>
 
                     {/* RIGHT: Live Preview (WYSIWYG-like) */}
-                    <div className="layout-preview-panel" style={styles.previewPanel}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                    <div className={`layout-preview-panel ${styles.previewPanel} ${mobileTab !== 'preview' ? styles.hiddenOnMobile : ''}`}>
+                        <div className={styles.previewWrapper}>
                             {/* Pagination Controls */}
-                            <div className="contract-pagination-controls" style={{
-                                display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px',
-                                backgroundColor: 'white', padding: '10px 20px', borderRadius: '30px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #dee2e6'
-                            }}>
-                                <button
-                                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                                    disabled={currentPage === 0}
-                                    style={{
-                                        border: 'none', background: 'none', cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
-                                        display: 'flex', alignItems: 'center', color: currentPage === 0 ? '#adb5bd' : '#228be6'
-                                    }}
-                                >
-                                    <ChevronLeft size={20} />
-                                </button>
-                                <span style={{ fontWeight: 600, fontSize: '15px' }}>
-                                    {currentPage + 1} / {pagesRaw?.length || 1}
-                                </span>
-                                <button
-                                    onClick={() => setCurrentPage(p => Math.min((pagesRaw?.length || 1) - 1, p + 1))}
-                                    disabled={!pagesRaw || currentPage >= pagesRaw.length - 1}
-                                    style={{
-                                        border: 'none', background: 'none', cursor: (!pagesRaw || currentPage >= pagesRaw.length - 1) ? 'not-allowed' : 'pointer',
-                                        display: 'flex', alignItems: 'center', color: (!pagesRaw || currentPage >= pagesRaw.length - 1) ? '#adb5bd' : '#228be6'
-                                    }}
-                                >
-                                    <ChevronRight size={20} />
-                                </button>
-                            </div>
+                            {renderPagination()}
 
                             {renderPreview()}
                         </div>
@@ -1016,6 +1089,20 @@ function ProjectEditor() {
                 onUpdate={handleUpdateProject}
                 onDelete={handleDeleteProject}
             />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                isDanger={confirmModal.isDanger}
+            />
         </div >
     );
 }
@@ -1029,44 +1116,4 @@ export default function ContractProjectPage() {
     );
 }
 
-// --- STYLES (Inline for simplicity) ---
-const styles = {
-    container: { display: 'flex', height: 'calc(100vh - 60px)', backgroundColor: '#f8f9fa' },
-    sidebar: { width: '280px', backgroundColor: 'white', borderRight: '1px solid #dee2e6', display: 'flex', flexDirection: 'column' as const },
-    main: { flex: 1, display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' },
-    toolbar: { height: '50px', borderBottom: '1px solid #dee2e6', backgroundColor: 'white', display: 'flex', alignItems: 'center', padding: '0 20px', justifyContent: 'space-between' },
-    workspace: { flex: 1, display: 'flex', overflow: 'hidden' },
-    formPanel: { width: '400px', backgroundColor: '#f8f9fa', borderRight: '1px solid #dee2e6', overflowY: 'auto' as const, padding: '20px 20px 20px 30px' },
-    previewPanel: { flex: 1, backgroundColor: '#e9ecef', padding: '40px 20px', overflowY: 'auto' as const, overflowX: 'auto' as const, display: 'flex', justifyContent: 'center' },
-    paper: {
-        width: '210mm',
-        minWidth: '210mm',
-        minHeight: '297mm',
-        backgroundColor: 'white',
-        padding: '5mm 10mm',
-        letterSpacing: '-0.5px',
-        wordSpacing: '-1px',
-        boxSizing: 'border-box' as const,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        fontSize: '16px',
-        lineHeight: '1.6',
-        color: '#212529',
-        overflow: 'hidden'
-    },
-
-    categoryTab: { padding: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: '#495057', borderBottom: '1px solid transparent' },
-    categoryTabActive: { color: '#228be6', borderBottom: '2px solid #228be6' },
-    docItem: { padding: '10px 15px', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#495057', marginTop: '2px' as const },
-    docItemActive: { backgroundColor: '#e7f5ff', color: '#1c7ed6', fontWeight: 500 },
-
-    fieldGroup: { marginBottom: '16px' },
-    label: { display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 500, color: '#343a40' },
-    input: { width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da', fontSize: '14px' },
-    sectionHeader: { marginTop: '24px', marginBottom: '12px', fontSize: '15px', fontWeight: 700, color: '#1c7ed6', borderBottom: '1px solid #e9ecef', paddingBottom: '4px' }
-};
-
-const btnStyle = {
-    display: 'flex', alignItems: 'center', gap: '6px',
-    padding: '6px 12px', border: '1px solid #ced4da',
-    backgroundColor: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '13px'
-};
+// --- STYLES REMOVED (Moved to page.module.css) ---

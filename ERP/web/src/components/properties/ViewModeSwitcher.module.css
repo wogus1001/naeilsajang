@@ -1,0 +1,74 @@
+.container {
+    position: relative;
+    z-index: 2000;
+}
+
+.triggerBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background-color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+    white-space: nowrap;
+    /* Prevent text wrapping */
+}
+
+.triggerLabel {
+    display: inline-block;
+}
+
+.dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 2001;
+    min-width: 160px;
+    padding: 4px;
+}
+
+.optionBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background-color: transparent;
+    color: #495057;
+    cursor: pointer;
+    text-align: left;
+    font-size: 13px;
+    border-radius: 4px;
+}
+
+.optionBtn.selected {
+    background-color: #e7f5ff;
+    color: #1971c2;
+}
+
+.checkIcon {
+    margin-left: auto;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .triggerBtn {
+        padding: 8px 10px;
+        /* Smaller padding */
+    }
+
+    .triggerLabel {
+        display: none;
+        /* Hide text label on mobile */
+    }
+}

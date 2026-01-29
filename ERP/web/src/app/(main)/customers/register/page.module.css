@@ -203,6 +203,8 @@
 
 .rangeInput {
     flex: 1;
+    min-width: 0;
+    /* Allow shrinking */
     border: 1px solid #e9ecef;
     padding: 8px;
     font-size: 13px;
@@ -409,4 +411,286 @@
     align-items: center;
     flex-shrink: 0;
     border-bottom: 1px solid #f1f3f5;
+}
+
+.footerNav {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+
+.propertySelectorModal {
+    width: 95%;
+    max-width: 1400px;
+    height: 85vh;
+}
+
+/* Mobile Responsive */
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .propertySelectorModal {
+        width: 90% !important;
+        /* Popup width */
+        height: 80vh !important;
+        /* Popup height */
+        max-width: 500px;
+        /* Optional cap */
+        border-radius: 12px !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        /* Popup shadow */
+        border: none;
+        margin: auto;
+        /* Centering helper */
+    }
+
+    /* Ensure overlay allows centering */
+    .modalOverlay {
+        padding: 16px;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Property Selector Filter Styles */
+    .filterWrapper {
+        flex-direction: column !important;
+        background: #f8f9fa !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+    }
+
+    /* Grid Layout for Filters */
+    .filtersGrid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        /* 2 Columns */
+        gap: 8px !important;
+        width: 100%;
+    }
+
+    .filterItem {
+        width: 100%;
+        gap: 4px;
+        font-size: 13px;
+        background: white;
+        padding: 6px;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+    }
+
+    /* Make inputs small and flexible */
+    .filterItem input {
+        width: 100% !important;
+        /* Override inline styles */
+        min-width: 0 !important;
+        flex: 1;
+        padding: 4px;
+        height: 28px;
+        /* Compact height */
+        font-size: 13px;
+    }
+
+    .unitText {
+        font-size: 12px;
+        white-space: nowrap;
+        color: #868e96;
+    }
+
+    /* Search Bar Area */
+    .searchBarContainer {
+        width: 100% !important;
+        padding-top: 8px;
+        border-top: 1px dashed #e9ecef;
+        flex-wrap: wrap;
+        /* Allow reset button to wrap if really needed */
+    }
+
+    .searchBarContainer .inputWrapper {
+        width: 100% !important;
+        /* Full width search */
+        border-left: none !important;
+    }
+
+    .container {
+        padding: 12px;
+        gap: 12px;
+        height: 100%;
+        /* Fixed height to match modal */
+        min-height: 0;
+        overflow: hidden;
+        /* Prevent body scroll */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modalContent {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+    }
+
+    .header {
+        position: relative;
+        /* Not sticky, top of flex */
+        top: auto;
+        padding: 12px;
+        flex-shrink: 0;
+        z-index: 10;
+        background: white;
+    }
+
+    .grid {
+        display: flex;
+        flex-direction: column;
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+        /* Scroll INSIDE grid */
+        overflow-x: hidden;
+        gap: 20px;
+        flex: 1;
+        /* Take remaining space */
+        min-height: 0;
+        padding-bottom: 20px;
+    }
+
+    .panel {
+        height: auto;
+        overflow: visible;
+        border-radius: 8px;
+        flex-shrink: 0;
+    }
+
+    .panelContent {
+        padding: 12px;
+        max-height: none;
+        /* Let content grow fully inside scrollable grid */
+        overflow-y: visible;
+        overflow-x: auto;
+    }
+
+    .panelHeader,
+    .panelHeaderBlue {
+        flex-wrap: wrap;
+        gap: 8px;
+        height: auto;
+        padding: 12px;
+    }
+
+    /* Wrap right-side actions in header if needed */
+    .panelHeader>div,
+    .panelHeaderBlue>div {
+        flex-shrink: 1;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    /* Fix Range Input Overflow */
+    .rangeWrapper>div {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .rangeWrapper {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .inputWrapper {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* Table Compact View */
+    .historyTable th,
+    .historyTable td {
+        padding: 8px 4px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    /* Footer Compact Layout */
+    .footer {
+        flex-direction: row;
+        /* Allow wrapping */
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 12px;
+        position: relative;
+        bottom: auto;
+        border-top: 1px solid #dee2e6;
+        flex-shrink: 0;
+        background: white;
+        z-index: 10;
+    }
+
+    /* Row 1: Navigation */
+    .footerNav {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        order: 1;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #f1f3f5;
+        padding-bottom: 8px;
+    }
+
+    /* Row 2: Actions */
+    .footerActions {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        gap: 8px;
+        order: 2;
+    }
+
+    .footerBtn {
+        flex: 1;
+        justify-content: center;
+        padding: 0 4px;
+        height: 40px;
+        white-space: nowrap;
+        font-size: 13px;
+    }
+
+    .mobileHidden {
+        display: none !important;
+    }
+
+    .footerBtn,
+    .btnDelete {
+        flex: 1;
+        justify-content: center;
+        padding: 0 4px;
+        height: 40px;
+        /* Slightly compact */
+        white-space: nowrap;
+        font-size: 13px;
+    }
+
+    /* Navigation specific */
+    .footerNav .footerBtn {
+        flex: 0 0 auto;
+        width: 40px;
+        height: 36px;
+        padding: 0;
+    }
+
+    /* Form rows */
+    .formRow {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+    }
+
+    .label {
+        width: 100%;
+        text-align: left;
+        justify-content: flex-start;
+        padding-bottom: 0;
+    }
+
+    .rowPair {
+        flex-direction: column;
+        gap: 12px;
+    }
 }

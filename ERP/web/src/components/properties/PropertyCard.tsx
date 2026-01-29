@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import styles from './PropertyCard.module.css';
 import { User, Phone, MapPin, Building, DollarSign, FileText, Save, Trash2, Printer, Copy, Plus, Star, ChevronDown, ChevronUp, Search, X, Download, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import PersonSelectorModal from './PersonSelectorModal';
-import ConfirmModal from './ConfirmModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { AlertModal } from '@/components/common/AlertModal';
 import { useRouter } from 'next/navigation';
 import { Map, MapMarker, MapTypeId, useKakaoLoader } from 'react-kakao-maps-sdk';
 import PropertyReportTab from './PropertyReportTab';
@@ -135,6 +136,39 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         onConfirm: () => void;
         isDanger?: boolean;
     }>({ isOpen: false, message: '', onConfirm: () => { } });
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger: boolean = false) => {
+        setConfirmModal({
+            isOpen: true,
+            message,
+            onConfirm: () => {
+                onConfirm();
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            },
+            isDanger
+        });
+    };
+
+    const [alertConfig, setAlertConfig] = useState<{
+        isOpen: boolean;
+        message: string;
+        type: 'success' | 'error' | 'info';
+        onOk?: () => void;
+    }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onOk?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onOk });
+    };
+
+    const closeAlert = () => {
+        const onOk = alertConfig.onOk;
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+        if (onOk) onOk();
+    };
 
     const [formData, setFormData] = useState<any>(() => {
         // Safe default: If new property (no ID) and no manager set, try to default to current user
@@ -474,7 +508,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
             // Check Duplicate
             if (currentList.some((c: any) => c.targetId === person.id)) {
-                alert('이미 등록된 고객입니다.');
+                showAlert('이미 등록된 고객입니다.');
                 return;
             }
 
@@ -568,30 +602,31 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
     const handleDeleteContract = async () => {
         if (!editingContractId) return;
-        if (!confirm('정말 삭제하시겠습니까?')) return;
 
-        const updatedList = formData.contractHistory.filter((c: any) => c.id !== editingContractId);
-        const updatedFormData = { ...formData, contractHistory: updatedList };
-        setFormData(updatedFormData);
-        setIsContractModalOpen(false);
-        autoSaveProperty(updatedFormData);
+        showConfirm('정말 삭제하시겠습니까?', async () => {
+            const updatedList = formData.contractHistory.filter((c: any) => c.id !== editingContractId);
+            const updatedFormData = { ...formData, contractHistory: updatedList };
+            setFormData(updatedFormData);
+            setIsContractModalOpen(false);
+            autoSaveProperty(updatedFormData);
+        }, true);
     };
 
     const handleRemovePromotedCustomer = async (index: number) => {
-        if (!confirm('목록에서 제거하시겠습니까?')) return;
+        showConfirm('목록에서 제거하시겠습니까?', async () => {
+            // Get the item to be removed to sync deletion
+            const itemToRemove = formData.promotedCustomers[index];
 
-        // Get the item to be removed to sync deletion
-        const itemToRemove = formData.promotedCustomers[index];
+            const updatedList = formData.promotedCustomers.filter((_: any, i: number) => i !== index);
+            const updatedFormData = { ...formData, promotedCustomers: updatedList };
+            setFormData(updatedFormData);
+            autoSaveProperty(updatedFormData);
 
-        const updatedList = formData.promotedCustomers.filter((_: any, i: number) => i !== index);
-        const updatedFormData = { ...formData, promotedCustomers: updatedList };
-        setFormData(updatedFormData);
-        autoSaveProperty(updatedFormData);
-
-        // Sync Deletion
-        if (itemToRemove && itemToRemove.targetId) {
-            await deletePromotedPropertyFromPerson(itemToRemove.targetId, itemToRemove.type || 'customer', formData.id);
-        }
+            // Sync Deletion
+            if (itemToRemove && itemToRemove.targetId) {
+                await deletePromotedPropertyFromPerson(itemToRemove.targetId, itemToRemove.type || 'customer', formData.id);
+            }
+        }, true);
     };
 
     // Global ESC Handler for Sequential Closing
@@ -601,7 +636,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     const handleManualGeocode = () => {
         if (!formData.address) return;
         if (typeof window === 'undefined' || !(window as any).kakao || !(window as any).kakao.maps) {
-            alert('지도 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+            showAlert('지도 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
             return;
         }
 
@@ -614,9 +649,9 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 const updatedFormData = { ...formData, lat, lng };
                 setFormData(updatedFormData);
                 await autoSaveProperty(updatedFormData);
-                alert('좌표가 생성되었습니다.');
+                showAlert('좌표가 생성되었습니다.', 'success');
             } else {
-                alert('해당 주소로 좌표를 검색할 수 없습니다.');
+                showAlert('해당 주소로 좌표를 검색할 수 없습니다.', 'error');
             }
         });
     };
@@ -654,34 +689,35 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
     const handleDeletePriceHistory = async () => {
         if (!editingHistoryId) return;
-        if (!confirm('정말 삭제하시겠습니까?')) return;
 
-        const updatedPriceHistory = formData.priceHistory.filter((item: any) => item.id !== editingHistoryId);
-        const updatedFormData = { ...formData, priceHistory: updatedPriceHistory };
+        showConfirm('정말 삭제하시겠습니까?', async () => {
+            const updatedPriceHistory = formData.priceHistory.filter((item: any) => item.id !== editingHistoryId);
+            const updatedFormData = { ...formData, priceHistory: updatedPriceHistory };
 
-        setFormData(updatedFormData);
-        setIsPriceHistoryOpen(false);
+            setFormData(updatedFormData);
+            setIsPriceHistoryOpen(false);
 
-        // Auto-save
-        if (formData.id) {
-            try {
-                const res = await fetch(`/api/properties?id=${formData.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedFormData),
-                });
-                if (res.ok) {
-                    onRefresh?.();
-                } else {
-                    alert('자동 저장에 실패했습니다.');
+            // Auto-save
+            if (formData.id) {
+                try {
+                    const res = await fetch(`/api/properties?id=${formData.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedFormData),
+                    });
+                    if (res.ok) {
+                        onRefresh?.();
+                    } else {
+                        showAlert('자동 저장에 실패했습니다.', 'error');
+                    }
+                } catch (error) {
+                    console.error('Failed to auto-save history:', error);
+                    showAlert('자동 저장 중 오류가 발생했습니다.', 'error');
                 }
-            } catch (error) {
-                console.error('Failed to auto-save history:', error);
-                alert('자동 저장 중 오류가 발생했습니다.');
+            } else {
+                showAlert('신규 등록 중인 물건입니다. 전체 저장을 눌러야 반영됩니다.');
             }
-        } else {
-            alert('신규 등록 중인 물건입니다. 전체 저장을 눌러야 반영됩니다.');
-        }
+        }, true);
     };
 
     const handleAddPriceHistory = () => {
@@ -777,14 +813,14 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 if (res.ok) {
                     onRefresh?.();
                 } else {
-                    alert('자동 저장에 실패했습니다.');
+                    showAlert('자동 저장에 실패했습니다.');
                 }
             } catch (error) {
                 console.error('Failed to auto-save history:', error);
-                alert('자동 저장 중 오류가 발생했습니다.');
+                showAlert('자동 저장 중 오류가 발생했습니다.');
             }
         } else {
-            alert('신규 등록 중인 물건입니다. 전체 저장을 눌러야 반영됩니다.');
+            showAlert('신규 등록 중인 물건입니다. 전체 저장을 눌러야 반영됩니다.');
         }
     };
 
@@ -816,39 +852,40 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
     const handleDeleteWorkHistory = async () => {
         if (!editingHistoryId) return;
-        if (!confirm('정말 삭제하시겠습니까?')) return;
 
-        const updatedWorkHistory = formData.workHistory.filter((item: any) => item.id !== editingHistoryId);
-        const updatedFormData = { ...formData, workHistory: updatedWorkHistory };
+        showConfirm('정말 삭제하시겠습니까?', async () => {
+            const updatedWorkHistory = formData.workHistory.filter((item: any) => item.id !== editingHistoryId);
+            const updatedFormData = { ...formData, workHistory: updatedWorkHistory };
 
-        setFormData(updatedFormData);
-        setIsWorkHistoryOpen(false);
+            setFormData(updatedFormData);
+            setIsWorkHistoryOpen(false);
 
-        // Auto-save
-        if (formData.id) {
-            try {
-                const res = await fetch(`/api/properties?id=${formData.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedFormData),
-                });
-                if (res.ok) {
-                    onRefresh?.();
-                    // Sync Delete to Person
-                    const deletedItem = formData.workHistory.find((item: any) => item.id === editingHistoryId);
-                    if (deletedItem && deletedItem.targetId) {
-                        deleteWorkHistoryFromPerson(deletedItem.targetId, deletedItem.targetType || 'customer', deletedItem);
+            // Auto-save
+            if (formData.id) {
+                try {
+                    const res = await fetch(`/api/properties?id=${formData.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedFormData),
+                    });
+                    if (res.ok) {
+                        onRefresh?.();
+                        // Sync Delete to Person
+                        const deletedItem = formData.workHistory.find((item: any) => item.id === editingHistoryId);
+                        if (deletedItem && deletedItem.targetId) {
+                            deleteWorkHistoryFromPerson(deletedItem.targetId, deletedItem.targetType || 'customer', deletedItem);
+                        }
+                    } else {
+                        showAlert('자동 저장에 실패했습니다.');
                     }
-                } else {
-                    alert('자동 저장에 실패했습니다.');
+                } catch (error) {
+                    console.error('Failed to auto-save history:', error);
+                    showAlert('자동 저장 중 오류가 발생했습니다.');
                 }
-            } catch (error) {
-                console.error('Failed to auto-save history:', error);
-                alert('자동 저장 중 오류가 발생했습니다.');
+            } else {
+                showAlert('신규 등록 중인 물건입니다. 전체 저장을 눌러야 반영됩니다.');
             }
-        } else {
-            alert('신규 등록 중인 물건입니다. 전체 저장을 눌러야 반영됩니다.');
-        }
+        }, true);
     };
 
     const deleteWorkHistoryFromPerson = async (personId: string, type: string, historyItem: any) => {
@@ -972,7 +1009,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
         } catch (e) {
             console.error('Failed to sync work history to person:', e);
-            alert(`Sync Failed: ${e}`);
+            showAlert(`Sync Failed: ${e}`);
         }
     };
 
@@ -1020,7 +1057,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
     const handleSaveWorkHistory = async () => {
         if (!workHistoryForm.content) {
-            alert('내역을 입력해주세요.');
+            showAlert('내역을 입력해주세요.');
             return;
         }
 
@@ -1110,14 +1147,14 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                         );
                     }
                 } else {
-                    alert('자동 저장에 실패했습니다.');
+                    showAlert('자동 저장에 실패했습니다.');
                 }
             } catch (error) {
                 console.error('Failed to auto-save history:', error);
-                alert('자동 저장 중 오류가 발생했습니다.');
+                showAlert('자동 저장 중 오류가 발생했습니다.');
             }
         } else {
-            alert('신규 등록 중인 물건입니다. 전체 저장을 눌러야 반영됩니다.');
+            showAlert('신규 등록 중인 물건입니다. 전체 저장을 눌러야 반영됩니다.');
         }
     };
 
@@ -1243,7 +1280,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             const validFiles = files.filter(file => {
                 const maxSize = 5 * 1024 * 1024; // 5MB
                 if (file.size > maxSize) {
-                    alert(`파일 용량이 너무 큽니다 (5MB 제한): ${file.name}`);
+                    showAlert(`파일 용량이 너무 큽니다 (5MB 제한): ${file.name}`);
                     return false;
                 }
                 return true;
@@ -1276,29 +1313,23 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     };
 
     const handleDeletePhoto = (index: number) => {
-        if (!window.confirm('사진을 삭제하시겠습니까?')) return;
+        showConfirm('사진을 삭제하시겠습니까?', () => {
+            const updatedPhotos = formData.photos.filter((_: any, i: number) => i !== index);
+            const updatedFormData = { ...formData, photos: updatedPhotos };
 
-        const updatedPhotos = formData.photos.filter((_: any, i: number) => i !== index);
-        const updatedFormData = { ...formData, photos: updatedPhotos };
-
-        setFormData(updatedFormData);
-        // Auto Save
-        autoSaveProperty(updatedFormData);
+            setFormData(updatedFormData);
+            // Auto Save
+            autoSaveProperty(updatedFormData);
+        }, true);
     };
 
     const handleDeleteAllPhotos = () => {
-        setConfirmModal({
-            isOpen: true,
-            isDanger: true,
-            message: '모든 사진을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
-            onConfirm: () => {
-                const updatedFormData = { ...formData, photos: [] };
-                setFormData(updatedFormData);
-                // Auto Save
-                autoSaveProperty(updatedFormData);
-                setConfirmModal(prev => ({ ...prev, isOpen: false }));
-            }
-        });
+        showConfirm('모든 사진을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.', () => {
+            const updatedFormData = { ...formData, photos: [] };
+            setFormData(updatedFormData);
+            // Auto Save
+            autoSaveProperty(updatedFormData);
+        }, true);
     };
 
     const handleDownloadPhoto = (photoUrl: string, index: number) => {
@@ -1313,7 +1344,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
     const handleDownloadAllPhotos = async () => {
         if (!formData.photos || formData.photos.length === 0) {
-            alert('다운로드할 사진이 없습니다.');
+            showAlert('다운로드할 사진이 없습니다.');
             return;
         }
 
@@ -1331,7 +1362,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             saveAs(content, `property-${formData.name || 'photos'}.zip`);
         } catch (error) {
             console.error('Failed to zip photos:', error);
-            alert('사진 다운로드 중 오류가 발생했습니다.');
+            showAlert('사진 다운로드 중 오류가 발생했습니다.');
         }
     };
 
@@ -1365,61 +1396,63 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         const currentHistory = formData.revenueHistory || [];
 
         // Check duplicate (exclude current editing item)
+        // Check duplicate (exclude current editing item)
         const exists = currentHistory.find((item: any) => item.date === dateStr && item.id !== editingRevenueId);
-        if (exists) {
-            if (!confirm(`${dateStr} 매출 데이터가 이미 존재합니다. 덮어씌우시겠습니까?`)) return;
-        }
 
-        const cash = Number(revenueForm.cash) || 0;
-        const card = Number(revenueForm.card) || 0;
-        const total = cash + card;
+        const proceedSaveRevenue = async () => {
+            const cash = Number(revenueForm.cash) || 0;
+            const card = Number(revenueForm.card) || 0;
+            const total = cash + card;
 
-        let newHistory;
+            let newHistory;
 
-        if (editingRevenueId) {
-            // Edit existing
-            newHistory = currentHistory.map((item: any) =>
-                item.id === editingRevenueId ? { ...item, date: dateStr, cash, card, total } : item
-            );
-            // If we overwrote another date by changing date, remove the old one? 
-            // The duplicate check above asked to overwrite. 
-            // If "exists", we should actually merge/replace the *other* one, or just update *this* one?
-            // Simple logic: If confirmed overwrite, we filter out the `exists` item (if it's different ID) and update `editingRevenueId`.
-            if (exists) {
-                newHistory = newHistory.filter((item: any) => item.id !== exists.id);
-            }
-        } else {
-            // Add New
-            const newItem: RevenueItem = {
-                id: exists ? exists.id : Date.now().toString(), // If exists confirmed, reuse ID or overwrite? Let's just create/overwrite.
-                date: dateStr,
-                cash,
-                card,
-                total
-            };
-
-            if (exists) {
-                newHistory = currentHistory.map((item: any) => item.date === dateStr ? newItem : item);
+            if (editingRevenueId) {
+                // Edit existing
+                newHistory = currentHistory.map((item: any) =>
+                    item.id === editingRevenueId ? { ...item, date: dateStr, cash, card, total } : item
+                );
+                if (exists) {
+                    newHistory = newHistory.filter((item: any) => item.id !== exists.id);
+                }
             } else {
-                newHistory = [...currentHistory, newItem];
+                // Add New
+                const newItem: RevenueItem = {
+                    id: exists ? exists.id : Date.now().toString(),
+                    date: dateStr,
+                    cash,
+                    card,
+                    total
+                };
+
+                if (exists) {
+                    newHistory = currentHistory.map((item: any) => item.date === dateStr ? newItem : item);
+                } else {
+                    newHistory = [...currentHistory, newItem];
+                }
             }
+
+            // Sort by date desc
+            newHistory.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            const updatedFormData = { ...formData, revenueHistory: newHistory };
+            setFormData(updatedFormData);
+            setIsRevenueModalOpen(false);
+            setEditingRevenueId(null);
+
+            // Auto-save logic reuse
+            await autoSaveProperty(updatedFormData);
+        };
+
+        if (exists) {
+            showConfirm(`${dateStr} 매출 데이터가 이미 존재합니다. 덮어씌우시겠습니까?`, proceedSaveRevenue);
+        } else {
+            proceedSaveRevenue();
         }
-
-        // Sort by date desc
-        newHistory.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-        const updatedFormData = { ...formData, revenueHistory: newHistory };
-        setFormData(updatedFormData);
-        setIsRevenueModalOpen(false);
-        setEditingRevenueId(null);
-
-        // Auto-save logic reuse
-        await autoSaveProperty(updatedFormData);
     };
 
     const handleDeleteRevenue = async () => {
         if (selectedRevenueIds.length === 0) {
-            alert('삭제할 항목을 선택해주세요.');
+            showAlert('삭제할 항목을 선택해주세요.');
             return;
         }
 
@@ -1467,6 +1500,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             data.forEach((row: any) => {
                 const year = row['년'] || row['Year'];
                 const month = row['월'] || row['Month'];
+                const tile = Number(row['기타매출']) || 0; // Just example placeholder
                 const cash = Number(row['현금매출']) || 0;
                 const card = Number(row['카드매출']) || 0;
 
@@ -1501,7 +1535,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 const updated = { ...formData, revenueHistory: mergedHistory };
                 setFormData(updated);
                 autoSaveProperty(updated);
-                alert(`${newItems.length}건의 매출 데이터가 등록되었습니다.`);
+                showAlert(`${newItems.length}건의 매출 데이터가 등록되었습니다.`);
             }
         };
         reader.readAsBinaryString(file);
@@ -2045,128 +2079,126 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     };
 
     const handleSave = async () => {
-        if (!window.confirm('저장하시겠습니까?')) return;
-        setIsLoading(true);
-        try {
-            const isNew = !formData.id;
-            const method = isNew ? 'POST' : 'PUT';
-            const url = isNew ? '/api/properties' : `/api/properties?id=${formData.id}`;
+        showConfirm('저장하시겠습니까?', async () => {
+            setIsLoading(true);
+            try {
+                const isNew = !formData.id;
+                const method = isNew ? 'POST' : 'PUT';
+                const url = isNew ? '/api/properties' : `/api/properties?id=${formData.id}`;
 
-            // Auto-add Price History if changed (Request 3)
-            const lastHistory = formData.priceHistory && formData.priceHistory.length > 0
-                ? formData.priceHistory[formData.priceHistory.length - 1]
-                : null;
+                // Auto-add Price History if changed (Request 3)
+                const lastHistory = formData.priceHistory && formData.priceHistory.length > 0
+                    ? formData.priceHistory[formData.priceHistory.length - 1]
+                    : null;
 
-            const currentTotal = Number(formData.totalPrice) || 0;
-            const lastTotal = lastHistory ? Number(lastHistory.amount) : -1; // -1 to force add if no history
+                const currentTotal = Number(formData.totalPrice) || 0;
+                const lastTotal = lastHistory ? Number(lastHistory.amount) : -1; // -1 to force add if no history
 
-            let finalFormData = { ...formData };
+                let finalFormData = { ...formData };
 
-            // Ensure companyName is present for data isolation
-            if (!finalFormData.companyName) {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const parsed = JSON.parse(userStr);
-                    const user = parsed.user || parsed; // Handle wrapped 'user' object
-                    finalFormData.companyName = user.companyName;
+                // Ensure companyName is present for data isolation
+                if (!finalFormData.companyName) {
+                    const userStr = localStorage.getItem('user');
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        const user = parsed.user || parsed; // Handle wrapped 'user' object
+                        finalFormData.companyName = user.companyName;
+                    }
                 }
-            }
 
-            if (currentTotal !== lastTotal) {
-                const newHistoryItem: PriceHistoryItem = {
-                    id: Date.now().toString(),
-                    date: new Date().toISOString().split('T')[0],
-                    manager: formData.managerName || 'Unknown',
-                    amount: currentTotal,
-                    isImportant: false,
-                    details: isNew ? '신규 등록 (자동저장)' : '금액 정보 수정 (자동저장)'
-                };
-                const newHistory = [...(formData.priceHistory || []), newHistoryItem];
-                finalFormData.priceHistory = newHistory;
-
-                // Moved addScheduleEvent logic to after success response
-                // ...
-            }
-
-            const res = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(finalFormData),
-            });
-
-            if (res.ok) {
-                const savedData = await res.json();
-                alert('저장되었습니다.');
-
-                // Update local state with saved data
-                setFormData(savedData);
-
-                // Add Schedule Event AFTER Save (so we have ID)
                 if (currentTotal !== lastTotal) {
-                    const statusMap: Record<string, string> = {
-                        'progress': '진행',
-                        'manage': '관리',
-                        'hold': '보류',
-                        'joint': '공동',
-                        'complete': '완료'
+                    const newHistoryItem: PriceHistoryItem = {
+                        id: Date.now().toString(),
+                        date: new Date().toISOString().split('T')[0],
+                        manager: formData.managerName || 'Unknown',
+                        amount: currentTotal,
+                        isImportant: false,
+                        details: isNew ? '신규 등록 (자동저장)' : '금액 정보 수정 (자동저장)'
                     };
-
-                    const statusText = statusMap[savedData.status] || '진행';
-                    const eventTitle = isNew
-                        ? `[신규] [${savedData.name || '무명'}] · (${formatCurrency(currentTotal)} 만원)`
-                        : `[금액변동] [${savedData.name}] · (${formatCurrency(currentTotal)} 만원)`;
-
-                    // Colors: New=#7950f2 (Purple), PriceChange=#fd7e14 (Orange)
-                    const eventColor = isNew ? '#7950f2' : '#fd7e14';
-
-                    await addScheduleEvent(
-                        eventTitle,
-                        new Date().toISOString().split('T')[0],
-                        isNew ? 'work' : 'price_change', // Differentiate type if needed
-                        eventColor,
-                        savedData.id // Use the confirmed ID
-                    );
+                    const newHistory = [...(formData.priceHistory || []), newHistoryItem];
+                    finalFormData.priceHistory = newHistory;
                 }
 
-                // Notify parent list to refresh immediately
-                if (onRefresh) {
-                    onRefresh();
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(finalFormData),
+                });
+
+                if (res.ok) {
+                    const savedData = await res.json();
+                    showAlert('저장되었습니다.', 'success');
+
+                    // Update local state with saved data
+                    setFormData(savedData);
+
+                    // Add Schedule Event AFTER Save (so we have ID)
+                    if (currentTotal !== lastTotal) {
+                        const statusMap: Record<string, string> = {
+                            'progress': '진행',
+                            'manage': '관리',
+                            'hold': '보류',
+                            'joint': '공동',
+                            'complete': '완료'
+                        };
+
+                        const eventTitle = isNew
+                            ? `[신규] [${savedData.name || '무명'}] · (${formatCurrency(currentTotal)} 만원)`
+                            : `[금액변동] [${savedData.name}] · (${formatCurrency(currentTotal)} 만원)`;
+
+                        const eventColor = isNew ? '#7950f2' : '#fd7e14';
+
+                        await addScheduleEvent(
+                            eventTitle,
+                            new Date().toISOString().split('T')[0],
+                            isNew ? 'work' : 'price_change', // Differentiate type if needed
+                            eventColor,
+                            savedData.id // Use the confirmed ID
+                        );
+                    }
+
+                    // Notify parent list to refresh immediately
+                    if (onRefresh) {
+                        onRefresh();
+                    }
+                } else {
+                    showAlert('저장에 실패했습니다.', 'error');
                 }
-            } else {
-                alert('저장에 실패했습니다.');
+            } catch (error) {
+                console.error('Failed to save property:', error);
+                showAlert('오류가 발생했습니다.', 'error');
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error('Failed to save property:', error);
-            alert('오류가 발생했습니다.');
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
     const handleDelete = async () => {
         if (!formData.id) {
-            alert('저장되지 않은 물건입니다.');
+            showAlert('저장되지 않은 물건입니다.', 'error');
             return;
         }
-        if (!window.confirm('정말 삭제하시겠습니까?')) return;
-        setIsLoading(true);
-        try {
-            const res = await fetch(`/api/properties?id=${formData.id}`, {
-                method: 'DELETE',
-            });
-            if (res.ok) {
-                alert('삭제되었습니다.');
-                if (onRefresh) onRefresh();
-                onClose();
-            } else {
-                alert('삭제에 실패했습니다.');
+        showConfirm('정말 삭제하시겠습니까?', async () => {
+            setIsLoading(true);
+            try {
+                const res = await fetch(`/api/properties?id=${formData.id}`, {
+                    method: 'DELETE',
+                });
+                if (res.ok) {
+                    showAlert('삭제되었습니다.', 'success', () => {
+                        if (onRefresh) onRefresh();
+                        onClose();
+                    });
+                } else {
+                    showAlert('삭제에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showAlert('오류가 발생했습니다.', 'error');
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error(error);
-            alert('오류가 발생했습니다.');
-        } finally {
-            setIsLoading(false);
-        }
+        }, true);
     };
 
     const showToast = (message: string) => {
@@ -2177,78 +2209,80 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     };
 
     const handleNew = () => {
-        if (!window.confirm('작성 중인 내용이 초기화됩니다. 신규 물건을 작성하시겠습니까?')) return;
+        showConfirm('작성 중인 내용이 초기화됩니다. 신규 물건을 작성하시겠습니까?', () => {
+            const emptyData = {
+                name: '',
+                status: 'progress',
+                priceHistory: [],
+                workHistory: [],
+                managerId: '',
+                managerName: ''
+            };
 
-        const emptyData = {
-            name: '',
-            status: 'progress',
-            priceHistory: [],
-            workHistory: [],
-            managerId: '',
-            managerName: ''
-        };
+            // Inject company info and manager info
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const parsed = JSON.parse(userStr);
+                const user = parsed.user || parsed; // Handle wrapped 'user' object
+                (emptyData as any).companyName = user.companyName;
+                (emptyData as any).managerId = user.id;
+                (emptyData as any).managerName = user.name;
+            }
 
-        // Inject company info and manager info
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            const parsed = JSON.parse(userStr);
-            const user = parsed.user || parsed; // Handle wrapped 'user' object
-            (emptyData as any).companyName = user.companyName;
-            (emptyData as any).managerId = user.id;
-            (emptyData as any).managerName = user.name;
-        }
-
-        setFormData(emptyData);
+            setFormData(emptyData);
+        }, true);
     };
 
     const handleCopy = async () => {
-        if (!window.confirm('현재 물건을 복사하여 새로운 물건을 생성하시겠습니까?')) return;
-        setIsLoading(true);
-        try {
-            // Clone formData and modify for new entry
-            const { id, ...rest } = formData;
-            const newProperty = {
-                ...rest,
-                name: `${formData.name} (복사본)`,
-                createdAt: new Date().toISOString(),
-            };
+        showConfirm('현재 물건을 복사하여 새로운 물건을 생성하시겠습니까?', async () => {
+            setIsLoading(true);
+            try {
+                // Clone formData and modify for new entry
+                const { id, ...rest } = formData;
+                const newProperty = {
+                    ...rest,
+                    name: `${formData.name} (복사본)`,
+                    createdAt: new Date().toISOString(),
+                };
 
-            // Ensure companyName is present check
-            if (!newProperty.companyName) {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const parsed = JSON.parse(userStr);
-                    const user = parsed.user || parsed; // Handle wrapped 'user' object
-                    newProperty.companyName = user.companyName;
+                // Ensure companyName is present check
+                if (!newProperty.companyName) {
+                    const userStr = localStorage.getItem('user');
+                    if (userStr) {
+                        const parsed = JSON.parse(userStr);
+                        const user = parsed.user || parsed; // Handle wrapped 'user' object
+                        newProperty.companyName = user.companyName;
+                    }
                 }
+
+                const res = await fetch('/api/properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newProperty),
+                });
+
+                if (res.ok) {
+                    const createdProperty = await res.json();
+
+                    // Add to Schedule (New Property from Copy)
+                    const totalPrice = (createdProperty.deposit || 0) + (createdProperty.premium || 0) + (createdProperty.briefingPrice || 0);
+                    const scheduleTitle = `[신규] [${createdProperty.name}] · (${formatCurrency(totalPrice)} 만원)`;
+                    await addScheduleEvent(scheduleTitle, new Date().toISOString().split('T')[0], 'work', '#7950f2', createdProperty.id);
+
+                    showAlert('물건이 복사되었습니다.', 'success', () => {
+                        if (onRefresh) onRefresh();
+                        onClose();
+                    });
+                } else {
+                    showAlert('복사에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showAlert('오류가 발생했습니다.', 'error');
+            } finally {
+                setIsLoading(false);
             }
-
-            const res = await fetch('/api/properties', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newProperty),
-            });
-
-            if (res.ok) {
-                const createdProperty = await res.json();
-
-                // Add to Schedule (New Property from Copy)
-                const totalPrice = (createdProperty.deposit || 0) + (createdProperty.premium || 0) + (createdProperty.briefingPrice || 0);
-                const scheduleTitle = `[신규] [${createdProperty.name}] · (${formatCurrency(totalPrice)} 만원)`;
-                await addScheduleEvent(scheduleTitle, new Date().toISOString().split('T')[0], 'work', '#7950f2', createdProperty.id);
-
-                alert('물건이 복사되었습니다.');
-                if (onRefresh) onRefresh();
-                onClose();
-            } else {
-                alert('복사에 실패했습니다.');
-            }
-        } catch (error) {
-            console.error(error);
-            alert('오류가 발생했습니다.');
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
     // Document State & Handlers
@@ -2285,7 +2319,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
                 if (file.size > maxSize) {
-                    alert(`파일 '${file.name}'의 용량이 50MB를 초과하여 제외됩니다.`);
+                    showAlert(`파일 '${file.name}'의 용량이 50MB를 초과하여 제외됩니다.`, 'error');
                     continue;
                 }
 
@@ -2304,7 +2338,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
                 if (uploadError) {
                     console.error('Upload error:', uploadError);
-                    alert(`Upload failed for ${file.name}: ${uploadError.message}`);
+                    showAlert(`Upload failed for ${file.name}: ${uploadError.message}`, 'error');
                     continue;
                 }
 
@@ -2332,11 +2366,11 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 const updatedFormData = { ...formData, documents: updatedDocs };
                 setFormData(updatedFormData);
                 await autoSaveProperty(updatedFormData);
-                alert(`${newDocs.length}개의 문서가 등록되었습니다.`);
+                showAlert(`${newDocs.length}개의 문서가 등록되었습니다.`, 'success');
             }
         } catch (error) {
             console.error('Doc upload process error:', error);
-            alert('문서 업로드 중 오류가 발생했습니다.');
+            showAlert('문서 업로드 중 오류가 발생했습니다.', 'error');
         } finally {
             setIsLoading(false);
             if (docInputRef.current) docInputRef.current.value = '';
@@ -2345,48 +2379,48 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
     const handleDeleteDocuments = async () => {
         if (selectedDocIds.length === 0) {
-            alert('삭제할 문서를 선택해주세요.');
+            showAlert('삭제할 문서를 선택해주세요.', 'error');
             return;
         }
-        if (!confirm(`${selectedDocIds.length}개의 문서를 삭제하시겠습니까?`)) return;
+        showConfirm(`${selectedDocIds.length}개의 문서를 삭제하시겠습니까?`, async () => {
+            setIsLoading(true);
+            const supabase = getSupabase();
 
-        setIsLoading(true);
-        const supabase = getSupabase();
+            try {
+                const currentDocs = formData.documents || [];
 
-        try {
-            const currentDocs = formData.documents || [];
+                // 1. Find files to delete from Storage (those with 'path')
+                const docsToDelete = currentDocs.filter((doc: any) => selectedDocIds.includes(doc.id));
+                const pathsToDelete = docsToDelete
+                    .filter((doc: any) => doc.path)
+                    .map((doc: any) => doc.path);
 
-            // 1. Find files to delete from Storage (those with 'path')
-            const docsToDelete = currentDocs.filter((doc: any) => selectedDocIds.includes(doc.id));
-            const pathsToDelete = docsToDelete
-                .filter((doc: any) => doc.path)
-                .map((doc: any) => doc.path);
+                if (pathsToDelete.length > 0) {
+                    const { error: deleteError } = await supabase.storage
+                        .from('property-documents')
+                        .remove(pathsToDelete);
 
-            if (pathsToDelete.length > 0) {
-                const { error: deleteError } = await supabase.storage
-                    .from('property-documents')
-                    .remove(pathsToDelete);
-
-                if (deleteError) {
-                    console.error('Storage delete error:', deleteError);
-                    // Decide whether to stop or continue. Usually safe to continue removing metadata.
-                    // alert('Error deleting files from storage, but metadata will be removed.');
+                    if (deleteError) {
+                        console.error('Storage delete error:', deleteError);
+                        // Decide whether to stop or continue. Usually safe to continue removing metadata.
+                        // alert('Error deleting files from storage, but metadata will be removed.');
+                    }
                 }
+
+                // 2. Remove from State
+                const updatedDocs = currentDocs.filter((doc: any) => !selectedDocIds.includes(doc.id));
+                const updatedFormData = { ...formData, documents: updatedDocs };
+
+                setFormData(updatedFormData);
+                setSelectedDocIds([]);
+                await autoSaveProperty(updatedFormData);
+            } catch (error) {
+                console.error('Delete docs error:', error);
+                showAlert('문서 삭제 중 오류가 발생했습니다.', 'error');
+            } finally {
+                setIsLoading(false);
             }
-
-            // 2. Remove from State
-            const updatedDocs = currentDocs.filter((doc: any) => !selectedDocIds.includes(doc.id));
-            const updatedFormData = { ...formData, documents: updatedDocs };
-
-            setFormData(updatedFormData);
-            setSelectedDocIds([]);
-            await autoSaveProperty(updatedFormData);
-        } catch (error) {
-            console.error('Delete docs error:', error);
-            alert('문서 삭제 중 오류가 발생했습니다.');
-        } finally {
-            setIsLoading(false);
-        }
+        });
     };
 
     const handleFranchiseChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
@@ -2459,7 +2493,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                         placeholder="물건명"
                     />
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', marginRight: '20px' }}>
+                <div className={styles.headerActions}>
                     {/* Share Button (Mobile Secret Briefing) */}
                     {formData.id && (
                         <div style={{ marginRight: '8px' }}>
@@ -4226,7 +4260,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>날짜</div>
-                                        <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
+                                        <div className={styles.fieldValue} style={{ gridColumn: 'span 3', flexWrap: 'wrap', gap: '8px', height: 'auto' }}>
                                             <input
                                                 type="date"
                                                 className={styles.input}
@@ -4234,7 +4268,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                 value={priceHistoryForm.date}
                                                 onChange={(e) => setPriceHistoryForm(prev => ({ ...prev, date: e.target.value }))}
                                             />
-                                            <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+                                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                                 <button className={styles.smallBtn} style={{ padding: '6px 12px', height: 'auto', whiteSpace: 'nowrap' }} onClick={() => adjustDate(-1, 'price')}>-1일</button>
                                                 <button className={styles.smallBtn} style={{ padding: '6px 12px', height: 'auto', whiteSpace: 'nowrap' }} onClick={() => setDateTo('yesterday', 'price')}>어제</button>
                                                 <button className={styles.smallBtn} style={{ padding: '6px 12px', height: 'auto', whiteSpace: 'nowrap' }} onClick={() => setDateTo('today', 'price')}>오늘</button>
@@ -4283,7 +4317,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                 <h3>{editingRevenueId ? '월매출내역 수정' : '월매출내역 추가'}</h3>
                                 <button type="button" onClick={() => setIsRevenueModalOpen(false)}><X size={20} /></button>
                             </div>
-                            <div style={{ padding: 20 }}>
+                            <div className={styles.modalBody}>
                                 <div style={{ display: 'flex', gap: 10, marginBottom: 15, alignItems: 'center' }}>
                                     <input className={styles.input} type="number" style={{ width: 80 }} value={revenueForm.year} onChange={(e) => setRevenueForm({ ...revenueForm, year: Number(e.target.value) })} />
                                     <span>년</span>
@@ -4322,7 +4356,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                 <h3>{editingHistoryId ? '작업내역 수정' : '작업내역 추가'}</h3>
                                 <button type="button" onClick={() => setIsWorkHistoryOpen(false)}><X size={20} /></button>
                             </div>
-                            <div style={{ padding: '20px' }}>
+                            <div className={styles.modalBody}>
                                 <div className={styles.fieldGrid}>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>내역</div>
@@ -4336,7 +4370,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>날짜</div>
-                                        <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
+                                        <div className={styles.fieldValue} style={{ gridColumn: 'span 3', flexWrap: 'wrap', gap: '8px', height: 'auto' }}>
                                             <input
                                                 type="date"
                                                 className={styles.input}
@@ -4344,7 +4378,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                 value={workHistoryForm.date}
                                                 onChange={(e) => setWorkHistoryForm(prev => ({ ...prev, date: e.target.value }))}
                                             />
-                                            <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+                                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                                 <button className={styles.smallBtn} style={{ padding: '6px 12px', height: 'auto', whiteSpace: 'nowrap' }} onClick={() => adjustDate(-1, 'work')}>-1일</button>
                                                 <button className={styles.smallBtn} style={{ padding: '6px 12px', height: 'auto', whiteSpace: 'nowrap' }} onClick={() => setDateTo('yesterday', 'work')}>어제</button>
                                                 <button className={styles.smallBtn} style={{ padding: '6px 12px', height: 'auto', whiteSpace: 'nowrap' }} onClick={() => setDateTo('today', 'work')}>오늘</button>
@@ -4427,7 +4461,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                 <h3>{editingContractId ? '계약히스토리 수정' : '계약히스토리 추가'}</h3>
                                 <button type="button" onClick={() => setIsContractModalOpen(false)}><X size={20} /></button>
                             </div>
-                            <div style={{ padding: '20px' }}>
+                            <div className={styles.modalBody}>
                                 <div className={styles.fieldGrid}>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>계약종류</div>
@@ -4529,7 +4563,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                 <h3>새 업종 추가</h3>
                                 <button type="button" onClick={() => setIsCategoryInputOpen(false)}><X size={20} /></button>
                             </div>
-                            <div style={{ padding: '20px' }}>
+                            <div className={styles.modalBody}>
                                 <div style={{ marginBottom: 15 }}>
                                     <input
                                         value={newCategoryName}
@@ -4582,6 +4616,12 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 onConfirm={confirmModal.onConfirm}
                 message={confirmModal.message}
                 isDanger={confirmModal.isDanger}
+            />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
             />
 
             {/* View Modals for Linked Items */}

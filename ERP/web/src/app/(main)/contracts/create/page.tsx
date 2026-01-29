@@ -5,6 +5,8 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FileText, Check, ShieldAlert, ArrowRight, ArrowLeft, Users } from 'lucide-react';
 import { Template } from '@/lib/ucansign/client';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 function ContractCreateContent() {
     const router = useRouter();
@@ -19,6 +21,22 @@ function ContractCreateContent() {
     const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
     const [templateDetails, setTemplateDetails] = useState<any>(null);
     const [participantMap, setParticipantMap] = useState<Record<string, { name: string, contact: string }>>({});
+
+    const [alertConfig, setAlertConfig] = useState<{
+        isOpen: boolean;
+        message: string;
+        title?: string;
+        onClose?: () => void;
+    }>({ isOpen: false, message: '' });
+
+    const showAlert = (message: string, onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false, onClose: undefined }));
+    };
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
@@ -76,7 +94,7 @@ function ContractCreateContent() {
             setParticipantMap(initialMap);
             setStep('PARTICIPANTS');
         } catch (e: any) {
-            alert(e.message);
+            showAlert(e.message);
         } finally {
             setIsLoading(false);
         }
@@ -100,7 +118,7 @@ function ContractCreateContent() {
             for (const t of targets) {
                 const info = participantMap[t.participantId];
                 if (!info?.name || !info?.contact) {
-                    alert(`${t.roleName || '참여자'} 정보를 모두 입력해주세요.`);
+                    showAlert(`${t.roleName || '참여자'} 정보를 모두 입력해주세요.`);
                     setIsLoading(false);
                     return;
                 }
@@ -124,11 +142,12 @@ function ContractCreateContent() {
             }
 
             const result = await res.json();
-            alert('계약이 성공적으로 생성 및 전송되었습니다!');
-            window.location.href = '/contracts';
+            showAlert('계약이 성공적으로 생성 및 전송되었습니다!', () => {
+                window.location.href = '/contracts';
+            });
 
         } catch (e: any) {
-            alert(e.message);
+            showAlert(e.message);
         } finally {
             setIsLoading(false);
         }
@@ -139,14 +158,14 @@ function ContractCreateContent() {
     return (
         <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
             {/* Header */}
-            <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <button
                     onClick={() => step === 'TEMPLATE' ? router.back() : setStep('TEMPLATE')}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}
                 >
                     <ArrowLeft size={20} />
                 </button>
-                <h1 style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                <h1 style={{ fontSize: '24px', fontWeight: 'bold', wordBreak: 'keep-all', whiteSpace: 'nowrap' }}>
                     {step === 'TEMPLATE' ? '계약 템플릿 선택' : '참여자 설정'}
                 </h1>
                 {step === 'TEMPLATE' && (
@@ -184,9 +203,9 @@ function ContractCreateContent() {
                 <>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginBottom: '30px' }}>
                         {needAuth ? (
-                            <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+                            <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', background: '#fff', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
                                 <ShieldAlert size={48} style={{ color: '#f59e0b', marginBottom: '16px', margin: '0 auto', display: 'block' }} />
-                                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>서비스 연동이 필요합니다</h3>
+                                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px', color: '#333', wordBreak: 'keep-all', whiteSpace: 'nowrap' }}>서비스 연동이 필요합니다</h3>
                                 <p style={{ color: '#666', marginBottom: '24px' }}>전자 계약 템플릿을 불러오려면 유캔싸인 계정을 연동해주세요.</p>
                                 <button
                                     onClick={() => window.location.href = `/api/ucansign/auth?userId=${userId}`}
@@ -357,6 +376,13 @@ function ContractCreateContent() {
                     </div>
                 </div>
             )}
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
         </div>
     );
 }

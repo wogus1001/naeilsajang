@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { X, Copy, Check, Share2, MessageCircle, Edit2 } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 import { createClient } from '@/utils/supabase/client';
 
@@ -15,7 +17,37 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
     const [loading, setLoading] = useState(false);
     const [copySuccess, setCopySuccess] = useState(false);
     const [generatedLink, setGeneratedLink] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
+
+    // Global Alert/Confirm State
+    const [alertConfig, setAlertConfig] = useState<{
+        isOpen: boolean;
+        message: string;
+        type: 'success' | 'error' | 'info';
+    }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean;
+        message: string;
+        onConfirm: () => void;
+        isDanger?: boolean;
+    }>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+        setAlertConfig({ isOpen: true, message, type });
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger = false) => {
+        setConfirmConfig({ isOpen: true, message, onConfirm, isDanger });
+    };
 
     // Options
     const [hideAddress, setHideAddress] = useState(true);
@@ -38,7 +70,6 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
 
     const handleCreateLink = async () => {
         setLoading(true);
-        setError(null);
 
         // Calculate Expiry
         let expiresAt = null;
@@ -87,7 +118,7 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
             setGeneratedLink(`${window.location.origin}/share/${data.token}`);
         } catch (err: any) {
             console.error(err);
-            setError(err.message || '서버 오류가 발생했습니다.');
+            showAlert(err.message || '서버 오류가 발생했습니다.', 'error');
         } finally {
             setLoading(false);
         }
@@ -96,7 +127,7 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
     const copyToClipboard = () => {
         if (generatedLink) {
             navigator.clipboard.writeText(generatedLink);
-            alert('링크가 복사되었습니다.');
+            showAlert('링크가 복사되었습니다.', 'success');
         }
     };
 
@@ -117,7 +148,7 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
         if (!generatedLink) return;
 
         if (!(window as any).Kakao || !(window as any).Kakao.isInitialized()) {
-            alert('카카오톡 SDK가 로드되지 않았습니다.');
+            showAlert('카카오톡 SDK가 로드되지 않았습니다.', 'error');
             return;
         }
 
@@ -174,55 +205,14 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
         setIsHistoryOpen(!isHistoryOpen);
     };
 
-    const handleRevokeSingle = async (linkId: string) => {
-        if (!confirm('이 링크를 만료시키겠습니까?')) return;
-        try {
-            const { createClient } = await import('@/utils/supabase/client');
-            const supabase = createClient();
-            const { data: sessionData } = await supabase.auth.getSession();
-            const token = sessionData.session?.access_token;
-
-            const res = await fetch('/api/briefing/expire', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                },
-                body: JSON.stringify({ link_id: linkId }) // Use link_id for single revoke
-            });
-
-            if (res.ok) {
-                // Refresh list
-                fetchHistory();
-                alert('만료되었습니다.');
-            }
-        } catch (e) {
-            alert('오류가 발생했습니다.');
-        }
-    };
-
-    // Helper to calc remaining time
-    const getTimeRemaining = (expiresAt: string | null) => {
-        if (!expiresAt) return '무제한';
-        const now = new Date();
-        const end = new Date(expiresAt);
-        if (end < now) return '만료됨';
-        const diff = end.getTime() - now.getTime();
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        if (days > 0) return `${days}일 남음`;
-        if (hours > 0) return `${hours}시간 남음`;
-        return '곧 만료';
-    };
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 transition-all">
             <div
-                className={`bg-white rounded-2xl shadow-2xl overflow-hidden relative transition-all duration-300 ease-in-out flex ${isHistoryOpen ? 'w-full max-w-4xl' : 'w-full max-w-md'}`}
+                className={`bg-white rounded-2xl shadow-2xl overflow-hidden relative transition-all duration-300 ease-in-out flex flex-col md:flex-row w-[95vw] md:w-auto ${isHistoryOpen ? 'md:max-w-4xl' : 'md:max-w-md'}`}
                 style={{ maxHeight: '90vh' }}
             >
                 {/* Main Content (Left) */}
-                <div className="w-full min-w-[28rem] flex flex-col border-r border-gray-100">
+                <div className="w-full md:w-[28rem] flex-1 min-h-0 md:flex-none flex flex-col border-r border-gray-100 transition-all">
                     {/* Header */}
                     <div className="flex justify-between items-center p-4 border-b">
                         <h3 className="font-bold text-lg">시크릿 브리핑 공유</h3>
@@ -343,11 +333,7 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
                                         </div>
                                     </div>
 
-                                    {error && (
-                                        <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-                                            {error}
-                                        </div>
-                                    )}
+                                    {/* Inline error removed */}
 
                                     <div className="pt-2">
                                         <button
@@ -359,27 +345,28 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
                                         </button>
                                         <div className="mt-3 text-center">
                                             <button
-                                                onClick={async () => {
-                                                    if (!confirm('정말 이 매물의 모든 공유 링크를 만료시키겠습니까?\n기존에 공유된 링크들이 더 이상 열리지 않게 됩니다.')) return;
-                                                    try {
-                                                        const { createClient } = await import('@/utils/supabase/client');
-                                                        const supabase = createClient();
-                                                        const { data: sessionData } = await supabase.auth.getSession();
-                                                        const token = sessionData.session?.access_token;
+                                                onClick={() => {
+                                                    showConfirm('정말 이 매물의 모든 공유 링크를 만료시키겠습니까?\n기존에 공유된 링크들이 더 이상 열리지 않게 됩니다.', async () => {
+                                                        try {
+                                                            const { createClient } = await import('@/utils/supabase/client');
+                                                            const supabase = createClient();
+                                                            const { data: sessionData } = await supabase.auth.getSession();
+                                                            const token = sessionData.session?.access_token;
 
-                                                        const res = await fetch('/api/briefing/expire', {
-                                                            method: 'POST',
-                                                            headers: {
-                                                                'Content-Type': 'application/json',
-                                                                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                                                            },
-                                                            body: JSON.stringify({ property_id: propertyId })
-                                                        });
-                                                        if (res.ok) alert('모든 링크가 만료되었습니다.');
-                                                        else throw new Error('실패했습니다.');
-                                                    } catch (e) {
-                                                        alert('오류가 발생했습니다.');
-                                                    }
+                                                            const res = await fetch('/api/briefing/expire', {
+                                                                method: 'POST',
+                                                                headers: {
+                                                                    'Content-Type': 'application/json',
+                                                                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                                                },
+                                                                body: JSON.stringify({ property_id: propertyId })
+                                                            });
+                                                            if (res.ok) showAlert('모든 링크가 만료되었습니다.', 'success');
+                                                            else throw new Error('실패했습니다.');
+                                                        } catch (e) {
+                                                            showAlert('오류가 발생했습니다.', 'error');
+                                                        }
+                                                    }, true);
                                                 }}
                                                 className="text-xs text-gray-400 hover:text-red-500 underline underline-offset-2 transition-colors"
                                             >
@@ -421,7 +408,7 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
                 </div>
 
                 {/* History Panel (Right) - Collapsible */}
-                <div className={`bg-slate-50 border-l border-gray-200 transition-all duration-300 ease-in-out flex flex-col ${isHistoryOpen ? 'w-[24rem] opacity-100' : 'w-0 opacity-0 overflow-hidden'}`}>
+                <div className={`bg-slate-50 border-t md:border-t-0 md:border-l border-gray-200 transition-all duration-300 ease-in-out flex flex-col ${isHistoryOpen ? 'h-[40vh] md:h-auto w-full md:w-[24rem] opacity-100' : 'h-0 md:h-auto w-full md:w-0 opacity-0 overflow-hidden'}`}>
                     <div className="p-4 border-b bg-slate-100 font-bold text-gray-700 flex justify-between items-center">
                         <span>전체 공유 목록</span>
                         <button onClick={() => fetchHistory()} className="text-xs text-indigo-600 hover:underline">새로고침</button>
@@ -433,17 +420,43 @@ export function ShareConfigModal({ propertyId, isOpen, onClose }: ShareConfigMod
                             <div className="text-center text-sm text-gray-400 py-10">생성된 링크가 없습니다.</div>
                         ) : (
                             linkHistory.map((link) => (
-                                <HistoryLinkItem key={link.id} link={link} onRefresh={() => fetchHistory()} />
+                                <HistoryLinkItem
+                                    key={link.id}
+                                    link={link}
+                                    onRefresh={() => fetchHistory()}
+                                    showAlert={showAlert}
+                                    showConfirm={showConfirm}
+                                />
                             ))
                         )}
                     </div>
                 </div>
             </div>
+
+            {/* Alerts & Confirms */}
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
+            <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmConfig.onConfirm}
+                message={confirmConfig.message}
+                isDanger={confirmConfig.isDanger}
+            />
         </div>
     );
 }
 
-function HistoryLinkItem({ link, onRefresh }: { link: any, onRefresh: () => void }) {
+function HistoryLinkItem({ link, onRefresh, showAlert, showConfirm }: {
+    link: any,
+    onRefresh: () => void,
+    showAlert: (msg: string, type: 'success' | 'error' | 'info') => void,
+    showConfirm: (msg: string, onConfirm: () => void, isDanger?: boolean) => void
+}) {
     const [isEditing, setIsEditing] = useState(false);
     const [memo, setMemo] = useState(link.options?.memo || '');
     const [saving, setSaving] = useState(false);
@@ -474,53 +487,55 @@ function HistoryLinkItem({ link, onRefresh }: { link: any, onRefresh: () => void
                 setIsEditing(false);
                 onRefresh(); // Refresh parent list to sync data
             } else {
-                alert('저장에 실패했습니다.');
+                showAlert('저장에 실패했습니다.', 'error');
             }
         } catch (e) {
             console.error(e);
-            alert('오류가 발생했습니다.');
+            showAlert('오류가 발생했습니다.', 'error');
         } finally {
             setSaving(false);
         }
     };
 
     const handleRevokeSingle = async () => {
-        if (!confirm('이 링크를 만료시키겠습니까?')) return;
-        try {
-            const { createClient } = await import('@/utils/supabase/client');
-            const supabase = createClient();
-            const { data: sessionData } = await supabase.auth.getSession();
-            const token = sessionData.session?.access_token;
+        showConfirm('이 링크를 만료시키겠습니까?', async () => {
+            try {
+                const { createClient } = await import('@/utils/supabase/client');
+                const supabase = createClient();
+                const { data: sessionData } = await supabase.auth.getSession();
+                const token = sessionData.session?.access_token;
 
-            const res = await fetch('/api/briefing/expire', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                },
-                body: JSON.stringify({ link_id: link.id })
-            });
+                const res = await fetch('/api/briefing/expire', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ link_id: link.id })
+                });
 
-            if (res.ok) {
-                onRefresh();
-                alert('만료되었습니다.');
+                if (res.ok) {
+                    onRefresh();
+                    showAlert('만료되었습니다.', 'success');
+                }
+            } catch (e) {
+                showAlert('오류가 발생했습니다.', 'error');
             }
-        } catch (e) {
-            alert('오류가 발생했습니다.');
-        }
+        }, true);
     };
 
     const handleDelete = async () => {
-        if (!confirm('이 기록을 목록에서 삭제하시겠습니까?')) return;
-        try {
-            const { createClient } = await import('@/utils/supabase/client');
-            const supabase = createClient();
-            const { error } = await supabase.from('share_links').delete().eq('id', link.id);
-            if (error) throw error;
-            onRefresh();
-        } catch (e) {
-            alert('삭제 실패');
-        }
+        showConfirm('이 기록을 목록에서 삭제하시겠습니까?', async () => {
+            try {
+                const { createClient } = await import('@/utils/supabase/client');
+                const supabase = createClient();
+                const { error } = await supabase.from('share_links').delete().eq('id', link.id);
+                if (error) throw error;
+                onRefresh();
+            } catch (e) {
+                showAlert('삭제 실패', 'error');
+            }
+        });
     };
 
     const getTimeRemaining = (expiresAt: string | null) => {
@@ -592,7 +607,7 @@ function HistoryLinkItem({ link, onRefresh }: { link: any, onRefresh: () => void
                 <button
                     onClick={() => {
                         navigator.clipboard.writeText(linkUrl);
-                        alert('링크가 복사되었습니다.');
+                        showAlert('링크가 복사되었습니다.', 'success');
                     }}
                     className="p-1 hover:bg-white rounded border border-transparent hover:border-gray-200 text-indigo-600"
                     title="링크 복사"

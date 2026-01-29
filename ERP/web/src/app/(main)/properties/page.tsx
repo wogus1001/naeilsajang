@@ -10,6 +10,8 @@ import styles from './page.module.css';
 import PropertyCard from '@/components/properties/PropertyCard';
 import PropertyUploadModal from '@/components/properties/PropertyUploadModal';
 import ViewModeSwitcher, { ViewMode } from '@/components/properties/ViewModeSwitcher';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 const Resizer = ({ onResize, onAutoFit }: { onResize: (e: React.MouseEvent) => void, onAutoFit: () => void }) => (
     <div
@@ -112,6 +114,31 @@ function PropertiesPageContent() {
     const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('center');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; isDanger?: boolean }>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
 
 
     // Advanced Filter State
@@ -545,31 +572,31 @@ function PropertiesPageContent() {
 
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) {
-            alert('삭제할 항목을 선택해주세요.');
+            showAlert('삭제할 항목을 선택해주세요.', 'error');
             return;
         }
 
-        if (!confirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`)) return;
+        showConfirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`, async () => {
+            setIsLoading(true);
+            try {
+                // Sequential delete as API likely doesn't support bulk yet
+                // Ideally: await fetch('/api/properties/bulk-delete', { ... })
+                const deletePromises = Array.from(selectedIds).map(id =>
+                    fetch(`/api/properties?id=${id}`, { method: 'DELETE' })
+                );
 
-        setIsLoading(true);
-        try {
-            // Sequential delete as API likely doesn't support bulk yet
-            // Ideally: await fetch('/api/properties/bulk-delete', { ... })
-            const deletePromises = Array.from(selectedIds).map(id =>
-                fetch(`/api/properties?id=${id}`, { method: 'DELETE' })
-            );
+                await Promise.all(deletePromises);
 
-            await Promise.all(deletePromises);
-
-            alert('삭제되었습니다.');
-            setSelectedIds(new Set());
-            fetchProperties(); // Refresh list
-        } catch (error) {
-            console.error('Failed to delete properties:', error);
-            alert('삭제 중 오류가 발생했습니다.');
-        } finally {
-            setIsLoading(false);
-        }
+                showAlert('삭제되었습니다.', 'success');
+                setSelectedIds(new Set());
+                fetchProperties(); // Refresh list
+            } catch (error) {
+                console.error('Failed to delete properties:', error);
+                showAlert('삭제 중 오류가 발생했습니다.', 'error');
+            } finally {
+                setIsLoading(false);
+            }
+        }, true);
     };
 
     // -------------------------------------------------------------------------
@@ -2159,6 +2186,19 @@ function PropertiesPageContent() {
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
                 onUploadSuccess={handleUploadSuccess}
+            />
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                message={confirmModal.message}
+                isDanger={confirmModal.isDanger}
+            />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
             />
         </div >
     );

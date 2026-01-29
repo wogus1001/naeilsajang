@@ -7,6 +7,8 @@ import * as XLSX from 'xlsx';
 import styles from './page.module.css';
 import CustomerCard from '@/components/customers/CustomerCard';
 import ViewModeSwitcher, { ViewMode } from '@/components/properties/ViewModeSwitcher';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 interface Customer {
     id: string;
@@ -71,6 +73,22 @@ function CustomerListPageContent() {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [uploadFiles, setUploadFiles] = useState<{ main: File | null, promoted: File | null, history: File | null }>({ main: null, promoted: null, history: null });
 
+    // Modal State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => { } });
+
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void) => {
+        setConfirmModal({ isOpen: true, message, onConfirm });
+    };
+
+    const closeAlert = () => {
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
 
     useEffect(() => {
         const queryId = searchParams.get('id');
@@ -107,89 +125,90 @@ function CustomerListPageContent() {
 
     const handleBatchUpload = async () => {
         if (!uploadFiles.main) {
-            alert('고객정보(Main) 파일은 필수입니다.');
+            showAlert('고객정보(Main) 파일은 필수입니다.');
             return;
         }
 
-        if (!confirm('선택한 파일들로 고객 데이터를 업로드하시겠습니까?\n(관리번호 기준 업데이트)')) return;
+        showConfirm('선택한 파일들로 고객 데이터를 업로드하시겠습니까?\n(관리번호 기준 업데이트)', async () => {
+            setLoading(true);
+            try {
+                const mainData = await parseExcel(uploadFiles.main!);
+                const promotedData = uploadFiles.promoted ? await parseExcel(uploadFiles.promoted) : [];
+                const historyData = uploadFiles.history ? await parseExcel(uploadFiles.history) : [];
 
-        setLoading(true);
-        try {
-            const mainData = await parseExcel(uploadFiles.main);
-            const promotedData = uploadFiles.promoted ? await parseExcel(uploadFiles.promoted) : [];
-            const historyData = uploadFiles.history ? await parseExcel(uploadFiles.history) : [];
-
-            // Add metadata
-            const userStr = localStorage.getItem('user');
-            let userCompanyName = 'Unknown';
-            let managerIdVal = '';
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const user = parsed.user || parsed;
-                userCompanyName = user.companyName || 'Unknown';
-                managerIdVal = user.uid || user.id || '';
-            }
-
-            const payload = {
-                main: mainData,
-                promoted: promotedData,
-                history: historyData,
-                meta: {
-                    userCompanyName,
-                    managerId: managerIdVal
+                // Add metadata
+                const userStr = localStorage.getItem('user');
+                let userCompanyName = 'Unknown';
+                let managerIdVal = '';
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    const user = parsed.user || parsed;
+                    userCompanyName = user.companyName || 'Unknown';
+                    managerIdVal = user.uid || user.id || '';
                 }
-            };
 
-            const res = await fetch('/api/customers/batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+                const payload = {
+                    main: mainData,
+                    promoted: promotedData,
+                    history: historyData,
+                    meta: {
+                        userCompanyName,
+                        managerId: managerIdVal
+                    }
+                };
 
-            if (res.ok) {
-                const result = await res.json();
-                alert(`업로드 완료\n- 처리된 데이터: ${result.count || 0}건`);
-                setIsUploadModalOpen(false);
-                setUploadFiles({ main: null, promoted: null, history: null });
-                fetchCustomers();
-            } else {
-                const err = await res.json();
-                alert(`업로드 실패: ${err.error || '알 수 없는 오류'}`);
+                const res = await fetch('/api/customers/batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const result = await res.json();
+                    showAlert(`업로드 완료\n- 처리된 데이터: ${result.count || 0}건`);
+                    setIsUploadModalOpen(false);
+                    setUploadFiles({ main: null, promoted: null, history: null });
+                    fetchCustomers();
+                } else {
+                    const err = await res.json();
+                    showAlert(`업로드 실패: ${err.error || '알 수 없는 오류'}`);
+                }
+            } catch (error) {
+                console.error(error);
+                showAlert('오류 발생');
+            } finally {
+                setLoading(false);
             }
-        } catch (error) {
-            console.error(error);
-            alert('오류 발생');
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     const handleSync = async () => {
-        if (!confirm('고객 작업내역 및 추진물건을 시스템(일정/부동산)과 동기화하시겠습니까?')) return;
-        setLoading(true);
-        try {
-            const userStr = localStorage.getItem('user');
-            const parsed = userStr ? JSON.parse(userStr) : {};
-            const user = parsed.user || parsed; // Handle wrapped 'user'
+        showConfirm('고객 작업내역 및 추진물건을 시스템(일정/부동산)과 동기화하시겠습니까?', async () => {
+            setLoading(true);
+            try {
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const user = parsed.user || parsed; // Handle wrapped 'user'
 
-            const res = await fetch('/api/customers/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ companyId: user.companyId || user.company_id })
-            });
-            const result = await res.json();
-            if (res.ok) {
-                alert(`동기화 완료\n- 일정 등록: ${result.results.history.matched}건\n- 물건 연결: ${result.results.promoted.linkFound}건`);
-                fetchCustomers();
-            } else {
-                alert('동기화 실패: ' + result.error);
+                const res = await fetch('/api/customers/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyId: user.companyId || user.company_id })
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showAlert(`동기화 완료\n- 일정 등록: ${result.results.history.matched}건\n- 물건 연결: ${result.results.promoted.linkFound}건`);
+                    fetchCustomers();
+                } else {
+                    showAlert('동기화 실패: ' + result.error);
+                }
+            } catch (e) {
+                console.error(e);
+                showAlert('오류 발생');
+            } finally {
+                setLoading(false);
             }
-        } catch (e) {
-            console.error(e);
-            alert('오류 발생');
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     const fetchCustomers = async () => {
@@ -408,66 +427,63 @@ function CustomerListPageContent() {
 
     const handleDeleteSelected = async () => {
         if (selectedIds.length === 0) return;
-        if (!confirm(`${selectedIds.length}명의 고객을 삭제하시겠습니까?`)) return;
-
-        setLoading(true);
-        try {
-            // Sequential delete as API might not support bulk yet
-            // Ideally we should have a bulk delete endpoint
-            for (const id of selectedIds) {
-                await fetch(`/api/customers?id=${id}`, { method: 'DELETE' });
+        showConfirm(`${selectedIds.length}명의 고객을 삭제하시겠습니까?`, async () => {
+            setLoading(true);
+            try {
+                // Sequential delete as API might not support bulk yet
+                // Ideally we should have a bulk delete endpoint
+                for (const id of selectedIds) {
+                    await fetch(`/api/customers?id=${id}`, { method: 'DELETE' });
+                }
+                showAlert('삭제되었습니다.');
+                setSelectedIds([]);
+                fetchCustomers();
+            } catch (error) {
+                console.error('Delete failed', error);
+                showAlert('삭제 중 오류가 발생했습니다.');
+            } finally {
+                setLoading(false);
             }
-            alert('삭제되었습니다.');
-            setSelectedIds([]);
-            fetchCustomers();
-        } catch (error) {
-            console.error('Delete failed', error);
-            alert('삭제 중 오류가 발생했습니다.');
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     return (
         <div className={styles.container}>
             {/* Toolbar */}
             <div className={styles.toolbar}>
-                <div
-                    className={`${styles.title} ${showFavoritesOnly ? styles.activeFavorite : ''}`}
-                    onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                    style={{ cursor: 'pointer', userSelect: 'none' }}
-                >
-                    <div className={styles.checkboxSquare}>
-                        {showFavoritesOnly && <div className={styles.checkboxInner} />}
-                    </div>
-                    <Star size={18} fill={showFavoritesOnly ? "#FAB005" : "none"} color={showFavoritesOnly ? "#FAB005" : "#868e96"} />
-                    <span style={{ color: showFavoritesOnly ? '#343a40' : '#868e96' }}>관심고객</span>
-                </div>
-
                 <div className={styles.searchGroup}>
+                    {/* Favorites Filter Chip */}
+                    <div
+                        className={`${styles.filterChip} ${showFavoritesOnly ? styles.activeFavorite : ''}`}
+                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                    >
+                        <Star size={16} fill={showFavoritesOnly ? "#fff" : "none"} color={showFavoritesOnly ? "#fff" : "#495057"} />
+                        <span>관심고객</span>
+                    </div>
+
+                    <div className={styles.dividerVertical}></div>
+
+                    {/* Status Filters Chips */}
                     {STATUS_OPTIONS.map(opt => {
                         const isSelected = selectedStatuses.includes(opt.value);
                         return (
                             <div
                                 key={opt.value}
-                                className={`${styles.statusFilterBtn} ${isSelected ? styles.active : ''}`}
+                                className={`${styles.filterChip} ${isSelected ? styles.active : ''} ${styles[opt.value]}`} // Use specific class for color
                                 onClick={() => toggleStatusFilter(opt.value)}
                             >
-                                <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => { }} // Handled by parent click
-                                    style={{ margin: 0, cursor: 'pointer', height: 13, width: 13 }}
-                                />
-                                <span className={`${styles.badge} ${opt.class}`}>{opt.label}</span>
+                                <span>{opt.label}</span>
                             </div>
                         );
                     })}
-                    <div style={{ width: '1px', height: '20px', background: '#dee2e6', margin: '0 8px' }}></div>
-                    <span>검색어 : </span>
+                </div>
+
+                {/* Search - Right aligned on desktop, stacked/scroll on mobile */}
+                <div className={styles.searchInputWrap}>
+                    <span>검색 : </span>
                     <input
                         className={styles.searchInput}
-                        placeholder="이름, 전화번호, 특징, 주소, 업종, 지역"
+                        placeholder="검색어 입력..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -587,7 +603,7 @@ function CustomerListPageContent() {
             {/* Footer */}
             <div className={styles.footer}>
                 <div>목록 : {filteredCustomers.length}건</div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className={styles.footerActions}>
                     {selectedIds.length > 0 && (
                         <button
                             className={styles.footerBtn}
@@ -599,14 +615,14 @@ function CustomerListPageContent() {
                         </button>
                     )}
                     <button
-                        className={styles.footerBtn}
+                        className={`${styles.footerBtn} ${styles.mobileHidden}`}
                         onClick={() => setIsUploadModalOpen(true)}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#228be6', color: 'white', borderColor: '#228be6' }}
                     >
                         <FileSpreadsheet size={14} /> 엑셀업로드
                     </button>
                     <button
-                        className={styles.footerBtn}
+                        className={`${styles.footerBtn} ${styles.mobileHidden}`}
                         onClick={handleSync}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#1098AD', color: 'white', borderColor: '#1098AD' }}
                     >
@@ -733,6 +749,20 @@ function CustomerListPageContent() {
                     </div>
                 </div>
             )}
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+            />
         </div>
     );
 }

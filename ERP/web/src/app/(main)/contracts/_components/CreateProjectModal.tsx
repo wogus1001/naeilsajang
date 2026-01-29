@@ -6,6 +6,7 @@ import {
     X, Check, ChevronRight, Store, Building, Key, Briefcase,
     Search, User, MapPin, FileText, Loader2, Download
 } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
 import { CATEGORY_PRESETS, getPresetByCategory } from '@/lib/templates/presets';
 import { ContractTemplate, ContractProject, ContractDocument } from '@/types/contract-core';
 import PropertySelectorModal from '@/components/properties/PropertySelectorModal';
@@ -114,6 +115,16 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
 
         loadTemplates();
     }, [selectedCategory, preset, isOpen]); // Re-run when category changes or modal opens
+
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+
+    const closeAlert = () => {
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     const handleCreate = async () => {
         setIsLoading(true);
@@ -298,7 +309,7 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
 
         } catch (e) {
             console.error(e);
-            alert('프로젝트 생성 중 오류가 발생했습니다.');
+            showAlert('프로젝트 생성 중 오류가 발생했습니다.');
             setIsLoading(false);
         }
     };
@@ -592,6 +603,13 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
                     companyName="" // Pass if needed for filtering
                 />
             )}
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
         </div>
     );
 }

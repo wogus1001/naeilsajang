@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from '../login/page.module.css'; // Reuse login styles
+import { AlertModal } from '@/components/common/AlertModal';
 
 interface Company {
     id: string;
@@ -22,6 +23,28 @@ export default function SignupPage() {
     const [isSearching, setIsSearching] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
     const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+
+    // Alert Modal State
+    const [alertConfig, setAlertConfig] = useState<{
+        isOpen: boolean;
+        message: string;
+        type: 'success' | 'error' | 'info';
+        onOk?: () => void;
+    }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onOk?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onOk });
+    };
+
+    const closeAlert = () => {
+        const onOk = alertConfig.onOk;
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+        if (onOk) onOk();
+    };
 
     const handleSignup = async (e: React.FormEvent) => {
         // ... (unchanged)
@@ -44,7 +67,7 @@ export default function SignupPage() {
         }
 
         if (password.length < 6) {
-            alert('비밀번호는 최소 6자 이상이어야 합니다.');
+            showAlert('비밀번호는 최소 6자 이상이어야 합니다.', 'error');
             setIsLoading(false);
             return;
         }
@@ -52,7 +75,7 @@ export default function SignupPage() {
         // Email Validation Policy
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(id)) {
-            alert('아이디는 이메일 형식(예: user@example.com)으로 입력해주세요.');
+            showAlert('아이디는 이메일 형식(예: user@example.com)으로 입력해주세요.', 'error');
             setIsLoading(false);
             return;
         }
@@ -68,21 +91,20 @@ export default function SignupPage() {
 
             if (res.ok) {
                 if (data.message) {
-                    alert(data.message); // Show message from server (e.g. "팀장으로 가입됨")
+                    showAlert(data.message, 'success', () => router.push('/login'));
                 } else {
-                    alert('회원가입이 완료되었습니다. 로그인해주세요.');
+                    showAlert('회원가입이 완료되었습니다.\n로그인해주세요.', 'success', () => router.push('/login'));
                 }
-                router.push('/login');
             } else {
                 if (res.status === 409) {
-                    alert(data.error || '이미 존재하는 아이디입니다.');
+                    showAlert(data.error || '이미 존재하는 아이디입니다.', 'error');
                 } else {
-                    alert(data.error || '회원가입에 실패했습니다.');
+                    showAlert(data.error || '회원가입에 실패했습니다.', 'error');
                 }
             }
         } catch (error) {
             console.error('Signup error:', error);
-            alert('회원가입 중 오류가 발생했습니다.');
+            showAlert('회원가입 중 오류가 발생했습니다.', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -90,8 +112,9 @@ export default function SignupPage() {
 
     const handleSearch = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
+        if (e) e.preventDefault();
         if (!searchQuery.trim()) {
-            alert('검색어를 입력해주세요.');
+            showAlert('검색어를 입력해주세요.', 'info');
             return;
         }
 
@@ -379,6 +402,13 @@ export default function SignupPage() {
                 </div >
             )
             }
-        </div >
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
+        </div>
     );
 }

@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import PropertySelectorModal from '@/components/properties/PropertySelectorModal';
 import PersonSelectorModal from '@/components/properties/PersonSelectorModal';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { CATEGORY_PRESETS, getPresetByCategory } from '@/lib/templates/presets';
 import { ContractProject } from '@/types/contract-core';
 
@@ -47,6 +49,23 @@ export default function EditProjectModal({ isOpen, onClose, project, onUpdate, o
 
     // Manual Input State (for when search isn't used)
     const [commonData, setCommonData] = useState<any>({});
+
+    // Alert & Confirm State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+    const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+    const showConfirm = (message: string, onConfirm: () => void, isDanger: boolean = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
 
     useEffect(() => {
         if (isOpen && project) {
@@ -258,9 +277,9 @@ export default function EditProjectModal({ isOpen, onClose, project, onUpdate, o
 
                 <div style={styles.footer}>
                     <button onClick={() => {
-                        if (confirm('정말로 이 프로젝트를 삭제하시겠습니까? 복구할 수 없습니다.')) {
+                        showConfirm('정말로 이 프로젝트를 삭제하시겠습니까? 복구할 수 없습니다.', () => {
                             onDelete();
-                        }
+                        }, true);
                     }} style={styles.deleteBtn}>
                         <Trash2 size={16} /> 프로젝트 삭제
                     </button>
@@ -289,6 +308,21 @@ export default function EditProjectModal({ isOpen, onClose, project, onUpdate, o
                     companyName=""
                 />
             )}
+
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
+
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                isDanger={confirmModal.isDanger}
+            />
         </div>
     );
 }

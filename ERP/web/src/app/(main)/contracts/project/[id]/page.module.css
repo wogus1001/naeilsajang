@@ -1,0 +1,287 @@
+/* Layout Containers */
+.container {
+    display: flex;
+    height: calc(100vh - 60px);
+    background-color: #f8f9fa;
+    position: relative;
+}
+
+.sidebar {
+    width: 280px;
+    background-color: white;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+}
+
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.toolbar {
+    height: 50px;
+    border-bottom: 1px solid #dee2e6;
+    background-color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    justify-content: space-between;
+}
+
+.workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.formPanel {
+    width: 400px;
+    background-color: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    overflow-y: auto;
+    padding: 20px 20px 20px 30px;
+}
+
+.previewPanel {
+    flex: 1;
+    background-color: #e9ecef;
+    padding: 40px 20px;
+    overflow-y: auto;
+    overflow-x: auto;
+    display: flex;
+    justify-content: center;
+}
+
+.previewWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+/* Paper / Contract Preview */
+.paper {
+    width: 210mm;
+    min-width: 210mm;
+    min-height: 297mm;
+    background-color: white;
+    padding: 5mm 10mm;
+    letter-spacing: -0.5px;
+    word-spacing: -1px;
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-size: 16px;
+    line-height: 1.6;
+    color: #212529;
+    overflow: hidden;
+}
+
+/* Tabs & Lists */
+.categoryTab {
+    padding: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 1px solid transparent;
+}
+
+.categoryTabActive {
+    color: #228be6;
+    border-bottom: 2px solid #228be6;
+}
+
+.docItem {
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #495057;
+    margin-top: 2px;
+}
+
+.docItemActive {
+    background-color: #e7f5ff;
+    color: #1c7ed6;
+    font-weight: 500;
+}
+
+/* Form Fields */
+.fieldGroup {
+    margin-bottom: 16px;
+}
+
+.label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #343a40;
+}
+
+.input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    font-size: 14px;
+}
+
+.sectionHeader {
+    margin-top: 24px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1c7ed6;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 4px;
+}
+
+/* Buttons */
+.btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid #ced4da;
+    background-color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* Mobile Tabs (Hidden on Desktop) */
+.mobileTabBar {
+    display: none;
+    height: 50px;
+    background: white;
+    border-bottom: 1px solid #dee2e6;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+
+.mobileTab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #868e96;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+}
+
+.mobileTabActive {
+    color: #228be6;
+    border-bottom-color: #228be6;
+    background-color: #f8f9fa;
+}
+
+/* Mobile Responsive */
+@media screen and (max-width: 768px) {
+    .container {
+        flex-direction: column;
+        height: calc(100vh - 50px);
+        /* Adjust for global header */
+    }
+
+    /* Show Mobile Tab Bar */
+    .mobileTabBar {
+        display: flex;
+    }
+
+    /* Hide panels based on visibility class */
+    .hiddenOnMobile {
+        display: none !important;
+    }
+
+    /* Make panels full width/height when active */
+    .sidebar {
+        width: 100% !important;
+        flex: 1;
+        border-right: none;
+    }
+
+    .main {
+        width: 100%;
+        flex: 1;
+    }
+
+    .workspace {
+        flex-direction: column;
+    }
+
+    .formPanel {
+        width: 100% !important;
+        flex: 1;
+        border-right: none;
+        padding: 16px;
+    }
+
+    .previewPanel {
+        padding: 20px 10px;
+        align-items: flex-start;
+        justify-content: flex-start;
+        /* Fix left clipping */
+    }
+
+    .previewWrapper {
+        align-items: flex-start;
+        width: fit-content;
+        /* Ensure scroll container sees full width */
+    }
+
+    /* Scale down the paper on mobile preview */
+    .paper {
+        transform: scale(0.6);
+        transform-origin: top left;
+        /* Align visual to start */
+        margin-top: 10px;
+        /* Reduce ghost width impact if possible, but start alignment ensures visibility */
+        margin-bottom: -100px;
+        /* Hack to reduce bottom whitespace due to scale */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Adjust Toolbar for mobile */
+    .toolbar {
+        padding: 10px;
+        overflow-x: visible;
+        /* Allow wrapping */
+        height: auto;
+        /* Adapt to content */
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    /* Title text truncation fix */
+    .toolbar>div:first-child {
+        width: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: left;
+        margin-bottom: 4px;
+    }
+
+    /* Buttons container */
+    .toolbar>div:last-child {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .btn {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+}

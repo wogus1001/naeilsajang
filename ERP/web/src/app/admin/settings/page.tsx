@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Save, Megaphone, Layers, Database, Download, ChevronRight } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 const styles = {
     container: { padding: '32px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'var(--font-pretendard)' },
@@ -57,6 +59,13 @@ export default function AdminSettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
+    // Alert & Confirm State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+    const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
     useEffect(() => {
         fetchSettings();
     }, []);
@@ -92,13 +101,13 @@ export default function AdminSettingsPage() {
                 body: JSON.stringify(settings)
             });
             if (res.ok) {
-                alert('설정이 저장되었습니다.');
+                showAlert('설정이 저장되었습니다.');
             } else {
-                alert('저장 실패');
+                showAlert('저장 실패');
             }
         } catch (e) {
             console.error(e);
-            alert('오류 발생');
+            showAlert('오류 발생');
         } finally {
             setIsSaving(false);
         }
@@ -294,6 +303,12 @@ export default function AdminSettingsPage() {
                     </div>
                 </div>
             </div>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
         </div>
     );
 }

@@ -6,6 +6,8 @@ import styles from '@/app/(main)/customers/register/page.module.css';
 import WorkHistoryModal from './WorkHistoryModal';
 import PropertySelector from './PropertySelector';
 import PropertyCard from '../properties/PropertyCard';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 // Mock Data Removed
 
@@ -179,6 +181,31 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
     const [openedPropertyData, setOpenedPropertyData] = useState<any>(null); // To store data for card
     const [editingHistoryIndex, setEditingHistoryIndex] = useState<number | null>(null);
 
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; isDanger?: boolean }>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
+
     // Fetch property data when opening card
     useEffect(() => {
         if (openedPropertyId) {
@@ -187,7 +214,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                 .then(data => {
                     if (data.error) {
                         console.error('Property fetch error:', data.error);
-                        alert('물건 정보를 찾을 수 없습니다.');
+                        showAlert('물건 정보를 찾을 수 없습니다.', 'error');
                         setOpenedPropertyId(null);
                         setOpenedPropertyData(null);
                     } else {
@@ -196,7 +223,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                 })
                 .catch(err => {
                     console.error('Fetch error:', err);
-                    alert('물건 정보를 불러오는 중 오류가 발생했습니다.');
+                    showAlert('물건 정보를 불러오는 중 오류가 발생했습니다.', 'error');
                     setOpenedPropertyId(null);
                     setOpenedPropertyData(null);
                 });
@@ -268,13 +295,14 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                     return newData;
                 }
                 return data;
+                return data;
             } else {
-                alert('저장에 실패했습니다.');
+                showAlert('저장에 실패했습니다.', 'error');
                 return null;
             }
         } catch (error) {
             console.error(error);
-            alert('오류가 발생했습니다.');
+            showAlert('오류가 발생했습니다.', 'error');
             return null;
         } finally {
             setLoading(false);
@@ -416,26 +444,26 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
     };
 
     const handleDeleteHistory = async (index: number) => {
-        if (!confirm('해당 작업내역을 삭제하시겠습니까?')) return;
+        showConfirm('해당 작업내역을 삭제하시겠습니까?', () => {
+            const itemToDelete = formData.history[index];
 
-        const itemToDelete = formData.history[index];
+            const updatedHistory = formData.history.filter((_: any, i: number) => i !== index);
+            const updatedData = { ...formData, history: updatedHistory };
 
-        const updatedHistory = formData.history.filter((_: any, i: number) => i !== index);
-        const updatedData = { ...formData, history: updatedHistory };
+            setFormData(updatedData);
 
-        setFormData(updatedData);
-
-        if (formData.id) {
-            saveCustomer(updatedData).then(success => {
-                if (success) {
-                    alert('작업내역이 삭제되었습니다.');
-                    // Sync Delete to Property if targetId exists
-                    if (itemToDelete.targetId) {
-                        deleteWorkHistoryFromProperty(itemToDelete.targetId, itemToDelete);
+            if (formData.id) {
+                saveCustomer(updatedData).then(success => {
+                    if (success) {
+                        showAlert('작업내역이 삭제되었습니다.', 'success');
+                        // Sync Delete to Property if targetId exists
+                        if (itemToDelete.targetId) {
+                            deleteWorkHistoryFromProperty(itemToDelete.targetId, itemToDelete);
+                        }
                     }
-                }
-            });
-        }
+                });
+            }
+        });
     };
 
     const handleAddPromotedProperty = () => {
@@ -446,7 +474,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
         try {
             const res = await fetch(`/api/properties?id=${propertyId}`);
             if (!res.ok) {
-                alert(`Sync Error: Failed to fetch property data (Status: ${res.status})`);
+                showAlert(`Sync Error: Failed to fetch property data (Status: ${res.status})`, 'error');
                 return;
             }
             const propertyData = await res.json();
@@ -560,7 +588,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
         const newItems = selectedProperties.filter((p: any) => !currentIds.includes(p.id));
 
         if (newItems.length === 0) {
-            alert('선택한 물건이 이미 모두 추가되어 있습니다.');
+            showAlert('선택한 물건이 이미 모두 추가되어 있습니다.', 'info');
             return;
         }
 
@@ -620,32 +648,32 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
 
     const handleDeletePromotedProperties = async () => {
         if (selectedPromotedIds.length === 0) {
-            alert('삭제할 물건을 선택해주세요.');
+            showAlert('삭제할 물건을 선택해주세요.', 'error');
             return;
         }
 
-        if (!confirm('선택한 추진물건을 삭제하시겠습니까?')) return;
+        showConfirm('선택한 추진물건을 삭제하시겠습니까?', async () => {
+            const itemsToDelete = (formData.promotedProperties || []).filter((p: any) => selectedPromotedIds.includes(p.id));
 
-        const itemsToDelete = (formData.promotedProperties || []).filter((p: any) => selectedPromotedIds.includes(p.id));
+            const updatedList = (formData.promotedProperties || []).filter((p: any) => !selectedPromotedIds.includes(p.id));
+            const updatedData = { ...formData, promotedProperties: updatedList };
 
-        const updatedList = (formData.promotedProperties || []).filter((p: any) => !selectedPromotedIds.includes(p.id));
-        const updatedData = { ...formData, promotedProperties: updatedList };
+            setFormData(updatedData);
+            setSelectedPromotedIds([]);
 
-        setFormData(updatedData);
-        setSelectedPromotedIds([]);
+            if (formData.id) {
+                await saveCustomer(updatedData);
 
-        if (formData.id) {
-            await saveCustomer(updatedData);
-
-            // Sync Deletion to Property
-            for (const item of itemsToDelete) {
-                if (item.id) {
-                    await deletePromotedCustomerFromProperty(item.id, formData.id);
+                // Sync Deletion to Property
+                for (const item of itemsToDelete) {
+                    if (item.id) {
+                        await deletePromotedCustomerFromProperty(item.id, formData.id);
+                    }
                 }
-            }
 
-            alert('삭제되었습니다.');
-        }
+                showAlert('삭제되었습니다.', 'success');
+            }
+        });
     };
 
     const handleSave = async () => {
@@ -666,39 +694,41 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                 }
             }
 
-            alert('저장되었습니다.');
-            if (onSuccess) onSuccess();
-            else onClose();
+            showAlert('저장되었습니다.', 'success', () => {
+                if (onSuccess) onSuccess();
+                else onClose();
+            });
         }
     };
 
     const handleDeleteCustomer = async () => {
         if (!id) return;
-        if (!confirm('정말 이 고객 정보를 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.')) return;
+        showConfirm('정말 이 고객 정보를 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.', async () => {
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/customers?id=${id}`, {
+                    method: 'DELETE'
+                });
 
-        setLoading(true);
-        try {
-            const res = await fetch(`/api/customers?id=${id}`, {
-                method: 'DELETE'
-            });
-
-            if (res.ok) {
-                alert('고객 정보가 삭제되었습니다.');
-                if (onSuccess) onSuccess();
-                else onClose();
-            } else {
-                alert('삭제에 실패했습니다.');
+                if (res.ok) {
+                    showAlert('고객 정보가 삭제되었습니다.', 'success', () => {
+                        if (onSuccess) onSuccess();
+                        else onClose();
+                    });
+                } else {
+                    showAlert('삭제에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error(error);
+                showAlert('오류가 발생했습니다.', 'error');
+            } finally {
+                setLoading(false);
             }
-        } catch (error) {
-            console.error(error);
-            alert('오류가 발생했습니다.');
-        } finally {
-            setLoading(false);
-        }
+        }, true);
     };
 
     const handleReset = () => {
-        if (confirm('기존 입력 내용이 초기화됩니다. 계속하시겠습니까?')) {
+        showConfirm('기존 입력 내용이 초기화됩니다. 계속하시겠습니까?', () => {
             let defaultManagerId = '';
             const userStr = localStorage.getItem('user');
             if (userStr) {
@@ -713,7 +743,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                 ...INITIAL_DATA,
                 managerId: defaultManagerId
             });
-        }
+        }, true);
     };
 
     const formatDate = (dateStr: string) => {
@@ -1378,7 +1408,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                         {/* Property Type Selection */}
                         <div className={styles.formRow}>
                             <div className={styles.label}>물건종류</div>
-                            <div className={styles.inputWrapper} style={{ display: 'flex', gap: 12 }}>
+                            <div className={styles.inputWrapper} style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                                 {['store', 'building', 'hotel', 'apartment', 'estate'].map(type => (
                                     <label key={type} className={styles.radioLabel}>
                                         <input
@@ -1461,7 +1491,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                                                     <button
                                                         className={styles.iconBtn}
                                                         style={{ color: '#e03131', padding: 4 }}
-                                                        onClick={() => handleDeleteHistory(i)}
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteHistory(i); }}
                                                     >
                                                         <Trash2 size={14} />
                                                     </button>
@@ -1563,7 +1593,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                 </div>
                 {/* Navigation Buttons */}
                 {onNavigate && (
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <div className={styles.footerNav}>
                         <button
                             className={styles.footerBtn}
                             onClick={() => onNavigate('first')}
@@ -1647,6 +1677,19 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                     <div style={{ color: 'white' }}>로딩중...</div>
                 </div>
             )}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                message={confirmModal.message}
+                isDanger={confirmModal.isDanger}
+            />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div>
     );
 }

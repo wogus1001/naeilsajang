@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, Plus, X, DollarSign } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 // Mock Data for Events
 const MOCK_EVENTS = [
@@ -112,6 +114,31 @@ export default function SchedulePage() {
     const [visibleScopes, setVisibleScopes] = useState({ work: true, personal: true });
     const [isPanelCollapsed, setIsPanelCollapsed] = useState(false); // New State: Side Panel Collapse
 
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; isDanger?: boolean }>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
+
     // Form State
     const [formData, setFormData] = useState({
         title: '',
@@ -194,8 +221,6 @@ export default function SchedulePage() {
         const targetId = idToDelete || selectedScheduleId;
         if (!targetId) return;
 
-        // if (!confirm('정말 삭제하시겠습니까?')) return;
-
         try {
             const res = await fetch(`/api/schedules?id=${targetId}`, {
                 method: 'DELETE'
@@ -204,18 +229,19 @@ export default function SchedulePage() {
             if (res.ok) {
                 await fetchSchedules();
                 setIsModalOpen(false);
+                showAlert('삭제되었습니다.', 'success');
             } else {
-                alert('삭제에 실패했습니다.');
+                showAlert('삭제에 실패했습니다.', 'error');
             }
         } catch (error) {
             console.error('Error deleting schedule:', error);
-            alert('오류가 발생했습니다.');
+            showAlert('오류가 발생했습니다.', 'error');
         }
     };
 
     const handleSave = async () => {
         if (!formData.title) {
-            alert('제목을 입력해주세요.');
+            showAlert('제목을 입력해주세요.', 'error');
             return;
         }
 
@@ -260,11 +286,11 @@ export default function SchedulePage() {
                 await fetchSchedules();
                 setIsModalOpen(false);
             } else {
-                alert('저장에 실패했습니다.');
+                showAlert('저장에 실패했습니다.', 'error');
             }
         } catch (error) {
             console.error('Error saving schedule:', error);
-            alert('오류가 발생했습니다.');
+            showAlert('오류가 발생했습니다.', 'error');
         }
     };
 
@@ -435,13 +461,13 @@ export default function SchedulePage() {
                 {/* Grid */}
                 <div className={styles.calendarGrid}>
                     <div className={styles.weekDays}>
-                        <div className={`${styles.weekDay} ${styles.sun}`}>일요일</div>
-                        <div className={styles.weekDay}>월요일</div>
-                        <div className={styles.weekDay}>화요일</div>
-                        <div className={styles.weekDay}>수요일</div>
-                        <div className={styles.weekDay}>목요일</div>
-                        <div className={styles.weekDay}>금요일</div>
-                        <div className={`${styles.weekDay} ${styles.sat}`}>토요일</div>
+                        <div className={`${styles.weekDay} ${styles.sun}`}>일</div>
+                        <div className={styles.weekDay}>월</div>
+                        <div className={styles.weekDay}>화</div>
+                        <div className={styles.weekDay}>수</div>
+                        <div className={styles.weekDay}>목</div>
+                        <div className={styles.weekDay}>금</div>
+                        <div className={`${styles.weekDay} ${styles.sat}`}>토</div>
                     </div>
 
                     <div className={styles.daysGrid}>
@@ -474,7 +500,7 @@ export default function SchedulePage() {
                                                 <div
                                                     key={event.id}
                                                     className={styles.eventItem}
-                                                    style={{ backgroundColor: event.color, cursor: 'pointer', flexDirection: 'column', alignItems: 'flex-start', padding: '2px 4px', gap: 0 }}
+                                                    style={{ backgroundColor: event.color }}
                                                     title={event.title}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -516,10 +542,10 @@ export default function SchedulePage() {
                                             className={styles.deleteBtn}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (window.confirm('삭제하시겠습니까?')) {
+                                                showConfirm('삭제하시겠습니까?', () => {
                                                     setSelectedScheduleId(event.id);
                                                     handleDelete(event.id);
-                                                }
+                                                }, true);
                                             }}
                                         >
                                             <X size={12} />
@@ -578,10 +604,10 @@ export default function SchedulePage() {
                                             className={styles.deleteBtn}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (window.confirm('삭제하시겠습니까?')) {
+                                                showConfirm('삭제하시겠습니까?', () => {
                                                     setSelectedScheduleId(event.id);
                                                     handleDelete(event.id);
-                                                }
+                                                }, true);
                                             }}
                                         >
                                             <X size={12} />
@@ -717,7 +743,7 @@ export default function SchedulePage() {
                         </div>
                         <div className={styles.modalFooter}>
                             {selectedScheduleId && (
-                                <button className={`${styles.footerBtn} ${styles.closeBtn}`} style={{ marginRight: 'auto', backgroundColor: '#fa5252', color: 'white', border: 'none' }} onClick={() => handleDelete()}>
+                                <button className={`${styles.footerBtn} ${styles.closeBtn}`} style={{ marginRight: 'auto', backgroundColor: '#fa5252', color: 'white', border: 'none' }} onClick={() => showConfirm('정말 삭제하시겠습니까?', () => handleDelete(), true)}>
                                     <span style={{ fontSize: 14 }}>🗑️</span> 삭제
                                 </button>
                             )}
@@ -731,6 +757,19 @@ export default function SchedulePage() {
                     </div>
                 </div>
             )}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                message={confirmModal.message}
+                isDanger={confirmModal.isDanger}
+            />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div>
     );
 }

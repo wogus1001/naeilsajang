@@ -179,55 +179,60 @@ export default function PropertySelector({ isOpen, onClose, onSelect, onOpenCard
 
     return (
         <div className={styles.modalOverlay} onClick={onClose} style={{ zIndex: 3000 }}>
-            <div className={styles.modalContent} style={{ width: '95%', maxWidth: '1400px', height: '85vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa' }} onClick={e => e.stopPropagation()}>
+            <div className={`${styles.modalContent} ${styles.propertySelectorModal}`} style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8f9fa' }} onClick={e => e.stopPropagation()}>
 
                 {/* Modal Header */}
                 <div className={styles.header} style={{ flexShrink: 0 }}>
                     <div className={styles.title}>점포물건</div>
                 </div>
 
-                {/* Filters - Single Row Concept */}
-                <div style={{ padding: '12px 16px', background: 'white', borderBottom: '1px solid #dee2e6', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', flexShrink: 0 }}>
+                {/* Filters */}
+                {/* Filters */}
+                <div className={styles.filterWrapper} style={{ padding: '12px 16px', background: 'white', borderBottom: '1px solid #dee2e6', display: 'flex', flexDirection: 'column', gap: 12, flexShrink: 0 }}>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontWeight: 'bold', color: '#495057' }}>지역:</span>
-                        <input className={styles.input} style={{ width: 100 }} value={region} onChange={e => setRegion(e.target.value)} placeholder="지역명" />
+                    {/* Top: Filters Grid */}
+                    <div className={styles.filtersGrid} style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
+                        <div className={styles.filterItem} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontWeight: 'bold', color: '#495057' }}>지역:</span>
+                            <input className={styles.input} style={{ width: 100 }} value={region} onChange={e => setRegion(e.target.value)} placeholder="지역명" />
+                        </div>
+
+                        <div className={styles.filterItem} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontWeight: 'bold', color: '#495057' }}>면적:</span>
+                            <input className={styles.input} style={{ width: 50 }} value={areaMin} onChange={e => setAreaMin(e.target.value)} />
+                            <span>~</span>
+                            <input className={styles.input} style={{ width: 50 }} value={areaMax} onChange={e => setAreaMax(e.target.value)} />
+                            <span className={styles.unitText}>평</span>
+                        </div>
+
+                        <div className={styles.filterItem} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontWeight: 'bold', color: '#495057' }}>층수:</span>
+                            <input className={styles.input} style={{ width: 40 }} value={floorMin} onChange={e => setFloorMin(e.target.value)} />
+                            <span>~</span>
+                            <input className={styles.input} style={{ width: 40 }} value={floorMax} onChange={e => setFloorMax(e.target.value)} />
+                            <span className={styles.unitText}>층</span>
+                        </div>
+
+                        <div className={styles.filterItem} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontWeight: 'bold', color: '#495057' }}>임대료:</span>
+                            <input className={styles.input} style={{ width: 60 }} value={rentMin} onChange={e => setRentMin(e.target.value)} />
+                            <span>~</span>
+                            <input className={styles.input} style={{ width: 60 }} value={rentMax} onChange={e => setRentMax(e.target.value)} />
+                            <span className={styles.unitText}>만</span>
+                        </div>
+
+                        <div className={styles.filterItem} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontWeight: 'bold', color: '#495057' }}>보증금:</span>
+                            <input className={styles.input} style={{ width: 60 }} value={depositMin} onChange={e => setDepositMin(e.target.value)} />
+                            <span>~</span>
+                            <input className={styles.input} style={{ width: 60 }} value={depositMax} onChange={e => setDepositMax(e.target.value)} />
+                            <span className={styles.unitText}>만</span>
+                        </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontWeight: 'bold', color: '#495057' }}>면적:</span>
-                        <input className={styles.input} style={{ width: 50 }} value={areaMin} onChange={e => setAreaMin(e.target.value)} />
-                        <span>~</span>
-                        <input className={styles.input} style={{ width: 50 }} value={areaMax} onChange={e => setAreaMax(e.target.value)} />
-                        <span>평</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontWeight: 'bold', color: '#495057' }}>층수:</span>
-                        <input className={styles.input} style={{ width: 40 }} value={floorMin} onChange={e => setFloorMin(e.target.value)} />
-                        <span>~</span>
-                        <input className={styles.input} style={{ width: 40 }} value={floorMax} onChange={e => setFloorMax(e.target.value)} />
-                        <span>층</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontWeight: 'bold', color: '#495057' }}>임대료:</span>
-                        <input className={styles.input} style={{ width: 60 }} value={rentMin} onChange={e => setRentMin(e.target.value)} />
-                        <span>~</span>
-                        <input className={styles.input} style={{ width: 60 }} value={rentMax} onChange={e => setRentMax(e.target.value)} />
-                        <span>만</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ fontWeight: 'bold', color: '#495057' }}>보증금:</span>
-                        <input className={styles.input} style={{ width: 60 }} value={depositMin} onChange={e => setDepositMin(e.target.value)} />
-                        <span>~</span>
-                        <input className={styles.input} style={{ width: 60 }} value={depositMax} onChange={e => setDepositMax(e.target.value)} />
-                        <span>만</span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-                        <div className={styles.inputWrapper} style={{ width: 200, display: 'flex', alignItems: 'center', gap: 4, borderLeft: '1px solid #dee2e6' }}>
+                    {/* Bottom: Search Bar (Full Width on Mobile) */}
+                    <div className={styles.searchBarContainer} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px dashed #e9ecef' }}>
+                        <div className={styles.inputWrapper} style={{ width: 200, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <Search size={14} color="#868e96" />
                             <input
                                 className={styles.input}
@@ -245,8 +250,8 @@ export default function PropertySelector({ isOpen, onClose, onSelect, onOpenCard
 
                 {/* Content - Table */}
                 <div style={{ flex: 1, overflow: 'hidden', padding: 0, backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
-                    <div className={styles.tableContainer} style={{ flex: 1, overflowY: 'auto' }}>
-                        <table className={styles.historyTable} style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+                    <div className={styles.tableContainer} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+                        <table className={styles.historyTable} style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
                             <colgroup>
                                 <col style={{ width: 50 }} />
                                 <col style={{ width: 50 }} />

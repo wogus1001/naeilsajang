@@ -7,6 +7,8 @@ import * as XLSX from 'xlsx';
 import styles from '@/app/(main)/customers/page.module.css'; // Reusing Customer styles
 import BusinessCard from '@/components/business/BusinessCard';
 import ViewModeSwitcher, { ViewMode } from '@/components/properties/ViewModeSwitcher';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 interface BusinessCardData {
     id: string;
@@ -56,6 +58,31 @@ function BusinessCardListContent() {
     // Drawer State
     const [drawerWidth, setDrawerWidth] = useState(1200);
     const drawerResizingRef = React.useRef<{ startX: number; startWidth: number } | null>(null);
+
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; isDanger?: boolean }>({
+        isOpen: false,
+        message: '',
+        onConfirm: () => { },
+        isDanger: false
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void, isDanger = false) => {
+        setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
+    };
 
     useEffect(() => {
         const queryId = searchParams.get('id');
@@ -165,94 +192,95 @@ function BusinessCardListContent() {
 
     const handleBatchUpload = async () => {
         if (!uploadFiles.main) {
-            alert('명함정보(Main) 파일은 필수입니다.');
+            showAlert('명함정보(Main) 파일은 필수입니다.', 'error');
             return;
         }
 
-        if (!confirm('선택한 파일들로 명함 데이터를 업로드하시겠습니까?\n(기존 관리ID가 있는 경우 업데이트됩니다)')) return;
+        showConfirm('선택한 파일들로 명함 데이터를 업로드하시겠습니까?\n(기존 관리ID가 있는 경우 업데이트됩니다)', async () => {
+            setLoading(true);
+            try {
+                // Parse all files
+                const mainData = await parseExcel(uploadFiles.main!);
+                const promotedData = uploadFiles.promoted ? await parseExcel(uploadFiles.promoted) : [];
+                const historyData = uploadFiles.history ? await parseExcel(uploadFiles.history) : [];
 
-        setLoading(true);
-        try {
-            // Parse all files
-            const mainData = await parseExcel(uploadFiles.main);
-            const promotedData = uploadFiles.promoted ? await parseExcel(uploadFiles.promoted) : [];
-            const historyData = uploadFiles.history ? await parseExcel(uploadFiles.history) : [];
-
-            // Add metadata (managerId, etc)
-            const userStr = localStorage.getItem('user');
-            let userCompanyName = 'Unknown';
-            let managerIdVal = 'Unknown';
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const user = parsed.user || parsed;
-                userCompanyName = user.companyName || 'Unknown';
-                managerIdVal = user.uid || user.id || 'Unknown';
-            }
-
-            const payload = {
-                main: mainData,
-                promoted: promotedData,
-                history: historyData,
-                meta: {
-                    userCompanyName,
-                    managerId: managerIdVal
+                // Add metadata (managerId, etc)
+                const userStr = localStorage.getItem('user');
+                let userCompanyName = 'Unknown';
+                let managerIdVal = 'Unknown';
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    const user = parsed.user || parsed;
+                    userCompanyName = user.companyName || 'Unknown';
+                    managerIdVal = user.uid || user.id || 'Unknown';
                 }
-            };
 
-            const res = await fetch('/api/business-cards', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+                const payload = {
+                    main: mainData,
+                    promoted: promotedData,
+                    history: historyData,
+                    meta: {
+                        userCompanyName,
+                        managerId: managerIdVal
+                    }
+                };
 
-            if (res.ok) {
-                const result = await res.json();
-                alert(`업로드 완료\n- 명함: ${result.cards.created}개 생성, ${result.cards.updated}개 수정`);
-                setIsUploadModalOpen(false);
-                setUploadFiles({ main: null, promoted: null, history: null });
-                fetchCards();
-            } else {
-                const err = await res.json();
-                alert(`업로드 실패: ${err.error || '알 수 없는 오류'}`);
+                const res = await fetch('/api/business-cards', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    const result = await res.json();
+                    showAlert(`업로드 완료\n- 명함: ${result.cards.created}개 생성, ${result.cards.updated}개 수정`, 'success');
+                    setIsUploadModalOpen(false);
+                    setUploadFiles({ main: null, promoted: null, history: null });
+                    fetchCards();
+                } else {
+                    const err = await res.json();
+                    showAlert(`업로드 실패: ${err.error || '알 수 없는 오류'}`, 'error');
+                }
+
+            } catch (error) {
+                console.error(error);
+                showAlert('파일 처리 중 오류가 발생했습니다.', 'error');
+            } finally {
+                setLoading(false);
             }
-
-        } catch (error) {
-            console.error(error);
-            alert('파일 처리 중 오류가 발생했습니다.');
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     // --- Sync Logic ---
+    // --- Sync Logic ---
     const handleSync = async () => {
-        if (!confirm('현재 등록된 명함의 내역과 점포 데이터를 동기화하시겠습니까?\n(오래 걸릴 수 있습니다.)')) return;
+        showConfirm('현재 등록된 명함의 내역과 점포 데이터를 동기화하시겠습니까?\n(오래 걸릴 수 있습니다.)', async () => {
+            setLoading(true);
+            try {
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const user = parsed.user || parsed;
 
-        setLoading(true);
-        try {
-            const userStr = localStorage.getItem('user');
-            const parsed = userStr ? JSON.parse(userStr) : {};
-            const user = parsed.user || parsed;
+                const res = await fetch('/api/business-cards/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ companyId: user.companyId || user.company_id })
+                });
+                const result = await res.json();
 
-            const res = await fetch('/api/business-cards/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ companyId: user.companyId || user.company_id })
-            });
-            const result = await res.json();
-
-            if (res.ok) {
-                alert(`동기화 완료!\n- 작업내역 연결: ${result.results.history.matched}건 성공\n- 추진물건 연결: ${result.results.promoted.matched}건 성공`);
-                fetchCards(); // Refresh list
-            } else {
-                alert('동기화 실패: ' + (result.error || '알 수 없는 오류'));
+                if (res.ok) {
+                    showAlert(`동기화 완료!\n- 작업내역 연결: ${result.results.history.matched}건 성공\n- 추진물건 연결: ${result.results.promoted.matched}건 성공`, 'success');
+                    fetchCards(); // Refresh list
+                } else {
+                    showAlert('동기화 실패: ' + (result.error || '알 수 없는 오류'), 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showAlert('동기화 중 오류가 발생했습니다.', 'error');
+            } finally {
+                setLoading(false);
             }
-        } catch (e) {
-            console.error(e);
-            alert('동기화 중 오류가 발생했습니다.');
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     // Remove old single-file handler
@@ -356,22 +384,22 @@ function BusinessCardListContent() {
 
     const handleDeleteSelected = async () => {
         if (selectedIds.length === 0) return;
-        if (!confirm(`${selectedIds.length}개의 명함을 삭제하시겠습니까?`)) return;
-
-        setLoading(true);
-        try {
-            for (const id of selectedIds) {
-                await fetch(`/api/business-cards?id=${id}`, { method: 'DELETE' });
+        showConfirm(`${selectedIds.length}개의 명함을 삭제하시겠습니까?`, async () => {
+            setLoading(true);
+            try {
+                for (const id of selectedIds) {
+                    await fetch(`/api/business-cards?id=${id}`, { method: 'DELETE' });
+                }
+                showAlert('삭제되었습니다.', 'success');
+                setSelectedIds([]);
+                fetchCards();
+            } catch (e) {
+                console.error(e);
+                showAlert('오류 발생', 'error');
+            } finally {
+                setLoading(false);
             }
-            alert('삭제되었습니다.');
-            setSelectedIds([]);
-            fetchCards();
-        } catch (e) {
-            console.error(e);
-            alert('오류 발생');
-        } finally {
-            setLoading(false);
-        }
+        }, true);
     };
 
     const toggleFavorite = async (id: string, currentStatus: boolean | undefined) => {
@@ -512,8 +540,10 @@ function BusinessCardListContent() {
                             </div>
                         )}
                     </div>
+                </div>
 
-                    <div style={{ width: '1px', height: '20px', background: '#dee2e6', margin: '0 8px' }}></div>
+                {/* Search & Actions - Wrapped for Mobile Layout */}
+                <div className={styles.searchInputWrap}>
                     <span>검색어 : </span>
                     <input
                         className={styles.searchInput}
@@ -522,7 +552,7 @@ function BusinessCardListContent() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <button
-                        className={styles.footerBtn}
+                        className={`${styles.footerBtn} ${styles.mobileHidden}`}
                         onClick={handleSync}
                         style={{ backgroundColor: '#1098AD', color: 'white', borderColor: '#1098AD', display: 'flex', alignItems: 'center', gap: 6, marginLeft: '8px' }}
                     >
@@ -612,7 +642,7 @@ function BusinessCardListContent() {
             {/* Footer */}
             <div className={styles.footer}>
                 <div>목록 : {filteredCards.length}건</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className={styles.footerActions}>
                     {selectedIds.length > 0 && (
                         <button
                             className={styles.footerBtn}
@@ -633,7 +663,7 @@ function BusinessCardListContent() {
 
                     {/* Multi-file Upload Modal Trigger */}
                     <button
-                        className={styles.footerBtn}
+                        className={`${styles.footerBtn} ${styles.mobileHidden}`}
                         onClick={() => setIsUploadModalOpen(true)}
                         style={{ cursor: 'pointer', background: '#228be6', color: 'white', borderColor: '#228be6', display: 'flex', alignItems: 'center', gap: 6 }}
                     >
@@ -776,6 +806,19 @@ function BusinessCardListContent() {
                     </div>
                 </div>
             )}
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmModal.onConfirm}
+                message={confirmModal.message}
+                isDanger={confirmModal.isDanger}
+            />
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div>
     );
 }

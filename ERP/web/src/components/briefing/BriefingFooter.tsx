@@ -1,7 +1,21 @@
 'use client';
+import React, { useState } from 'react';
 import { Phone, MessageCircle } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
 
 export function BriefingFooter({ consultant }: { consultant: any }) {
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+        setAlertConfig({ isOpen: true, message, type });
+    };
+    const closeAlert = () => {
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
+
     if (!consultant) return null;
 
     return (
@@ -31,7 +45,7 @@ export function BriefingFooter({ consultant }: { consultant: any }) {
                         className="flex justify-center items-center gap-2 py-3 bg-[#FEE500] text-[#191919] font-bold rounded-xl hover:bg-[#FDD835] transition-colors shadow-lg shadow-yellow-100"
                         onClick={(e) => {
                             e.preventDefault();
-                            alert('카카오톡 기능 준비중입니다.'); // Or deep link logic
+                            showAlert('카카오톡 기능 준비중입니다.'); // Or deep link logic
                         }}
                     >
                         <MessageCircle size={18} fill="#191919" />
@@ -39,6 +53,12 @@ export function BriefingFooter({ consultant }: { consultant: any }) {
                     </a>
                 </div>
             </div>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div>
     );
 }

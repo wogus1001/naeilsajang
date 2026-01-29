@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { AlertModal } from '@/components/common/AlertModal';
 
 export default function NoticeWritePage() {
     const router = useRouter();
@@ -13,12 +14,16 @@ export default function NoticeWritePage() {
     const [isPinned, setIsPinned] = useState(false);
     const [loading, setLoading] = useState(false);
 
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const showAlert = (message: string) => setAlertConfig({ isOpen: true, message, title: '알림' });
+    const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
     useEffect(() => {
         const userStr = localStorage.getItem('user');
         if (userStr) {
             setUser(JSON.parse(userStr));
         } else {
-            alert('로그인이 필요합니다.');
+            showAlert('로그인이 필요합니다.');
             router.push('/login');
         }
     }, [router]);
@@ -45,14 +50,14 @@ export default function NoticeWritePage() {
             });
 
             if (res.ok) {
-                alert('공지사항이 등록되었습니다.');
+                showAlert('공지사항이 등록되었습니다.');
                 router.push('/board/notices');
             } else {
-                alert('등록 실패');
+                showAlert('등록 실패');
             }
         } catch (error) {
             console.error(error);
-            alert('오류 발생');
+            showAlert('오류 발생');
         } finally {
             setLoading(false);
         }
@@ -229,6 +234,12 @@ export default function NoticeWritePage() {
                     </button>
                 </form>
             </div>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
         </div>
     );
 }

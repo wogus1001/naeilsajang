@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, Building, ShieldCheck, Settings, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 // Reusing dashboard styles + some admin specific ones
 const styles = {
@@ -41,12 +43,30 @@ export default function AdminDashboardPage() {
     });
     const [isLoading, setIsLoading] = useState(true);
 
+    // Alert State
+    const [alertConfig, setAlertConfig] = useState<{
+        isOpen: boolean;
+        message: string;
+        title?: string;
+        onClose?: () => void;
+    }>({ isOpen: false, message: '' });
+
+    const showAlert = (message: string, onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false, onClose: undefined }));
+    };
+
     useEffect(() => {
         // Auth check
         const userStr = localStorage.getItem('user');
         if (!userStr || JSON.parse(userStr).role !== 'admin') {
-            alert('관리자 접근 권한이 필요합니다.');
-            router.push('/dashboard');
+            showAlert('관리자 접근 권한이 필요합니다.', () => {
+                router.push('/dashboard');
+            });
             return;
         }
 
@@ -146,6 +166,12 @@ export default function AdminDashboardPage() {
                     <ChevronRight size={20} color="#adb5bd" />
                 </Link>
             </div>
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
         </div>
     );
 }

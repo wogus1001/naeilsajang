@@ -141,7 +141,69 @@
     cursor: not-allowed;
 }
 
-/* Form Sections */
+.whiteBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    background-color: white;
+    color: #495057;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.whiteBtn:hover {
+    background-color: #f8f9fa;
+}
+
+/* Revenue Upload Row */
+.revenueUploadRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    gap: 16px;
+}
+
+.uploadHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.uploadButtons {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.uploadBtn {
+    cursor: pointer;
+    margin: 0;
+    font-size: 13px;
+    padding: 6px 12px;
+    height: auto;
+    background-color: #217346;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-weight: 600;
+    border: none;
+    transition: all 0.2s;
+}
+
+.uploadBtn:hover {
+    background-color: #1b623a;
+}
+
 .form {
     display: flex;
     flex-direction: column;
@@ -561,5 +623,89 @@
     .financialItem label {
         width: 100px;
         font-size: 13px;
+    }
+
+    /* Mobile Header Stack */
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .headerLeft {
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .headerActions {
+        justify-content: space-between;
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+        /* Gap between grid items */
+    }
+
+    .divider {
+        display: none;
+    }
+
+    .managerSelect {
+        flex: 1;
+        /* Take up remaining space on first row */
+        min-width: 200px;
+        /* Ensure it doesn't get too small */
+    }
+
+    .favoriteBtn {
+        flex-shrink: 0;
+    }
+
+    .whiteBtn,
+    .uploadBtn {
+        flex: 1;
+        justify-content: center;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .saveBtn,
+    .cancelBtn {
+        width: calc(50% - 4px);
+        flex: 1 1 45%;
+        justify-content: center;
+        height: 48px;
+        margin-top: 4px;
+        order: 10;
+    }
+
+    .modalContent {
+        width: 90% !important;
+        max-width: 400px;
+    }
+
+    /* Revenue Upload Mobile */
+    .revenueUploadRow {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+    }
+
+    .uploadButtons {
+        width: 100%;
+        margin-left: 0;
+        gap: 8px;
+    }
+
+    /* Postcode Mobile Adjustment (Zoom Out) */
+    .postcodeWrapper {
+        width: 125% !important;
+        /* Compensate for scale 0.8 */
+        height: 500px !important;
+        /* Compensate for scale 0.8 */
+        transform: scale(0.8);
+        transform-origin: top left;
+        margin-bottom: -100px;
+        /* Reduce bottom space caused by scaling */
     }
 }

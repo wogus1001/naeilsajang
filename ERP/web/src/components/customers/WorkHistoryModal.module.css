@@ -13,8 +13,11 @@
 
 .modal {
     background: white;
+    background: white;
     width: 600px;
-    height: 400px;
+    max-width: 95vw;
+    height: auto;
+    min-height: 400px;
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     display: flex;
@@ -89,6 +92,8 @@
     display: flex;
     align-items: center;
     background: white;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .input,
@@ -122,7 +127,7 @@
     border: 1px solid #ced4da;
     border-radius: 2px;
     overflow: hidden;
-    margin-left: 8px;
+    /* margin-left: 8px; Removed as we use gap now */
 }
 
 .dateBtn {
@@ -151,6 +156,8 @@
     background: white;
     position: relative;
     cursor: pointer;
+    flex: 1;
+    min-width: 140px;
 }
 
 .datePickerHidden {
@@ -174,6 +181,7 @@
     margin-right: 12px;
     /* This matches the "Target" row separated from content */
     border: 1px solid #ced4da;
+    flex-wrap: wrap;
 }
 
 .searchBtn {
@@ -246,4 +254,87 @@
 
 .saveBtn:hover {
     background: #d0ebff;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .modal {
+        width: 95% !important;
+        height: auto !important;
+        /* Allow height to fit content up to max */
+        max-height: 90vh !important;
+        max-width: none !important;
+        border-radius: 8px;
+        border: none;
+        overflow: hidden;
+        /* Ensure rounded corners */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .content {
+        overflow-y: auto;
+        /* Internal scroll */
+    }
+
+    .row,
+    .footerRow {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .label {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #ced4da;
+        background: #f8f9fa;
+        padding: 6px 12px;
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    .inputWrapper {
+        width: 100%;
+        padding: 8px;
+    }
+
+    .btnGroup {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .dateBtn {
+        flex: 1;
+        text-align: center;
+        padding: 8px 4px;
+        white-space: nowrap;
+    }
+
+    .footer {
+        flex-direction: column;
+    }
+
+    .footer button {
+        width: 100%;
+        justify-content: center;
+        padding: 10px;
+    }
+
+    /* Footer Target Section specific */
+    .footerRow .inputWrapper {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .footerRow .inputWrapper>* {
+        width: 100% !important;
+        /* Force full width for inputs/selects */
+        margin: 0 !important;
+    }
+
+    .iconBtn {
+        width: 100% !important;
+        /* Trash button full width */
+        margin-top: 4px;
+    }
 }

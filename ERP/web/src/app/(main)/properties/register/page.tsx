@@ -9,6 +9,7 @@ import Script from 'next/script';
 import DaumPostcodeEmbed from 'react-daum-postcode';
 import { Map, MapMarker } from 'react-kakao-maps-sdk';
 import styles from './page.module.css';
+import { AlertModal } from '@/components/common/AlertModal';
 
 const KAKAO_SDK_URL = `//dapi.kakao.com/v2/maps/sdk.js?appkey=26c1197bae99e17f8c1f3e688e22914d&libraries=services,drawing&autoload=false`;
 
@@ -74,6 +75,21 @@ export default function RegisterPropertyPage() {
     const [isBrandSearchOpen, setIsBrandSearchOpen] = useState(false);
     const [address, setAddress] = useState('');
     const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+
+    const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
+        isOpen: false,
+        message: '',
+        type: 'info'
+    });
+
+    const showAlert = (message: string, type: 'success' | 'error' | 'info' = 'info', onClose?: () => void) => {
+        setAlertConfig({ isOpen: true, message, type, onClose });
+    };
+
+    const closeAlert = () => {
+        if (alertConfig.onClose) alertConfig.onClose();
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     // Brand Search State
     const [brandSearchQuery, setBrandSearchQuery] = useState('');
@@ -483,9 +499,10 @@ export default function RegisterPropertyPage() {
                 setRevenueHistory(revenueData);
                 // Also update approximate monthly revenue from latest data?
                 // Optional: setFinancialData(prev => ({...prev, monthlyRevenue: average...}))
-                alert(`${revenueData.length}건의 매출 데이터가 로드되었습니다.`);
+                // Optional: setFinancialData(prev => ({...prev, monthlyRevenue: average...}))
+                showAlert(`${revenueData.length}건의 매출 데이터가 로드되었습니다.`, 'success');
             } else {
-                alert('유효한 데이터가 없습니다. 양식을 확인해주세요.');
+                showAlert('유효한 데이터가 없습니다. 양식을 확인해주세요.', 'error');
             }
         };
         reader.readAsBinaryString(file);
@@ -737,14 +754,15 @@ export default function RegisterPropertyPage() {
                 const scheduleTitle = `[신규] [${data.name as string}] · (${formatCurrency(totalPrice)} 만원)`;
                 await addScheduleEvent(scheduleTitle, new Date().toISOString().split('T')[0], 'work', '#7950f2', result.id);
 
-                alert('매물이 성공적으로 등록되었습니다.');
-                router.push('/properties');
+                showAlert('매물이 성공적으로 등록되었습니다.', 'success', () => {
+                    router.push('/properties');
+                });
             } else {
                 throw new Error('Failed to register');
             }
         } catch (error) {
             console.error(error);
-            alert('매물 등록 중 오류가 발생했습니다.');
+            showAlert('매물 등록 중 오류가 발생했습니다.', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -1248,16 +1266,17 @@ export default function RegisterPropertyPage() {
                         <div className={styles.sectionContent}>
 
                             {/* Revenue Excel Upload Section */}
-                            <div className={styles.row} style={{ marginBottom: 20, padding: 15, backgroundColor: '#f8f9fa', borderRadius: 8, alignItems: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {/* Revenue Excel Upload Section */}
+                            <div className={styles.revenueUploadRow}>
+                                <div className={styles.uploadHeader}>
                                     <h3 style={{ fontSize: 14, fontWeight: 'bold' }}>월별 매출 내역 등록</h3>
                                     <p style={{ fontSize: 12, color: '#868e96', margin: 0 }}>엑셀 파일을 업로드하여 월별 매출 데이터를 일괄 등록할 수 있습니다.</p>
                                 </div>
-                                <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                                    <button type="button" className={styles.whiteBtn} onClick={handleDownloadTemplate} style={{ fontSize: 13, padding: '6px 12px' }}>
+                                <div className={styles.uploadButtons}>
+                                    <button type="button" className={styles.whiteBtn} onClick={handleDownloadTemplate} style={{ fontSize: 13 }}>
                                         양식 다운로드
                                     </button>
-                                    <label className={styles.saveBtn} style={{ cursor: 'pointer', margin: 0, fontSize: 13, padding: '6px 12px', height: 'auto', backgroundColor: '#217346' }}>
+                                    <label className={styles.uploadBtn}>
                                         엑셀 업로드
                                         <input type="file" style={{ display: 'none' }} accept=".xlsx, .xls" onChange={handleExcelUpload} />
                                     </label>
@@ -1774,7 +1793,13 @@ export default function RegisterPropertyPage() {
                                 <h3>주소 검색</h3>
                                 <button type="button" onClick={() => setIsSearchOpen(false)}><X size={20} /></button>
                             </div>
-                            <DaumPostcodeEmbed onComplete={handleComplete} autoClose={false} />
+                            <div className={styles.postcodeWrapper}>
+                                <DaumPostcodeEmbed
+                                    onComplete={handleComplete}
+                                    autoClose={false}
+                                    style={{ height: '100%', width: '100%' }}
+                                />
+                            </div>
                         </div>
                     </div>
                 )
@@ -1874,6 +1899,12 @@ export default function RegisterPropertyPage() {
                     </div>
                 </div>
             )}
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                type={alertConfig.type}
+            />
         </div >
     );
 }

@@ -11,6 +11,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import CreateProjectModal from './_components/CreateProjectModal';
 import PointsModal from './_components/PointsModal';
+import { AlertModal } from '@/components/common/AlertModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -52,6 +54,7 @@ import {
     Filter, MoreHorizontal, User as UserIcon, Calendar as CalendarIcon,
     Download as DownloadIcon, Trash2 as TrashIcon, RefreshCcw, CreditCard
 } from 'lucide-react';
+import styles from './page.module.css';
 
 function ContractsPageContent() {
     const router = useRouter();
@@ -91,6 +94,22 @@ function ContractsPageContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [savedProjects, setSavedProjects] = useState<any[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+    // Modal State
+    const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
+    const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => { } });
+
+    const showAlert = (message: string, title?: string) => {
+        setAlertConfig({ isOpen: true, message, title: title || '알림' });
+    };
+
+    const showConfirm = (message: string, onConfirm: () => void) => {
+        setConfirmModal({ isOpen: true, message, onConfirm });
+    };
+
+    const closeAlert = () => {
+        setAlertConfig(prev => ({ ...prev, isOpen: false }));
+    };
 
     // --- DATA FETCHING ---
     const fetchSavedProjects = async () => {
@@ -158,14 +177,14 @@ function ContractsPageContent() {
             } else {
                 const errMsg = data.error || 'Unknown';
                 if (errMsg.includes('not connected')) {
-                    alert('유캔싸인을 연동해주세요');
+                    showAlert('유캔싸인을 연동해주세요');
                 } else {
-                    alert('전자계약 생성 실패: ' + errMsg);
+                    showAlert('전자계약 생성 실패: ' + errMsg);
                 }
             }
         } catch (e) {
             console.error(e);
-            alert('오류가 발생했습니다.');
+            showAlert('오류가 발생했습니다.');
         }
     };
 
@@ -189,11 +208,11 @@ function ContractsPageContent() {
             if (data.url) {
                 window.open(data.url, '_blank');
             } else {
-                alert('임베딩 URL 생성 실패: ' + (data.error || 'Unknown'));
+                showAlert('임베딩 URL 생성 실패: ' + (data.error || 'Unknown'));
             }
         } catch (e) {
             console.error(e);
-            alert('오류가 발생했습니다.');
+            showAlert('오류가 발생했습니다.');
         }
     };
 
@@ -298,12 +317,12 @@ function ContractsPageContent() {
             if (res.ok) {
                 setDetailPanelData(data);
             } else {
-                alert('유캔싸인 연동이 만료되었거나 정보를 불러올 수 없습니다. 다시 연동해주세요. \n우측상단 아이디 클릭 -> 개인정보수정에서 확인해주세요');
+                showAlert('유캔싸인 연동이 만료되었거나 정보를 불러올 수 없습니다. 다시 연동해주세요. \n우측상단 아이디 클릭 -> 개인정보수정에서 확인해주세요');
                 setSelectedContractId(null);
             }
         } catch (e) {
             console.error(e);
-            alert('상세 정보를 불러오는데 실패했습니다. 유캔싸인 연동 상태를 확인해주세요. \n우측상단 아이디 클릭 -> 개인정보수정');
+            showAlert('상세 정보를 불러오는데 실패했습니다. 유캔싸인 연동 상태를 확인해주세요. \n우측상단 아이디 클릭 -> 개인정보수정');
             setSelectedContractId(null);
         } finally {
             setIsPanelLoading(false);
@@ -316,6 +335,34 @@ function ContractsPageContent() {
             return;
         }
 
+        const processAction = async () => {
+            try {
+                const storedUser = localStorage.getItem('user');
+                const uid = userId || (storedUser ? JSON.parse(storedUser).id : null);
+                if (!uid) return;
+
+                const res = await fetch(`/api/contracts/actions?userId=${uid}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, contractId })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    showAlert('요청이 성공적으로 처리되었습니다.');
+                    setSelectedContractId(null);
+                    fetchData();
+                } else {
+                    showAlert('요청 실패: ' + (data.error || '알 수 없는 오류'));
+                }
+
+            } catch (e) {
+                console.error(e);
+                showAlert('작업 처리 중 오류가 발생했습니다.');
+            }
+        };
+
         if (action === 'delete' || action === 'cancel' || action === 'restore' || action === 'permanent_delete' || action === 'extend_expiry') {
             let msg = '';
             switch (action) {
@@ -325,33 +372,9 @@ function ContractsPageContent() {
                 case 'permanent_delete': msg = '정말 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'; break;
                 case 'extend_expiry': msg = '유효기간을 30일 연장하시겠습니까?'; break;
             }
-            if (!confirm(msg)) return;
-        }
-
-        try {
-            const storedUser = localStorage.getItem('user');
-            const uid = userId || (storedUser ? JSON.parse(storedUser).id : null);
-            if (!uid) return;
-
-            const res = await fetch(`/api/contracts/actions?userId=${uid}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action, contractId })
-            });
-
-            const data = await res.json();
-
-            if (data.success) {
-                alert('요청이 성공적으로 처리되었습니다.');
-                setSelectedContractId(null);
-                fetchData();
-            } else {
-                alert('요청 실패: ' + (data.error || '알 수 없는 오류'));
-            }
-
-        } catch (e) {
-            console.error(e);
-            alert('작업 처리 중 오류가 발생했습니다.');
+            showConfirm(msg, processAction);
+        } else {
+            processAction();
         }
     };
 
@@ -363,7 +386,7 @@ function ContractsPageContent() {
 
             if (!uid) {
                 if (newWindow) newWindow.close();
-                alert('사용자 인증 정보가 없습니다.');
+                showAlert('사용자 인증 정보가 없습니다.');
                 return;
             }
 
@@ -375,12 +398,12 @@ function ContractsPageContent() {
                 else window.location.href = data.url;
             } else {
                 if (newWindow) newWindow.close();
-                alert('다운로드 URL을 찾을 수 없습니다.');
+                showAlert('다운로드 URL을 찾을 수 없습니다.');
             }
         } catch (e) {
             console.error(e);
             if (newWindow) newWindow.close();
-            alert('다운로드 처리 중 오류가 발생했습니다.');
+            showAlert('다운로드 처리 중 오류가 발생했습니다.');
         }
     };
 
@@ -400,72 +423,76 @@ function ContractsPageContent() {
     // --- BULK ACTIONS ---
     const handleBulkDownload = async () => {
         if (selectedIds.length === 0) return;
-        if (!confirm(`${selectedIds.length}개의 파일을 다운로드 하시겠습니까?`)) return;
 
-        try {
-            const zip = new JSZip();
-            const storedUser = localStorage.getItem('user');
-            const uid = userId || (storedUser ? JSON.parse(storedUser).id : null);
-            if (!uid) return;
+        showConfirm(`${selectedIds.length}개의 파일을 다운로드 하시겠습니까?`, async () => {
+            try {
+                const zip = new JSZip();
+                const storedUser = localStorage.getItem('user');
+                const uid = userId || (storedUser ? JSON.parse(storedUser).id : null);
+                if (!uid) return;
 
-            alert('다운로드를 준비 중입니다. 잠시만 기다려주세요...');
+                showAlert('다운로드를 준비 중입니다. 잠시만 기다려주세요...');
 
-            const promises = selectedIds.map(async (id) => {
-                const contract = savedProjects.find(p => p.id === id) || contracts.find(c => c.id === id);
-                const name = contract ? (contract.title || contract.documentName || id) : id;
+                const promises = selectedIds.map(async (id) => {
+                    const contract = savedProjects.find(p => p.id === id) || contracts.find(c => c.id === id);
+                    const name = contract ? (contract.title || contract.documentName || id) : id;
 
-                try {
-                    const res = await fetch(`/api/contracts/download?userId=${uid}&contractId=${id}`);
-                    const data = await res.json();
+                    try {
+                        const res = await fetch(`/api/contracts/download?userId=${uid}&contractId=${id}`);
+                        const data = await res.json();
 
-                    if (data.url) {
-                        const fileRes = await fetch(data.url);
-                        const blob = await fileRes.blob();
-                        zip.file(`${name}.pdf`, blob);
+                        if (data.url) {
+                            const fileRes = await fetch(data.url);
+                            const blob = await fileRes.blob();
+                            zip.file(`${name}.pdf`, blob);
+                        }
+                    } catch (e) {
+                        console.error(`Failed to download ${id}`, e);
+                        zip.file(`${name}_error.txt`, `Failed to download: ${e}`);
                     }
-                } catch (e) {
-                    console.error(`Failed to download ${id}`, e);
-                    zip.file(`${name}_error.txt`, `Failed to download: ${e}`);
-                }
-            });
+                });
 
-            await Promise.all(promises);
-            const content = await zip.generateAsync({ type: 'blob' });
-            saveAs(content, `contracts_archive_${new Date().toISOString().slice(0, 10)}.zip`);
+                await Promise.all(promises);
+                const content = await zip.generateAsync({ type: 'blob' });
+                saveAs(content, `contracts_archive_${new Date().toISOString().slice(0, 10)}.zip`);
 
-        } catch (e) {
-            console.error(e);
-            alert('일괄 다운로드 중 오류가 발생했습니다.');
-        }
+                closeAlert(); // Close the "preparing" alert
+            } catch (e) {
+                console.error(e);
+                showAlert('일괄 다운로드 중 오류가 발생했습니다.');
+            }
+        });
     };
 
     const handleDeleteSelected = async () => {
-        if (!confirm(`${selectedIds.length}개의 프로젝트를 삭제하시겠습니까?`)) return;
+        if (selectedIds.length === 0) return;
 
-        try {
-            const storedUser = localStorage.getItem('user');
-            if (!storedUser) return;
-            const uid = JSON.parse(storedUser).id;
+        showConfirm(`${selectedIds.length}개의 프로젝트를 삭제하시겠습니까?`, async () => {
+            try {
+                const storedUser = localStorage.getItem('user');
+                if (!storedUser) return;
+                const uid = JSON.parse(storedUser).id;
 
-            // Bulk delete via multiple API calls (or could add a bulk endpoint, but this is simple)
-            const promises = selectedIds.map(id =>
-                fetch(`/api/projects/${id}?userId=${uid}`, { method: 'DELETE' })
-            );
+                // Bulk delete via multiple API calls (or could add a bulk endpoint, but this is simple)
+                const promises = selectedIds.map(id =>
+                    fetch(`/api/projects/${id}?userId=${uid}`, { method: 'DELETE' })
+                );
 
-            await Promise.all(promises);
+                await Promise.all(promises);
 
-            // Optimistic update
-            const newProjects = savedProjects.filter(p => !selectedIds.includes(p.id));
-            setSavedProjects(newProjects);
-            setSelectedIds([]);
-            alert('삭제되었습니다.');
+                // Optimistic update
+                const newProjects = savedProjects.filter(p => !selectedIds.includes(p.id));
+                setSavedProjects(newProjects);
+                setSelectedIds([]);
+                showAlert('삭제되었습니다.');
 
-            // Re-fetch to be safe
-            fetchSavedProjects();
-        } catch (e) {
-            console.error(e);
-            alert('삭제 중 오류가 발생했습니다.');
-        }
+                // Re-fetch to be safe
+                fetchSavedProjects();
+            } catch (e) {
+                console.error(e);
+                showAlert('삭제 중 오류가 발생했습니다.');
+            }
+        });
     };
 
     // Filter helpers
@@ -492,21 +519,19 @@ function ContractsPageContent() {
     );
 
     return (
-        <div style={styles.container}>
+        <div className={styles.container}>
             {/* GLOBAL HEADER */}
-            <div style={styles.header}>
-                {/* Batch Actions */}
-                {/* Batch Actions Removed from Header to fix layout */}
+            <div className={styles.header}>
                 <div>
-
-                    <h1 style={styles.title}>계약 관리</h1>
-                    <p style={styles.subtitle}>프로젝트 및 전자계약 통합 관리</p>
+                    <h1 className={styles.title}>계약 관리</h1>
+                    <p className={styles.subtitle}>프로젝트 및 전자계약 통합 관리</p>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
                     {activeTab === 'signatures' && (
                         <>
                             <button
-                                style={{ ...styles.createBtn, backgroundColor: 'white', color: '#1c7ed6', border: '1px solid #d0ebff' }}
+                                className={styles.createBtn}
+                                style={{ backgroundColor: 'white', color: '#1c7ed6', border: '1px solid #d0ebff' }}
                                 onClick={() => setShowPointsModal(true)}
                             >
                                 <CreditCard size={16} />
@@ -514,7 +539,8 @@ function ContractsPageContent() {
                             </button>
                             {/* EMBED CREATE BUTTON */}
                             <button
-                                style={{ ...styles.createBtn, backgroundColor: '#fcc419', color: '#fff', border: 'none' }}
+                                className={styles.createBtn}
+                                style={{ backgroundColor: '#fcc419', color: '#fff', border: 'none' }}
                                 onClick={handleEmbedCreate}
                                 title="임베딩 모드로 생성 테스트"
                             >
@@ -524,7 +550,7 @@ function ContractsPageContent() {
                     )}
 
                     {activeTab === 'drafts' && (
-                        <button style={styles.createBtn} onClick={() => setShowCreateModal(true)}>
+                        <button className={styles.createBtn} onClick={() => setShowCreateModal(true)}>
                             <Plus size={16} /> 새 프로젝트 생성
                         </button>
                     )}
@@ -532,16 +558,16 @@ function ContractsPageContent() {
             </div>
 
             {/* TABS */}
-            <div style={styles.tabs}>
+            <div className={styles.tabs}>
                 <div
-                    style={activeTab === 'drafts' ? styles.tabActive : styles.tab}
+                    className={activeTab === 'drafts' ? styles.tabActive : styles.tab}
                     onClick={() => setActiveTab('drafts')}
                 >
                     <PenTool size={16} />
                     <span>프로젝트</span>
                 </div>
                 <div
-                    style={activeTab === 'signatures' ? styles.tabActive : styles.tab}
+                    className={activeTab === 'signatures' ? styles.tabActive : styles.tab}
                     onClick={() => setActiveTab('signatures')}
                 >
                     <CheckCircle2 size={16} />
@@ -549,16 +575,16 @@ function ContractsPageContent() {
                 </div>
             </div>
 
-            {/* TAB CONTENT: SAVED DRAFTS (UNCHANGED UI, just keeping it here) */}
+            {/* TAB CONTENT: SAVED DRAFTS */}
             {activeTab === 'drafts' && (
                 <div>
-                    <div style={styles.toolbar}>
-                        <div style={styles.searchBox}>
+                    <div className={styles.toolbar}>
+                        <div className={styles.searchBox}>
                             <Search size={16} color="#adb5bd" />
                             <input
                                 type="text"
                                 placeholder="프로젝트명, 참여자 검색..."
-                                style={styles.input}
+                                className={styles.input}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
@@ -567,8 +593,8 @@ function ContractsPageContent() {
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <button
                                     onClick={handleBulkDownload}
+                                    className={styles.createBtn}
                                     style={{
-                                        ...styles.createBtn,
                                         backgroundColor: 'white',
                                         color: '#228be6',
                                         border: '1px solid #228be6',
@@ -579,8 +605,8 @@ function ContractsPageContent() {
                                 </button>
                                 <button
                                     onClick={handleDeleteSelected}
+                                    className={styles.createBtn}
                                     style={{
-                                        ...styles.createBtn,
                                         backgroundColor: '#fff5f5',
                                         color: '#fa5252',
                                         border: '1px solid #ffc9c9',
@@ -592,20 +618,20 @@ function ContractsPageContent() {
                             </div>
                         )}
                     </div>
-                    <div style={styles.tableWrapper}>
-                        <table style={styles.table}>
+                    <div className={styles.tableWrapper}>
+                        <table className={styles.table}>
                             <thead>
-                                <tr style={styles.theadRow}>
-                                    <th style={{ ...styles.th, width: '40px' }}>
+                                <tr className={styles.theadRow}>
+                                    <th className={styles.th} style={{ width: '40px' }}>
                                         <input type="checkbox" onChange={toggleSelectAll} checked={filteredDrafts.length > 0 && selectedIds.length === filteredDrafts.length} />
                                     </th>
-                                    <th style={styles.th}>계약명</th>
-                                    <th style={styles.th}>카테고리</th>
-                                    <th style={styles.th}>문서 수</th>
-                                    <th style={styles.th}>참여자</th>
-                                    <th style={styles.th}>상태</th>
-                                    <th style={styles.th}>최근 수정일</th>
-                                    <th style={{ ...styles.th, width: '50px' }}></th>
+                                    <th className={styles.th}>계약명</th>
+                                    <th className={styles.th}>카테고리</th>
+                                    <th className={styles.th}>문서 수</th>
+                                    <th className={styles.th}>참여자</th>
+                                    <th className={styles.th}>상태</th>
+                                    <th className={styles.th}>최근 수정일</th>
+                                    <th className={styles.th} style={{ width: '50px' }}></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -613,25 +639,24 @@ function ContractsPageContent() {
                                     filteredDrafts.map(project => {
                                         const badge = getStatusBadge(project.status);
                                         return (
-                                            <tr key={project.id} style={styles.tr} onClick={() => router.push(`/contracts/project/${project.id}`)}>
-                                                <td style={styles.td}>
+                                            <tr key={project.id} className={styles.tr} onClick={() => router.push(`/contracts/project/${project.id}`)}>
+                                                <td className={styles.td}>
                                                     <input type="checkbox" checked={selectedIds.includes(project.id)} onChange={(e) => toggleSelect(project.id, e)} onClick={(e) => e.stopPropagation()} />
                                                 </td>
-                                                <td style={styles.td}>
+                                                <td className={styles.td}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <div style={styles.iconBox}><Folder size={16} color="#495057" /></div>
+                                                        <div className={styles.iconBox}><Folder size={16} color="#495057" /></div>
                                                         <span style={{ fontWeight: 600, color: '#343a40' }}>{project.title}</span>
                                                     </div>
                                                 </td>
-                                                <td style={styles.td}>{project.category}</td>
-                                                <td style={styles.td}><span style={styles.docCount}><FileText size={12} /> {Array.isArray(project.documents) ? project.documents.length : 0}건</span></td>
-                                                <td style={styles.td}>{project.participants}</td>
-                                                <td style={styles.td}><span style={{ ...styles.badge, backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span></td>
-                                                <td style={{ ...styles.td, color: '#868e96' }}>{new Date(project.updatedAt).toLocaleDateString()}</td>
-                                                <td style={styles.td}>
+                                                <td className={styles.td}>{project.category}</td>
+                                                <td className={styles.td}><span className={styles.docCount}><FileText size={12} /> {Array.isArray(project.documents) ? project.documents.length : 0}건</span></td>
+                                                <td className={styles.td}>{project.participants}</td>
+                                                <td className={styles.td}><span className={styles.badge} style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span></td>
+                                                <td className={styles.td} style={{ color: '#868e96' }}>{new Date(project.updatedAt).toLocaleDateString()}</td>
+                                                <td className={styles.td}>
                                                     <div style={{ display: 'flex', gap: '4px' }}>
-
-                                                        <button style={styles.actionBtn}><ChevronRight size={16} color="#adb5bd" /></button>
+                                                        <button className={styles.actionBtn}><ChevronRight size={16} color="#adb5bd" /></button>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -648,49 +673,47 @@ function ContractsPageContent() {
 
             {/* TAB CONTENT: SIGNATURES (NEW DASHBOARD) */}
             {activeTab === 'signatures' && (
-                <div style={styles.dashboardLayout}>
+                <div className={styles.dashboardLayout}>
                     {/* LEFT FILTER SIDEBAR */}
-                    <div style={styles.filterSidebar}>
-                        <div style={styles.filterGroup}>
-                            <h3 style={styles.filterTitle}><Filter size={14} /> 상태 필터</h3>
+                    <div className={styles.filterSidebar}>
+                        <div className={styles.filterGroup}>
+                            <h3 className={styles.filterTitle}><Filter size={14} /> 상태 필터</h3>
                             <button
                                 onClick={() => { setStatusFilter('all'); }}
-                                style={(statusFilter === 'all') ? styles.filterBtnActive : styles.filterBtn}
+                                className={statusFilter === 'all' ? styles.filterBtnActive : styles.filterBtn}
                             >
                                 전체 보기
                             </button>
                             <button
                                 onClick={() => { setStatusFilter('progress'); }}
-                                style={statusFilter === 'progress' ? styles.filterBtnActive : styles.filterBtn}
+                                className={statusFilter === 'progress' ? styles.filterBtnActive : styles.filterBtn}
                             >
                                 진행 중
                             </button>
                             <button
                                 onClick={() => { setStatusFilter('completed'); }}
-                                style={statusFilter === 'completed' ? styles.filterBtnActive : styles.filterBtn}
+                                className={statusFilter === 'completed' ? styles.filterBtnActive : styles.filterBtn}
                             >
                                 완료됨
                             </button>
                             <button
                                 onClick={() => { setStatusFilter('trash'); }}
-                                style={statusFilter === 'trash' ? styles.filterBtnActive : styles.filterBtn}
+                                className={statusFilter === 'trash' ? styles.filterBtnActive : styles.filterBtn}
                             >
                                 휴지통
                             </button>
                         </div>
-
-
                     </div>
 
                     {/* RIGHT MAIN LIST */}
-                    <div style={styles.mainListArea}>
+                    <div className={styles.mainListArea}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                            <div style={styles.searchBox}>
+                            <div className={styles.searchBox}>
                                 <Search size={16} color="#adb5bd" />
                                 <input
                                     type="text"
                                     placeholder="문서명 검색..."
-                                    style={styles.input}
+                                    className={styles.input}
                                     value={signatureSearchTerm}
                                     onChange={(e) => setSignatureSearchTerm(e.target.value)}
                                 />
@@ -712,14 +735,14 @@ function ContractsPageContent() {
                                 </button>
                             </div>
                         ) : (
-                            <div style={styles.tableWrapper}>
-                                <table style={styles.table}>
+                            <div className={styles.tableWrapper}>
+                                <table className={styles.table}>
                                     <thead>
-                                        <tr style={styles.theadRow}>
-                                            <th style={styles.th}>문서명</th>
-                                            <th style={styles.th}>상태</th>
-                                            <th style={styles.th}>작성일</th>
-                                            <th style={{ ...styles.th, textAlign: 'right' }}>관리</th>
+                                        <tr className={styles.theadRow}>
+                                            <th className={styles.th}>문서명</th>
+                                            <th className={styles.th}>상태</th>
+                                            <th className={styles.th}>작성일</th>
+                                            <th className={styles.th} style={{ textAlign: 'right' }}>관리</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -727,16 +750,16 @@ function ContractsPageContent() {
                                             <tr><td colSpan={4} style={{ padding: '60px', textAlign: 'center', color: '#868e96' }}>데이터가 없습니다.</td></tr>
                                         ) : (
                                             filteredSignatures.map((contract) => (
-                                                <tr key={contract.id} style={styles.tr} onClick={() => openDetailPanel(contract.id!)}>
-                                                    <td style={styles.td}>
+                                                <tr key={contract.id} className={styles.tr} onClick={() => openDetailPanel(contract.id!)}>
+                                                    <td className={styles.td}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                            <div style={{ ...styles.iconBox, backgroundColor: '#e7f5ff', color: '#1864ab' }}>
+                                                            <div className={styles.iconBox} style={{ backgroundColor: '#e7f5ff', color: '#1864ab' }}>
                                                                 <FileText size={16} />
                                                             </div>
                                                             <span style={{ fontWeight: 600, color: '#343a40' }}>{contract.documentName || '이름 없음'}</span>
                                                         </div>
                                                     </td>
-                                                    <td style={styles.td}>
+                                                    <td className={styles.td}>
                                                         <span style={{
                                                             padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600,
                                                             background: (contract.status === 'completed' || contract.status === 'COMPLETED') ? '#dcfce7' : '#e0f2fe',
@@ -745,15 +768,14 @@ function ContractsPageContent() {
                                                             {contract.status === 'completed' || contract.status === 'COMPLETED' ? '완료됨' : '진행중'}
                                                         </span>
                                                     </td>
-                                                    <td style={{ ...styles.td, color: '#868e96' }}>
+                                                    <td className={styles.td} style={{ color: '#868e96' }}>
                                                         {contract.createdAt ? new Date(contract.createdAt).toLocaleDateString() : '-'}
                                                     </td>
-                                                    <td style={{ ...styles.td, textAlign: 'right' }}>
+                                                    <td className={styles.td} style={{ textAlign: 'right' }}>
                                                         <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-
                                                             <button
+                                                                className={styles.iconBtn}
                                                                 style={{
-                                                                    ...styles.iconBtn,
                                                                     color: '#fcc419',
                                                                     display: 'flex',
                                                                     alignItems: 'center',
@@ -771,7 +793,6 @@ function ContractsPageContent() {
                                                             >
                                                                 <Layout size={14} /> 문서확인
                                                             </button>
-
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -795,7 +816,19 @@ function ContractsPageContent() {
                 />
             )}
 
+            <AlertModal
+                isOpen={alertConfig.isOpen}
+                onClose={closeAlert}
+                message={alertConfig.message}
+                title={alertConfig.title}
+            />
 
+            <ConfirmModal
+                isOpen={confirmModal.isOpen}
+                onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+            />
 
             {/* Other Modals */}
             {showPointsModal && (
@@ -815,45 +848,6 @@ function ContractsPageContent() {
         </div>
     );
 }
-
-const styles = {
-    container: { padding: '30px', maxWidth: '1400px', margin: '0 auto' }, // Wider for dashboard
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' },
-    title: { fontSize: '24px', fontWeight: '700', color: '#212529', marginBottom: '4px' },
-    subtitle: { fontSize: '14px', color: '#868e96' },
-    createBtn: { backgroundColor: '#228be6', color: 'white', border: 'none', borderRadius: '6px', padding: '10px 18px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
-    tabs: { display: 'flex', gap: '20px', marginBottom: '24px', borderBottom: '1px solid #dee2e6' },
-    tab: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 4px', cursor: 'pointer', color: '#868e96', fontSize: '15px', fontWeight: 500, borderBottom: '2px solid transparent' },
-    tabActive: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 4px', cursor: 'pointer', color: '#228be6', fontSize: '15px', fontWeight: 600, borderBottom: '2px solid #228be6' },
-    toolbar: { display: 'flex', marginBottom: '16px', gap: '12px' },
-    searchBox: { display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '6px', padding: '8px 12px', width: '300px' },
-    input: { border: 'none', outline: 'none', fontSize: '14px', width: '100%' },
-    tableWrapper: { backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #e9ecef', overflow: 'hidden' },
-    table: { width: '100%', borderCollapse: 'collapse' as const, fontSize: '14px' },
-    theadRow: { backgroundColor: '#f8f9fa', borderBottom: '1px solid #e9ecef' },
-    th: { padding: '12px 16px', textAlign: 'left' as const, fontWeight: 600, color: '#495057' },
-    tr: { borderBottom: '1px solid #f1f3f5', cursor: 'pointer', transition: 'background 0.1s' },
-    td: { padding: '16px', color: '#495057' },
-    iconBox: { width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-    docCount: { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#868e96' },
-    badge: { padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 600 },
-    actionBtn: { background: 'none', border: 'none', cursor: 'pointer', padding: '4px' },
-    iconBtn: { background: 'transparent', border: 'none', cursor: 'pointer', color: '#adb5bd', padding: '4px' },
-
-    // Dashboard Specific Logic
-    dashboardLayout: { display: 'flex', gap: '24px', minHeight: '600px' },
-    filterSidebar: { width: '240px', display: 'flex', flexDirection: 'column' as const, gap: '24px' },
-    filterGroup: { backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid #f1f3f5' },
-    filterTitle: { margin: '0 0 12px 0', fontSize: '13px', fontWeight: 700, color: '#868e96', display: 'flex', alignItems: 'center', gap: '6px' },
-    filterBtn: { display: 'block', width: '100%', textAlign: 'left' as const, padding: '8px 12px', background: 'none', border: 'none', borderRadius: '6px', fontSize: '14px', color: '#495057', cursor: 'pointer', marginBottom: '4px' },
-    filterBtnActive: { display: 'block', width: '100%', textAlign: 'left' as const, padding: '8px 12px', background: '#e7f5ff', border: 'none', borderRadius: '6px', fontSize: '14px', color: '#1971c2', fontWeight: 600, marginBottom: '4px' },
-    mainListArea: { flex: 1, backgroundColor: 'white', borderRadius: '8px', border: '1px solid #eee', display: 'flex', flexDirection: 'column' as const },
-
-    batchActions: { display: 'flex', alignItems: 'center', gap: '16px', backgroundColor: '#e7f5ff', padding: '8px 16px', borderRadius: '6px', marginLeft: 'auto' },
-    selectedCount: { fontSize: '13px', fontWeight: 600, color: '#1971c2' },
-    batchBtnGroup: { display: 'flex', gap: '8px' },
-    batchBtn: { display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '4px', border: '1px solid #a5d8ff', backgroundColor: 'white', fontSize: '12px', cursor: 'pointer', color: '#1971c2' },
-};
 
 export default function ContractsPage() {
     return (
