@@ -13,7 +13,20 @@ export async function GET(request: Request) {
     const state = searchParams.get('state');
 
     const cookieStore = await cookies();
-    const userId = cookieStore.get('ucansign_pending_user')?.value;
+    let userId = cookieStore.get('ucansign_pending_user')?.value;
+
+    // Fallback: Try decoding state
+    if (!userId && state) {
+        try {
+            const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+            if (decoded && decoded.uid) {
+                userId = decoded.uid;
+                console.log('Recovered userId from state parameter:', userId);
+            }
+        } catch (e) {
+            console.warn('Failed to decode state param:', e);
+        }
+    }
 
     if (!userId) {
         return NextResponse.json({ error: 'Session expired or invalid user' }, { status: 400 });

@@ -49,12 +49,16 @@ export async function GET(request: Request) {
     }
 
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/ucansign/callback`;
-    const state = Math.random().toString(36).substring(7); // Simple state for now
+    // Embed userId in state for robustness (cookie fallback)
+    const statePayload = JSON.stringify({ rnd: Math.random().toString(36).substring(7), uid: userId });
+    const state = Buffer.from(statePayload).toString('base64');
 
     // Store UUID in cookie
     const cookieStore = await cookies();
     cookieStore.set('ucansign_pending_user', userId, {
         httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // Add Secure flag
+        sameSite: 'lax', // Relax SameSite
         path: '/',
         maxAge: 60 * 5 // 5 minutes
     });
