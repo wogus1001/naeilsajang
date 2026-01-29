@@ -49,8 +49,13 @@ export async function GET(request: Request) {
     }
 
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/ucansign/callback`;
-    // Embed userId in state for robustness (cookie fallback)
-    const statePayload = JSON.stringify({ rnd: Math.random().toString(36).substring(7), uid: userId });
+    const redirectParam = searchParams.get('redirect');
+    // Embed userId and redirectUrl in state for robustness (cookie fallback)
+    const statePayload = JSON.stringify({
+        rnd: Math.random().toString(36).substring(7),
+        uid: userId,
+        ret: redirectParam
+    });
     const state = Buffer.from(statePayload).toString('base64');
 
     // Store UUID in cookie

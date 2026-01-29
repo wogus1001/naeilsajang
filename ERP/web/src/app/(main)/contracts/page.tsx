@@ -730,7 +730,7 @@ function ContractsPageContent() {
                             <div style={{ padding: '40px', background: 'white', borderRadius: '8px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                                 <AlertCircle size={48} style={{ color: '#f59e0b', marginBottom: '16px' }} />
                                 <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>서비스 연동 필요</h2>
-                                <button onClick={() => window.location.href = `/api/ucansign/auth?userId=${userId}`} style={{ padding: '10px 20px', backgroundColor: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                <button onClick={() => window.location.href = `/api/ucansign/auth?userId=${userId}&redirect=/contracts?tab=signatures`} style={{ padding: '10px 20px', backgroundColor: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                     유캔싸인 연동하기
                                 </button>
                             </div>

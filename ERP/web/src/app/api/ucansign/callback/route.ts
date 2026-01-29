@@ -78,7 +78,22 @@ export async function GET(request: Request) {
         cookieStore2.delete('ucansign_pending_user');
 
         // Redirect to Profile page
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/profile?ucansign=connected`);
+        // Redirect to original page or default Profile
+        let targetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/profile?ucansign=connected`;
+
+        // Try recovering return URL from state
+        if (state) {
+            try {
+                const decoded = JSON.parse(Buffer.from(state, 'base64').toString('utf-8'));
+                if (decoded && decoded.ret) {
+                    targetUrl = `${process.env.NEXT_PUBLIC_APP_URL}${decoded.ret}`;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        return NextResponse.redirect(targetUrl);
 
     } catch (error: any) {
         console.error('OAuth Callback Error:', error);
