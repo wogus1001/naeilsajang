@@ -170,7 +170,8 @@ export async function DELETE(request: Request) {
             { table: 'notices', col: 'author_id' },
             { table: 'projects', col: 'created_by' },
             { table: 'contract_templates', col: 'created_by' },
-            { table: 'companies', col: 'owner_id' } // Fix: Unlink company ownership
+            { table: 'companies', col: 'owner_id' },
+            { table: 'companies', col: 'manager_id' } // Fix: Unlink company manager
         ];
 
         for (const { table, col } of cleanupTables) {
