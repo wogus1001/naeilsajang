@@ -48,10 +48,13 @@ export async function GET(request: Request) {
         const userUuid = await resolveUserId(userId);
 
         // 1. Fetch from External API (Source of Truth for Status)
-        console.log(`[API] Fetching contracts from uCanSign for ${userId}`);
+        // Fix: Use resolved UUID for database lookups in getContracts -> getUserToken
+        console.log(`[API] Fetching contracts from uCanSign for ${userId} (UUID: ${userUuid})`);
         let apiContracts: any[] = [];
         try {
-            apiContracts = await getContracts(userId, status || undefined) || [];
+            if (userUuid) {
+                apiContracts = await getContracts(userUuid, status || undefined) || [];
+            }
         } catch (e: any) {
             console.error('External API List Error:', e.message);
             // If error is related to Auth, re-throw to trigger NEED_AUTH response
@@ -84,9 +87,9 @@ export async function GET(request: Request) {
         // Iterate DB contracts. If `ucansignId` exists, fetch fresh detail from External.
         // If status changed, update DB.
         const refreshedDbContracts = await Promise.all(dbContracts.map(async (c) => {
-            if (c.ucansignId) {
+            if (c.ucansignId && userUuid) {
                 try {
-                    const detail = await uCanSignClient(userId, `/documents/${c.ucansignId}`);
+                    const detail = await uCanSignClient(userUuid, `/documents/${c.ucansignId}`);
                     if (detail?.result) {
                         const freshStatus = detail.result.status;
                         const freshName = detail.result.name;
