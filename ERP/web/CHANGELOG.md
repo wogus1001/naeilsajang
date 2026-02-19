@@ -13,6 +13,11 @@ All notable changes to this project will be documented in this file.
     - 등록 요청 시 `requesterId`가 누락되지 않도록 로직을 보강했습니다.
   - **Manager ID Mapping**: Prioritize UUID over legacy ID/UID.
     - 담당자 지정 시 UUID를 최우선으로 매핑하여 정합성을 높였습니다.
+  - **API 권한/회사 스코프 강제 (P0-1 Authorization Enforcement)**
+    - **API Security**: `customers`, `schedules`, `business-cards`에 대한 전방위 권한 검사 및 회사 스코프 강제 적용.
+      - 타 회사 데이터 접근 원천 차단 (403 Forbidden).
+    - **Authentication**: `requesterId` 또는 `userId` 필수 검증 (401 Unauthorized).
+    - **Reliability**: ID 생성 방식 개선 및 데이터 무결성 확보.
 
 ### Changed (변경됨)
 - **Error Messaging Improvement (에러 메시지 개선)**
