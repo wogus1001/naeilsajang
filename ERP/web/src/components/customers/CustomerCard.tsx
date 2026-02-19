@@ -169,10 +169,13 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
     useEffect(() => {
         if (id) {
             const fetchCustomer = async () => {
-                const res = await fetch(`/api/customers`);
+                const requesterId = getRequesterId();
+                const query = new URLSearchParams({ id });
+                if (requesterId) query.set('requesterId', requesterId);
+                const res = await fetch(`/api/customers?${query.toString()}`);
+                if (!res.ok) return;
                 const data = await res.json();
-                const found = data.find((c: any) => c.id === id);
-                if (found) setFormData({ ...INITIAL_DATA, ...found });
+                if (data) setFormData({ ...INITIAL_DATA, ...data });
             };
             fetchCustomer();
         } else {
@@ -275,7 +278,8 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
 
             const payload = {
                 ...(data.id ? data : { ...data, id: undefined }),
-                companyName
+                companyName,
+                requesterId: getRequesterId()
             };
 
             const res = await fetch('/api/customers', {
@@ -701,7 +705,10 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
         showConfirm('정말 이 고객 정보를 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.', async () => {
             setLoading(true);
             try {
-                const res = await fetch(`/api/customers?id=${id}`, {
+                const requesterId = getRequesterId();
+                const params = new URLSearchParams({ id });
+                if (requesterId) params.set('requesterId', requesterId);
+                const res = await fetch(`/api/customers?${params.toString()}`, {
                     method: 'DELETE'
                 });
 

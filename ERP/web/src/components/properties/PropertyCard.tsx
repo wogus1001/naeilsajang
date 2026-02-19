@@ -434,7 +434,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         try {
             // 1. Fetch Person Data
             const endpoint = type === 'customer'
-                ? `/api/customers?id=${personId}`
+                ? withRequesterId(`/api/customers?id=${personId}`)
                 : withRequesterId(`/api/business-cards?id=${personId}`);
 
             const res = await fetch(endpoint);
@@ -487,7 +487,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 await fetch(updateUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedPerson)
+                    body: JSON.stringify(withRequesterPayload(updatedPerson))
                 });
             }
         } catch (e) {
@@ -910,7 +910,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     const deleteWorkHistoryFromPerson = async (personId: string, type: string, historyItem: any) => {
         try {
             const endpoint = type === 'customer'
-                ? `/api/customers?id=${personId}`
+                ? withRequesterId(`/api/customers?id=${personId}`)
                 : withRequesterId(`/api/business-cards?id=${personId}`);
 
             const res = await fetch(endpoint);
@@ -945,7 +945,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             await fetch(updateUrl, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedPerson)
+                body: JSON.stringify(withRequesterPayload(updatedPerson))
             });
         } catch (e) {
             console.error('Failed to sync delete to person:', e);
@@ -955,7 +955,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     const deletePromotedPropertyFromPerson = async (personId: string, type: string, propertyId: string) => {
         try {
             const endpoint = type === 'customer'
-                ? `/api/customers?id=${personId}`
+                ? withRequesterId(`/api/customers?id=${personId}`)
                 : withRequesterId(`/api/business-cards?id=${personId}`);
 
             const res = await fetch(endpoint);
@@ -976,7 +976,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             await fetch(updateUrl, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedPerson)
+                body: JSON.stringify(withRequesterPayload(updatedPerson))
             });
         } catch (e) {
             console.error('Failed to sync promoted property deletion to person:', e);
@@ -986,7 +986,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     const syncWorkHistoryToPerson = async (personId: string, type: string, historyItem: WorkHistoryItem, propertyName: string) => {
         try {
             const endpoint = type === 'customer'
-                ? `/api/customers?id=${personId}`
+                ? withRequesterId(`/api/customers?id=${personId}`)
                 : withRequesterId(`/api/business-cards?id=${personId}`);
 
             const res = await fetch(endpoint);
@@ -1017,7 +1017,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             const putRes = await fetch(updateUrl, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedPerson)
+                body: JSON.stringify(withRequesterPayload(updatedPerson))
             });
 
             if (putRes.ok) {
@@ -1038,7 +1038,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     const syncPromotedProperty = async (personId: string, type: 'customer' | 'businessCard', propertyData: any) => {
         try {
             const endpoint = type === 'customer'
-                ? `/api/customers?id=${personId}`
+                ? withRequesterId(`/api/customers?id=${personId}`)
                 : withRequesterId(`/api/business-cards?id=${personId}`);
             const res = await fetch(endpoint);
             if (!res.ok) {
@@ -1066,7 +1066,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 await fetch(updateUrl, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedPerson)
+                    body: JSON.stringify(withRequesterPayload(updatedPerson))
                 });
             }
         } catch (e) {
