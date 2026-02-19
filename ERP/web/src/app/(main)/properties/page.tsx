@@ -320,16 +320,28 @@ function PropertiesPageContent() {
         let query = '';
         if (userStr) {
             try {
-                const user = JSON.parse(userStr);
+                const parsed = JSON.parse(userStr);
+                const user = parsed.user || parsed;
                 setCurrentUser(user); // Set current user state
                 if (user.companyName) {
                     query = `?company=${encodeURIComponent(user.companyName)}`;
+                    const requesterId = user.uid || user.id || '';
+                    if (requesterId) {
+                        query += `&requesterId=${encodeURIComponent(requesterId)}`;
+                    }
+                } else {
+                    const requesterId = user.uid || user.id || '';
+                    if (requesterId) {
+                        setManagers([{ id: requesterId, name: user.name || requesterId }]);
+                    }
                 }
             } catch (e) {
                 console.error("Error parsing user from localStorage", e);
             }
         }
-        fetch(`/api/users${query}`).then(res => res.json()).then(data => setManagers(data)).catch(err => console.error(err));
+        if (query) {
+            fetch(`/api/users${query}`).then(res => res.json()).then(data => setManagers(data)).catch(err => console.error(err));
+        }
     }, []);
 
 
@@ -655,11 +667,12 @@ function PropertiesPageContent() {
                 const parsed = userStr ? JSON.parse(userStr) : {};
                 const user = parsed.user || parsed;
                 const userCompanyName = user?.companyName || '';
+                const requesterId = user?.uid || user?.id || '';
 
                 // Sequential delete as API likely doesn't support bulk yet
                 // Ideally: await fetch('/api/properties/bulk-delete', { ... })
                 const deletePromises = Array.from(selectedIds).map(id =>
-                    fetch(`/api/properties?id=${id}&company=${encodeURIComponent(userCompanyName)}`, { method: 'DELETE' })
+                    fetch(`/api/properties?id=${id}&company=${encodeURIComponent(userCompanyName)}&requesterId=${encodeURIComponent(requesterId)}`, { method: 'DELETE' })
                 );
 
                 await Promise.all(deletePromises);
@@ -947,10 +960,11 @@ function PropertiesPageContent() {
 
     const handleToggleFavorite = async (id: string, current: boolean) => {
         try {
+            const requesterId = currentUser?.uid || currentUser?.id || '';
             const res = await fetch(`/api/properties?id=${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isFavorite: !current })
+                body: JSON.stringify({ isFavorite: !current, requesterId })
             });
             if (res.ok) {
                 setProperties(prev => prev.map(p => p.id === id ? { ...p, isFavorite: !current } : p));

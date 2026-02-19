@@ -160,7 +160,18 @@ function BusinessCardListContent() {
             const userStr = localStorage.getItem('user');
             const parsed = userStr ? JSON.parse(userStr) : {};
             const user = parsed.user || parsed;
-            const companyQuery = user?.companyName ? `?company=${encodeURIComponent(user.companyName)}` : '';
+            if (!user?.companyName) {
+                const ownId = user?.uid || user?.id;
+                if (ownId) {
+                    setManagers({ [ownId]: user?.name || ownId });
+                }
+                return;
+            }
+            const requesterId = user?.uid || user?.id || '';
+            const params = new URLSearchParams();
+            params.set('company', user.companyName);
+            if (requesterId) params.set('requesterId', requesterId);
+            const companyQuery = params.toString() ? `?${params.toString()}` : '';
 
             const res = await fetch(`/api/users${companyQuery}`);
             if (res.ok) {

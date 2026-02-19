@@ -249,10 +249,14 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
                     const updatedHistory = [...(selectedStore.history || []), newHistory];
 
                     try {
+                        const userStr = localStorage.getItem('user');
+                        const parsed = userStr ? JSON.parse(userStr) : {};
+                        const user = parsed.user || parsed;
+                        const requesterId = user?.uid || user?.id || '';
                         await fetch(`/api/properties?id=${selectedStore.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ history: updatedHistory })
+                            body: JSON.stringify({ history: updatedHistory, requesterId })
                         });
                     } catch (err) {
                         console.error('Failed to update property history:', err);

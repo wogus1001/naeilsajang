@@ -32,6 +32,36 @@ async function resolveManagerUuid(legacyManager: string | null) {
     return managerId;
 }
 
+async function getRequesterProfile(supabaseAdmin: any, request: Request, fallbackRaw?: string | null) {
+    const { searchParams } = new URL(request.url);
+    const requesterRaw =
+        searchParams.get('requesterId') ||
+        request.headers.get('x-user-id') ||
+        fallbackRaw ||
+        null;
+    const requesterId = await resolveManagerUuid(requesterRaw);
+    if (!requesterId) return null;
+
+    const { data: requester } = await supabaseAdmin
+        .from('profiles')
+        .select('id, role, company_id')
+        .eq('id', requesterId)
+        .single();
+
+    return requester || null;
+}
+
+function canAccessProperty(
+    requester: any,
+    property: { company_id: string | null; manager_id: string | null }
+) {
+    if (!requester) return false;
+    if (requester.role === 'admin') return true;
+    if (requester.company_id && property.company_id && requester.company_id === property.company_id) return true;
+    if (requester.id && property.manager_id && requester.id === property.manager_id) return true;
+    return false;
+}
+
 // Helper: Transform DB Row -> Frontend Object
 function transformProperty(row: any) {
     if (!row) return null;
@@ -179,6 +209,11 @@ export async function POST(request: Request) {
         const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { companyName, managerId, name, status, operationType, address, isFavorite, ...rest } = body;
+        const requesterProfile = await getRequesterProfile(supabaseAdmin, request, managerId || body.manager_id || null);
+
+        if (!requesterProfile) {
+            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+        }
 
         const { companyId, managerId: mgrUuid } = await resolveIds(companyName, managerId);
 
@@ -194,6 +229,12 @@ export async function POST(request: Request) {
 
         if (!managerProfile || managerProfile.company_id !== companyId) {
             return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+        }
+
+        if (requesterProfile.role !== 'admin') {
+            if (!requesterProfile.company_id || requesterProfile.company_id !== companyId) {
+                return NextResponse.json({ error: 'Forbidden: cross-company create denied' }, { status: 403 });
+            }
         }
 
         const newId = Date.now().toString(); // Consistent ID gen
@@ -239,12 +280,21 @@ export async function PUT(request: Request) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         const body = await request.json();
+        const requesterProfile = await getRequesterProfile(
+            supabaseAdmin,
+            request,
+            body.requesterId || body.managerId || body.manager_id || null
+        );
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        if (!requesterProfile) return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
 
         // 1. Fetch existing to merge JSONB
         const { data: existing, error: fetchError } = await supabaseAdmin.from('properties').select('*').eq('id', id).single();
         if (fetchError || !existing) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+        if (!canAccessProperty(requesterProfile, existing)) {
+            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+        }
 
         // 2. Prepare updates
         const { companyName, managerId, name, status, operationType, address, isFavorite, ...rest } = body;
@@ -317,8 +367,26 @@ export async function DELETE(request: Request) {
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
         if (!company) return NextResponse.json({ error: 'company is required' }, { status: 400 });
 
+        const requesterProfile = await getRequesterProfile(supabaseAdmin, request, null);
+        if (!requesterProfile) return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+
         const { companyId } = await resolveIds(company, null);
         if (!companyId) return NextResponse.json({ error: 'Invalid company' }, { status: 400 });
+
+        const { data: targetProperty, error: targetError } = await supabaseAdmin
+            .from('properties')
+            .select('id, company_id, manager_id')
+            .eq('id', id)
+            .single();
+        if (targetError || !targetProperty) {
+            return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+        }
+        if (targetProperty.company_id !== companyId) {
+            return NextResponse.json({ error: 'company mismatch for target property' }, { status: 403 });
+        }
+        if (!canAccessProperty(requesterProfile, targetProperty)) {
+            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+        }
 
         const { error } = await supabaseAdmin
             .from('properties')

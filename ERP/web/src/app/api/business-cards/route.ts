@@ -99,14 +99,16 @@ export async function GET(request: Request) {
 
     // Fetch from Supabase
     const supabaseAdmin = getSupabaseAdmin();
-
-    // Company Filter Logic
-    let userId = await resolveUserUuid(supabaseAdmin, searchParams.get('userId'));
-
-    if (!id && !userId) {
-        return NextResponse.json({ error: 'userId is required for list access' }, { status: 400 });
+    const requesterRaw =
+        searchParams.get('requesterId') ||
+        searchParams.get('userId') ||
+        request.headers.get('x-user-id');
+    const requesterProfile = await getRequesterProfile(supabaseAdmin, requesterRaw);
+    if (!requesterProfile) {
+        return NextResponse.json({ error: 'requesterId or userId is required' }, { status: 401 });
     }
 
+    const requesterId = requesterProfile.id;
 
     // Build query
     const limitParam = searchParams.get('limit'); // limit=100 or 'all'
@@ -127,53 +129,71 @@ export async function GET(request: Request) {
     }
 
     // Company Filter Logic
-    // userId is already resolved above
-    if (userId) {
-
-        // 1. Get Requester Company ID from Profiles
-        const { data: requester } = await supabaseAdmin
+    if (requesterProfile.role === 'admin') {
+        if (company) {
+            const { companyId } = await resolveIds(company, null);
+            if (!companyId) {
+                return NextResponse.json([]);
+            }
+            query = query.eq('company_id', companyId);
+        }
+    } else if (requesterProfile.company_id) {
+        // 2. Get All Team Members in this Company
+        const requesterCompanyId = requesterProfile.company_id;
+        if (company) {
+            const { companyId } = await resolveIds(company, null);
+            if (companyId && companyId !== requesterCompanyId) {
+                return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+            }
+        }
+        const { data: teamMembers } = await supabaseAdmin
             .from('profiles')
-            .select('company_id')
-            .eq('id', userId)
+            .select('id')
+            .eq('company_id', requesterCompanyId);
+
+        let teamIds: string[] = [];
+        if (teamMembers) teamIds = teamMembers.map(t => t.id);
+
+        // Construct Filter with OR logic
+        const companyFilter = `company_id.eq.${requesterCompanyId}`;
+        let managerFilter = '';
+
+        if (teamIds.length > 0) {
+            managerFilter = `manager_id.in.(${teamIds.join(',')})`;
+        } else {
+            managerFilter = `manager_id.eq.${requesterId}`;
+        }
+
+        // Apply OR Filter
+        query = query.or(`${companyFilter},${managerFilter}`);
+    } else {
+        // User has no company_id? -> Show only their own cards (Personal isolation)
+        query = query.eq('manager_id', requesterId);
+    }
+
+    if (id) {
+        const { data: targetCard, error: targetCardError } = await supabaseAdmin
+            .from('business_cards')
+            .select('id, company_id, manager_id')
+            .eq('id', id)
             .single();
 
-        if (requester?.company_id) {
-            // 2. Get All Team Members in this Company
-            const { data: teamMembers } = await supabaseAdmin
-                .from('profiles')
-                .select('id')
-                .eq('company_id', requester.company_id);
-
-            let teamIds: string[] = [];
-            if (teamMembers) teamIds = teamMembers.map(t => t.id);
-
-            // Construct Filter with OR logic
-            const companyFilter = `company_id.eq.${requester.company_id}`;
-            let managerFilter = '';
-
-            if (teamIds.length > 0) {
-                managerFilter = `manager_id.in.(${teamIds.join(',')})`;
-            } else {
-                managerFilter = `manager_id.eq.${userId}`;
-            }
-
-            // Apply OR Filter
-            query = query.or(`${companyFilter},${managerFilter}`);
-        } else {
-            // User has no company_id? -> Show only their own cards (Personal isolation)
-            query = query.eq('manager_id', userId);
+        if (targetCardError || !targetCard) {
+            return NextResponse.json({ error: 'Card not found' }, { status: 404 });
         }
-    } else {
-        // No userId provided (legacy or admin). 
-        // If strict security required, we could return empty.
-        // For now, let's allow "GetAll" strictly for backward compat BUT prompt implies "company isolation".
-        // If we strictly enforce company isolation, we should probably require userId.
-        // But let's leave as-is for non-login path if any.
+
+        if (!canAccessCard(requesterProfile, targetCard)) {
+            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+        }
+
+        query = query.eq('id', id).limit(1);
     }
 
     // Debug Mode
     const debugMode = searchParams.get('debug') === 'true';
-    let debugInfo: any = {};
+    if (debugMode && requesterProfile.role !== 'admin') {
+        return NextResponse.json({ error: 'Forbidden: Admins only' }, { status: 403 });
+    }
 
     const { data, error } = await query;
     if (error) {
@@ -185,8 +205,8 @@ export async function GET(request: Request) {
         // Re-fetch context for debug info since query was already built
         let dCompanyId = null;
         let dTeamIds = [];
-        if (userId) {
-            const { data: req } = await supabaseAdmin.from('profiles').select('company_id').eq('id', userId).single();
+        if (requesterId) {
+            const { data: req } = await supabaseAdmin.from('profiles').select('company_id').eq('id', requesterId).single();
             if (req) {
                 dCompanyId = req.company_id;
                 const { data: teams } = await supabaseAdmin.from('profiles').select('id').eq('company_id', dCompanyId);
@@ -195,8 +215,7 @@ export async function GET(request: Request) {
         }
         return NextResponse.json({
             debug: true,
-            inputUserId: searchParams.get('userId'),
-            resolvedUserId: userId,
+            requesterId,
             companyId: dCompanyId,
             teamMemberCount: dTeamIds.length,
             totalCardsFound: data?.length || 0,

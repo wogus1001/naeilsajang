@@ -514,11 +514,17 @@ export default function RegisterPropertyPage() {
             try {
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
-                    const user = JSON.parse(userStr);
-                    setSelectedManager(user.id); // Default to current user
+                    const parsed = JSON.parse(userStr);
+                    const user = parsed.user || parsed;
+                    const requesterId = user?.uid || user?.id || '';
+                    setSelectedManager(requesterId); // Default to current user
 
                     if (user.companyName) {
-                        const res = await fetch(`/api/users?company=${encodeURIComponent(user.companyName)}`);
+                        const query = new URLSearchParams({
+                            company: user.companyName
+                        });
+                        if (requesterId) query.set('requesterId', requesterId);
+                        const res = await fetch(`/api/users?${query.toString()}`);
                         if (res.ok) {
                             const data = await res.json();
                             setManagers(data);

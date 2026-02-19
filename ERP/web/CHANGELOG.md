@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.2.1] - 2026-02-19
+
+### Changed (변경됨)
+- **권한/회사스코프 2차 보강 (Authorization Hardening Phase 2)**
+  - **Business Cards API**: 단건 조회(id)에도 권한 검사(`canAccessCard`) 적용. requesterId/userId 없으면 401. debug 모드 admin-only.
+    - ID만으로 타사 명함 조회 가능하던 경로를 차단했습니다.
+  - **Users API**: company 필터 조회에도 요청자 검증 필수. non-admin은 자기 회사 멤버만 조회 가능.
+    - company 쿼리만으로 임의 조회 가능하던 경로를 차단했습니다.
+  - **Properties API**: `getRequesterProfile`/`canAccessProperty` 헬퍼 추가. POST/PUT/DELETE에 cross-company 차단.
+    - 회사 경계 우회 수정/삭제 리스크를 축소했습니다.
+  - **Frontend**: `/api/users`, `/api/business-cards`, `/api/properties` 호출 전체에 `requesterId` 파라미터 동기화 (7개 페이지, 3개 컴포넌트 적용).
+
 ## [v1.2.0] - 2026-02-19
 
 ### Changed (변경됨)

@@ -81,6 +81,13 @@ export async function GET(request: Request) {
             return NextResponse.json(debugInfo);
         }
 
+        let companyScopedRequester: any = null;
+        if (companyFilter) {
+            const requester = await getRequesterProfile(supabaseAdmin, request, searchParams);
+            if ('error' in requester) return requester.error;
+            companyScopedRequester = requester.profile;
+        }
+
         // Global user list is admin-only.
         if (!companyFilter) {
             const adminCheck = await requireAdminRequester(supabaseAdmin, request, searchParams);
@@ -99,12 +106,24 @@ export async function GET(request: Request) {
             .order('created_at', { ascending: false });
 
         if (companyFilter) {
-            // Explicit FK here too!
-            query = supabaseAdmin
-                .from('profiles')
-                .select(`*, company:companies!company_id!inner(name)`)
-                .eq('company.name', companyFilter)
-                .order('created_at', { ascending: false });
+            if (companyScopedRequester?.role === 'admin') {
+                // Explicit FK here too!
+                query = supabaseAdmin
+                    .from('profiles')
+                    .select(`*, company:companies!company_id!inner(name)`)
+                    .eq('company.name', companyFilter)
+                    .order('created_at', { ascending: false });
+            } else {
+                if (!companyScopedRequester?.company_id) {
+                    return NextResponse.json([]);
+                }
+                // Non-admin users can only see their own company members.
+                query = supabaseAdmin
+                    .from('profiles')
+                    .select(`*, company:companies!company_id(name)`)
+                    .eq('company_id', companyScopedRequester.company_id)
+                    .order('created_at', { ascending: false });
+            }
         }
 
         const { data: profiles, error } = await query;

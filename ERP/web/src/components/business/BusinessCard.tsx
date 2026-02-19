@@ -113,6 +113,20 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         setConfirmModal({ isOpen: true, message, onConfirm, isDanger });
     };
 
+    const getRequesterId = () => {
+        const userStr = localStorage.getItem('user');
+        const parsed = userStr ? JSON.parse(userStr) : {};
+        const user = parsed.user || parsed;
+        return user?.uid || user?.id || '';
+    };
+
+    const withRequesterId = (url: string) => {
+        const requesterId = getRequesterId();
+        if (!requesterId) return url;
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}requesterId=${encodeURIComponent(requesterId)}`;
+    };
+
     // Load Data & Managers
     useEffect(() => {
         // Fetch Managers
@@ -131,10 +145,16 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 }
 
                 // Fetch Managers (Filtered by Company)
-                fetch(`/api/users?company=${encodeURIComponent(myCompany)}`)
-                    .then(res => res.json())
-                    .then(data => setManagers(data))
-                    .catch(err => console.error(err));
+                if (myCompany) {
+                    const managerParams = new URLSearchParams();
+                    managerParams.set('company', myCompany);
+                    if (myId) managerParams.set('requesterId', myId);
+                    const managerQuery = managerParams.toString();
+                    fetch(`/api/users${managerQuery ? `?${managerQuery}` : ''}`)
+                        .then(res => res.json())
+                        .then(data => setManagers(data))
+                        .catch(err => console.error(err));
+                }
 
                 // Set default manager for new
                 if (!id) {
@@ -638,7 +658,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                     }));
 
                     // Reload for consistency
-                    const loadRes = await fetch(`/api/business-cards?id=${id}`);
+                    const loadRes = await fetch(withRequesterId(`/api/business-cards?id=${id}`));
                     if (loadRes.ok) {
                         const refreshed = await loadRes.json();
                         setFormData(prev => ({
@@ -709,7 +729,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
                     // Refresh data
                     if (id) {
-                        const loadRes = await fetch(`/api/business-cards?id=${id}`);
+                        const loadRes = await fetch(withRequesterId(`/api/business-cards?id=${id}`));
                         if (loadRes.ok) {
                             const newData = await loadRes.json();
                             // Sanitize nulls

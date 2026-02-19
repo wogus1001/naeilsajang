@@ -221,6 +221,21 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
     const [userCompanyName, setUserCompanyName] = useState<string>('');
 
+    const getRequesterId = () => {
+        if (formData?.managerId) return formData.managerId;
+        const userStr = localStorage.getItem('user');
+        const parsed = userStr ? JSON.parse(userStr) : {};
+        const user = parsed.user || parsed;
+        return user?.uid || user?.id || '';
+    };
+
+    const withRequesterId = (url: string) => {
+        const requesterId = getRequesterId();
+        if (!requesterId) return url;
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}requesterId=${encodeURIComponent(requesterId)}`;
+    };
+
     // UI State for Linking
     const [selectedBusinessCardId, setSelectedBusinessCardId] = useState<string | null>(null);
     const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -416,7 +431,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             // 1. Fetch Person Data
             const endpoint = type === 'customer'
                 ? `/api/customers?id=${personId}`
-                : `/api/business-cards?id=${personId}`;
+                : withRequesterId(`/api/business-cards?id=${personId}`);
 
             const res = await fetch(endpoint);
             if (!res.ok) return;
@@ -892,7 +907,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         try {
             const endpoint = type === 'customer'
                 ? `/api/customers?id=${personId}`
-                : `/api/business-cards?id=${personId}`;
+                : withRequesterId(`/api/business-cards?id=${personId}`);
 
             const res = await fetch(endpoint);
             if (!res.ok) return;
@@ -937,7 +952,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         try {
             const endpoint = type === 'customer'
                 ? `/api/customers?id=${personId}`
-                : `/api/business-cards?id=${personId}`;
+                : withRequesterId(`/api/business-cards?id=${personId}`);
 
             const res = await fetch(endpoint);
             if (!res.ok) return;
@@ -968,7 +983,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         try {
             const endpoint = type === 'customer'
                 ? `/api/customers?id=${personId}`
-                : `/api/business-cards?id=${personId}`;
+                : withRequesterId(`/api/business-cards?id=${personId}`);
 
             const res = await fetch(endpoint);
             if (!res.ok) {
@@ -1020,7 +1035,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         try {
             const endpoint = type === 'customer'
                 ? `/api/customers?id=${personId}`
-                : `/api/business-cards?id=${personId}`;
+                : withRequesterId(`/api/business-cards?id=${personId}`);
             const res = await fetch(endpoint);
             if (!res.ok) {
                 console.error(`Sync Error: Failed to fetch person data (Status: ${res.status})`);
@@ -1559,7 +1574,12 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                     const currentUser = user.user || user; // Handle wrapped 'user' object
 
                     if (currentUser.companyName) {
-                        const res = await fetch(`/api/users?company=${encodeURIComponent(currentUser.companyName)}`);
+                        const query = new URLSearchParams({
+                            company: currentUser.companyName
+                        });
+                        const requesterId = currentUser.uid || currentUser.id || '';
+                        if (requesterId) query.set('requesterId', requesterId);
+                        const res = await fetch(`/api/users?${query.toString()}`);
                         if (res.ok) {
                             const data = await res.json();
                             setManagers(data);
@@ -2185,8 +2205,9 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 const parsed = userStr ? JSON.parse(userStr) : {};
                 const user = parsed.user || parsed;
                 const companyName = formData.companyName || user?.companyName || '';
+                const requesterId = user?.uid || user?.id || '';
 
-                const res = await fetch(`/api/properties?id=${formData.id}&company=${encodeURIComponent(companyName)}`, {
+                const res = await fetch(`/api/properties?id=${formData.id}&company=${encodeURIComponent(companyName)}&requesterId=${encodeURIComponent(requesterId)}`, {
                     method: 'DELETE',
                 });
                 if (res.ok) {

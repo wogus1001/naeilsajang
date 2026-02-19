@@ -139,12 +139,18 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
             try {
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
-                    const user = JSON.parse(userStr);
+                    const parsed = JSON.parse(userStr);
+                    const user = parsed.user || parsed;
+                    const requesterId = user?.uid || user?.id || '';
                     if (!id) {
-                        setFormData(prev => prev.managerId ? prev : { ...prev, managerId: user.id });
+                        setFormData(prev => prev.managerId ? prev : { ...prev, managerId: requesterId });
                     }
                     if (user.companyName) {
-                        const res = await fetch(`/api/users?company=${encodeURIComponent(user.companyName)}`);
+                        const query = new URLSearchParams({
+                            company: user.companyName
+                        });
+                        if (requesterId) query.set('requesterId', requesterId);
+                        const res = await fetch(`/api/users?${query.toString()}`);
                         if (res.ok) {
                             const data = await res.json();
                             setManagers(data);
