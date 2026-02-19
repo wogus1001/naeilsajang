@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic'; // Ensure fresh data on every request
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,6 +37,7 @@ async function getRequesterProfile(supabaseAdmin: any, request: Request, fallbac
     const { searchParams } = new URL(request.url);
     const requesterRaw =
         searchParams.get('requesterId') ||
+        searchParams.get('userId') ||
         request.headers.get('x-user-id') ||
         fallbackRaw ||
         null;
@@ -49,6 +51,19 @@ async function getRequesterProfile(supabaseAdmin: any, request: Request, fallbac
         .single();
 
     return requester || null;
+}
+
+async function getSharedPropertyIdByToken(supabaseAdmin: any, shareToken: string) {
+    if (!shareToken) return null;
+    const { data: shareLink } = await supabaseAdmin
+        .from('share_links')
+        .select('property_id, expires_at')
+        .eq('token', shareToken)
+        .single();
+
+    if (!shareLink?.property_id) return null;
+    if (shareLink.expires_at && new Date(shareLink.expires_at) < new Date()) return null;
+    return shareLink.property_id as string;
 }
 
 function canAccessProperty(
@@ -86,11 +101,28 @@ export async function GET(request: Request) {
     const id = searchParams.get('id');
     const company = searchParams.get('company');
     const min = searchParams.get('min') === 'true';
+    const shareToken = searchParams.get('shareToken');
 
     try {
+        const requesterProfile = await getRequesterProfile(supabaseAdmin, request);
+        const sharedPropertyId = shareToken
+            ? await getSharedPropertyIdByToken(supabaseAdmin, shareToken)
+            : null;
+
+        if (!requesterProfile && !sharedPropertyId) {
+            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+        }
+
         if (id) {
             const { data: prop, error } = await supabaseAdmin.from('properties').select('*').eq('id', id).single();
             if (error || !prop) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+            if (requesterProfile) {
+                if (!canAccessProperty(requesterProfile, prop)) {
+                    return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+                }
+            } else if (sharedPropertyId !== id) {
+                return NextResponse.json({ error: 'Forbidden: invalid share token' }, { status: 403 });
+            }
 
             // [Hydration] Fetch fresh data for Promoted Customers
             if (prop.data && prop.data.promotedCustomers && prop.data.promotedCustomers.length > 0) {
@@ -157,16 +189,49 @@ export async function GET(request: Request) {
             return NextResponse.json(transformProperty(prop));
         }
 
+        if (!requesterProfile && sharedPropertyId) {
+            const { data: sharedProperty, error: sharedError } = await supabaseAdmin
+                .from('properties')
+                .select('*')
+                .eq('id', sharedPropertyId)
+                .single();
+            if (sharedError || !sharedProperty) {
+                return NextResponse.json([]);
+            }
+            const rows = [sharedProperty];
+            if (min) {
+                return NextResponse.json(rows.map((p: any) => ({
+                    id: p.id,
+                    manageId: p.data?.manageId || p.data?.legacyId || p.data?.['관리번호'],
+                    name: p.data?.name || p.name
+                })));
+            }
+            return NextResponse.json(rows.map(transformProperty));
+        }
+
         let query = supabaseAdmin.from('properties').select('*').order('created_at', { ascending: false }).range(0, 9999);
 
-        if (company) {
-            // Resolve company name -> UUID
-            const { companyId } = await resolveIds(company, '');
-            if (companyId) {
-                query = query.eq('company_id', companyId);
-            } else {
-                return NextResponse.json([]); // Company not found
+        if (requesterProfile?.role === 'admin') {
+            if (company) {
+                const { companyId } = await resolveIds(company, '');
+                if (companyId) {
+                    query = query.eq('company_id', companyId);
+                } else {
+                    return NextResponse.json([]);
+                }
             }
+        } else if (requesterProfile?.company_id) {
+            if (company) {
+                const { companyId } = await resolveIds(company, '');
+                if (companyId && companyId !== requesterProfile.company_id) {
+                    return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+                }
+            }
+            query = query.eq('company_id', requesterProfile.company_id);
+        } else if (requesterProfile?.id) {
+            query = query.eq('manager_id', requesterProfile.id);
+        } else {
+            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
         }
 
         const { data: properties, error } = await query;
@@ -209,16 +274,18 @@ export async function POST(request: Request) {
         const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
         const { companyName, managerId, name, status, operationType, address, isFavorite, ...rest } = body;
-        const requesterProfile = await getRequesterProfile(supabaseAdmin, request, managerId || body.manager_id || null);
+        const requesterProfile = await getRequesterProfile(supabaseAdmin, request, body.requesterId || null);
 
         if (!requesterProfile) {
             return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
         }
 
-        const { companyId, managerId: mgrUuid } = await resolveIds(companyName, managerId);
+        const { companyId: resolvedCompanyId } = await resolveIds(companyName || null, null);
+        const mgrUuid = await resolveManagerUuid(managerId || requesterProfile.id);
+        const companyId = resolvedCompanyId || requesterProfile.company_id;
 
         if (!companyId || !mgrUuid) {
-            return NextResponse.json({ error: 'Valid companyName and managerId are required' }, { status: 400 });
+            return NextResponse.json({ error: 'Valid managerId and company scope are required' }, { status: 400 });
         }
 
         const { data: managerProfile } = await supabaseAdmin
@@ -237,7 +304,7 @@ export async function POST(request: Request) {
             }
         }
 
-        const newId = Date.now().toString(); // Consistent ID gen
+        const newId = randomUUID();
 
         const corePayload = {
             id: newId,
@@ -280,11 +347,7 @@ export async function PUT(request: Request) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         const body = await request.json();
-        const requesterProfile = await getRequesterProfile(
-            supabaseAdmin,
-            request,
-            body.requesterId || body.managerId || body.manager_id || null
-        );
+        const requesterProfile = await getRequesterProfile(supabaseAdmin, request, body.requesterId || null);
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
         if (!requesterProfile) return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
@@ -367,7 +430,7 @@ export async function DELETE(request: Request) {
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
         if (!company) return NextResponse.json({ error: 'company is required' }, { status: 400 });
 
-        const requesterProfile = await getRequesterProfile(supabaseAdmin, request, null);
+        const requesterProfile = await getRequesterProfile(supabaseAdmin, request);
         if (!requesterProfile) return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
 
         const { companyId } = await resolveIds(company, null);
@@ -403,3 +466,4 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Failed to delete property' }, { status: 500 });
     }
 }
+

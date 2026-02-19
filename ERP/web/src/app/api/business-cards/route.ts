@@ -312,15 +312,20 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     try {
+        const supabaseAdmin = getSupabaseAdmin();
         const payload = await request.json();
+        const requesterRaw = payload.requesterId || payload.userId || payload.managerId || payload?.meta?.managerId || null;
+        const requesterProfile = await getRequesterProfile(supabaseAdmin, requesterRaw);
+        if (!requesterProfile) {
+            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+        }
 
         // Check if this is the new 3-file batch upload (has main, promoted, history arrays)
         if (payload.main && Array.isArray(payload.main)) {
-            return handleBatchUpload(payload);
+            return handleBatchUpload(payload, requesterProfile);
         }
 
         // Single Card Creation Logic
-        const supabaseAdmin = getSupabaseAdmin();
         const {
             promotedProperties,
             history,
@@ -340,15 +345,14 @@ export async function POST(request: Request) {
             homepage,
             gender,
             isFavorite,
-            managerId,
-            ...rest
+            managerId
         } = payload;
 
         // Validation for Single Create
         if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
 
         // Validate UUID for manager_id
-        const safeManagerId = await resolveUserUuid(supabaseAdmin, managerId || null);
+        const safeManagerId = await resolveUserUuid(supabaseAdmin, managerId || requesterProfile.id);
         if (!safeManagerId) {
             return NextResponse.json({ error: 'Valid managerId is required' }, { status: 400 });
         }
@@ -371,6 +375,12 @@ export async function POST(request: Request) {
 
         if (!companyId) {
             return NextResponse.json({ error: 'Company scope could not be resolved' }, { status: 400 });
+        }
+
+        if (requesterProfile.role !== 'admin') {
+            if (!requesterProfile.company_id || requesterProfile.company_id !== companyId) {
+                return NextResponse.json({ error: 'Forbidden: cross-company create denied' }, { status: 403 });
+            }
         }
 
         // 1. Insert Core Data
@@ -456,15 +466,19 @@ export async function POST(request: Request) {
     }
 }
 
-async function handleBatchUpload(payload: any) {
+async function handleBatchUpload(payload: any, requesterProfile: any) {
     const supabaseAdmin = getSupabaseAdmin();
     const { main, promoted, history, meta } = payload;
     const { userCompanyName, managerId } = meta || {};
 
     // Get Uploader's Company ID for auto-assignment
-    const uploaderId = managerId;
-    if (!uploaderId || !UUID_REGEX.test(String(uploaderId))) {
+    const uploaderId = await resolveUserUuid(supabaseAdmin, managerId || requesterProfile.id);
+    if (!uploaderId) {
         return NextResponse.json({ error: 'Valid uploader managerId is required for batch upload' }, { status: 400 });
+    }
+
+    if (requesterProfile.role !== 'admin' && requesterProfile.id !== uploaderId) {
+        return NextResponse.json({ error: 'Forbidden: uploader mismatch' }, { status: 403 });
     }
 
     let uploaderCompanyId = null;
@@ -499,6 +513,10 @@ async function handleBatchUpload(payload: any) {
 
     if (!uploaderCompanyId) {
         return NextResponse.json({ error: 'Uploader company scope could not be resolved' }, { status: 400 });
+    }
+
+    if (requesterProfile.role !== 'admin' && requesterProfile.company_id && requesterProfile.company_id !== uploaderCompanyId) {
+        return NextResponse.json({ error: 'Forbidden: cross-company batch upload denied' }, { status: 403 });
     }
 
     const now = new Date().toISOString();

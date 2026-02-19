@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { getRequesterId, getStoredCompanyName, getStoredUser } from '@/utils/userUtils';
 
 // Mock Data for Events
 const MOCK_EVENTS = [
@@ -156,13 +157,14 @@ export default function SchedulePage() {
 
     const fetchSchedules = async () => {
         try {
-            const userStr = localStorage.getItem('user');
+            const user = getStoredUser();
             let query = '';
-            if (userStr) {
-                const user = JSON.parse(userStr);
+            if (user) {
                 const params = new URLSearchParams();
-                if (user.companyName) params.append('company', user.companyName);
-                if (user.id) params.append('userId', user.id);
+                const companyName = getStoredCompanyName(user);
+                const requesterId = getRequesterId(user);
+                if (companyName) params.append('company', companyName);
+                if (requesterId) params.append('userId', requesterId);
                 query = `?${params.toString()}`;
             }
 
@@ -248,15 +250,11 @@ export default function SchedulePage() {
         try {
             const color = getEventColor(formData.scope || 'personal', formData.status, formData.status, formData.title);
 
-            const getUserInfo = () => {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const { id, companyName } = JSON.parse(userStr);
-                    return { userId: id, companyName };
-                }
-                return { userId: '', companyName: '' };
+            const currentUser = getStoredUser();
+            const userInfo = {
+                userId: getRequesterId(currentUser),
+                companyName: getStoredCompanyName(currentUser)
             };
-            const userInfo = getUserInfo();
 
             const payload = {
                 ...formData,

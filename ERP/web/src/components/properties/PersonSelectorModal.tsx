@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, User, CreditCard, Check } from 'lucide-react';
 import styles from './PersonSelectorModal.module.css';
+import { getRequesterId, getStoredUser } from '@/utils/userUtils';
 
 interface PersonSelectorModalProps {
     isOpen: boolean;
@@ -57,16 +58,16 @@ export default function PersonSelectorModal({ isOpen, onClose, onSelect, company
             if (companyName) {
                 params.set('company', companyName);
             }
+            const requesterId = getRequesterId();
+            if (requesterId) {
+                params.set('requesterId', requesterId);
+            }
 
             if (activeTab === 'businessCard') {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const parsed = JSON.parse(userStr);
-                    const user = parsed.user || parsed;
-                    const userId = user?.uid || user?.id;
-                    if (userId) {
-                        params.set('userId', userId);
-                    }
+                const user = getStoredUser();
+                const userId = user?.uid || user?.uuid || user?.id || user?.userId || user?.user_id;
+                if (userId) {
+                    params.set('userId', userId);
                 }
             }
 

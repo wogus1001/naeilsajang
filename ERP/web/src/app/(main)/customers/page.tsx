@@ -317,6 +317,10 @@ function CustomerListPageContent() {
                 if (user.companyName) {
                     queryParams.append('company', user.companyName);
                 }
+                const requesterId = user.uid || user.uuid || user.id || user.userId || user.user_id;
+                if (requesterId) {
+                    queryParams.append('requesterId', requesterId);
+                }
             }
 
             const query = `?${queryParams.toString()}`;
@@ -526,10 +530,14 @@ function CustomerListPageContent() {
         setCustomers(prev => prev.map(c => c.id === customer.id ? updatedCustomer : c));
 
         try {
+            const userStr = localStorage.getItem('user');
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const user = parsed.user || parsed;
+            const requesterId = user?.uid || user?.uuid || user?.id || user?.userId || user?.user_id || '';
             await fetch('/api/customers', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedCustomer)
+                body: JSON.stringify({ ...updatedCustomer, requesterId })
             });
         } catch (error) {
             console.error('Failed to update favorite', error);
@@ -658,7 +666,15 @@ function CustomerListPageContent() {
                 const res = await fetch('/api/customers', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: selectedIds })
+                    body: JSON.stringify({
+                        ids: selectedIds,
+                        requesterId: (() => {
+                            const userStr = localStorage.getItem('user');
+                            const parsed = userStr ? JSON.parse(userStr) : {};
+                            const user = parsed.user || parsed;
+                            return user?.uid || user?.uuid || user?.id || user?.userId || user?.user_id || '';
+                        })()
+                    })
                 });
 
                 if (res.ok) {
