@@ -465,7 +465,6 @@
         display: none !important;
     }
 
-    /* Full screen modal on mobile - Adjusted to 95% per request */
     .modalContent {
         width: 95%;
         height: 92%;
@@ -473,4 +472,46 @@
         border-radius: 12px;
         /* Restore radius */
     }
+}
+
+/* Dropdown & Filter Styles */
+.dropdownContainer {
+    position: relative;
+}
+
+.statusFilterBtn {
+    border: 1px solid #dee2e6;
+    background: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.statusFilterBtn:hover {
+    background: #f8f9fa;
+    border-color: #ced4da;
+}
+
+/* Resizer Styles */
+.resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+    z-index: 1;
+}
+
+.resizer:hover, .resizing {
+    background-color: #228be6; /* Highlight on hover/resize */
 }

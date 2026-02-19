@@ -55,24 +55,63 @@ function saveCards(cards: any[]) {
     fs.writeFileSync(dataPath, JSON.stringify(cards, null, 2), 'utf8');
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveUserUuid(supabaseAdmin: any, rawUser: string | null) {
+    if (!rawUser) return null;
+    if (UUID_REGEX.test(rawUser)) return rawUser;
+
+    const email = rawUser.includes('@') ? rawUser : `${rawUser}@example.com`;
+    const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+    return profile?.id || null;
+}
+
+async function getRequesterProfile(supabaseAdmin: any, rawUser: string | null) {
+    const requesterId = await resolveUserUuid(supabaseAdmin, rawUser);
+    if (!requesterId) return null;
+
+    const { data: requester } = await supabaseAdmin
+        .from('profiles')
+        .select('id, role, company_id')
+        .eq('id', requesterId)
+        .single();
+
+    return requester || null;
+}
+
+function canAccessCard(requester: any, card: { company_id: string | null; manager_id: string | null }) {
+    if (!requester) return false;
+    if (requester.role === 'admin') return true;
+    if (requester.id && card.manager_id && requester.id === card.manager_id) return true;
+    if (requester.company_id && card.company_id && requester.company_id === card.company_id) return true;
+    return false;
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
     const company = searchParams.get('company');
 
     // Fetch from Supabase
     const supabaseAdmin = getSupabaseAdmin();
 
     // Company Filter Logic
-    let userId = searchParams.get('userId');
+    let userId = await resolveUserUuid(supabaseAdmin, searchParams.get('userId'));
 
-    // Resolve userId if it looks like an email (Legacy client support)
-    if (userId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-        const { data: u } = await supabaseAdmin.from('profiles').select('id').eq('email', userId).single();
-        if (u) userId = u.id;
+    if (!id && !userId) {
+        return NextResponse.json({ error: 'userId is required for list access' }, { status: 400 });
     }
 
 
     // Build query
+    const limitParam = searchParams.get('limit'); // limit=100 or 'all'
+    const limit = limitParam === 'all' ? undefined : (parseInt(limitParam || '1000', 10) || 1000);
+
     // Build query
     let query = supabaseAdmin
         .from('business_cards')
@@ -82,6 +121,10 @@ export async function GET(request: Request) {
             history:business_card_history(*)
         `)
         .order('created_at', { ascending: false });
+
+    if (limit) {
+        query = query.limit(limit);
+    }
 
     // Company Filter Logic
     // userId is already resolved above
@@ -239,8 +282,7 @@ export async function GET(request: Request) {
         })) || []
     }));
 
-    if (searchParams.has('id')) {
-        const id = searchParams.get('id');
+    if (id) {
         const card = mappedData.find((c: any) => c.id === id);
         if (!card) return NextResponse.json({ error: 'Card not found' }, { status: 404 });
         return NextResponse.json(card);
@@ -287,18 +329,29 @@ export async function POST(request: Request) {
         if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
 
         // Validate UUID for manager_id
-        const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-        const safeManagerId = (managerId && isValidUUID(managerId)) ? managerId : null;
+        const safeManagerId = await resolveUserUuid(supabaseAdmin, managerId || null);
+        if (!safeManagerId) {
+            return NextResponse.json({ error: 'Valid managerId is required' }, { status: 400 });
+        }
 
-        // Resolve Company ID for new card
-        let companyId = null;
-        if (safeManagerId) {
-            const { data: managerProfile } = await supabaseAdmin
-                .from('profiles')
-                .select('company_id')
-                .eq('id', safeManagerId)
-                .single();
-            if (managerProfile) companyId = managerProfile.company_id;
+        const { data: managerProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('company_id')
+            .eq('id', safeManagerId)
+            .single();
+
+        let companyId = managerProfile?.company_id || null;
+
+        if (companyName) {
+            const { companyId: resolvedCompanyId } = await resolveIds(companyName, null);
+            if (resolvedCompanyId && companyId && resolvedCompanyId !== companyId) {
+                return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+            }
+            if (!companyId) companyId = resolvedCompanyId;
+        }
+
+        if (!companyId) {
+            return NextResponse.json({ error: 'Company scope could not be resolved' }, { status: 400 });
         }
 
         // 1. Insert Core Data
@@ -391,6 +444,10 @@ async function handleBatchUpload(payload: any) {
 
     // Get Uploader's Company ID for auto-assignment
     const uploaderId = managerId;
+    if (!uploaderId || !UUID_REGEX.test(String(uploaderId))) {
+        return NextResponse.json({ error: 'Valid uploader managerId is required for batch upload' }, { status: 400 });
+    }
+
     let uploaderCompanyId = null;
     if (uploaderId) {
         const { data: uploaderProfile } = await supabaseAdmin
@@ -421,6 +478,10 @@ async function handleBatchUpload(payload: any) {
         }
     }
 
+    if (!uploaderCompanyId) {
+        return NextResponse.json({ error: 'Uploader company scope could not be resolved' }, { status: 400 });
+    }
+
     const now = new Date().toISOString();
     let createdCount = 0;
     let updatedCount = 0;
@@ -449,9 +510,22 @@ async function handleBatchUpload(payload: any) {
     // Let's use Uploader ID only if Excel row '담당자' is missing/empty string. 
     // If '담당자' exists but not found in DB -> NULL.
 
+    // Helper for robust key matching (Hoist definition)
+    const getVal = (row: any, keys: string[]) => {
+        for (const k of keys) {
+            if (row[k] !== undefined) return row[k];
+            if (row[k.trim()] !== undefined) return row[k.trim()];
+            // Try removing spaces
+            const noSpaceKey = k.replace(/\s+/g, '');
+            const found = Object.keys(row).find(rk => rk.replace(/\s+/g, '') === noSpaceKey);
+            if (found) return row[found];
+        }
+        return null;
+    };
+
     const uniqueNames = new Set<string>();
     main.forEach((row: any) => {
-        const mName = row['담당자'];
+        const mName = getVal(row, ['담당자']);
         if (mName && typeof mName === 'string' && mName.trim()) {
             uniqueNames.add(mName.trim());
         }
@@ -481,31 +555,23 @@ async function handleBatchUpload(payload: any) {
     // However, the prompt focus was "Differnet name -> Unassigned".
     // I'll stick to: Excel Name -> DB Match -> ID. Else NULL.
 
-    // Helper for robust key matching
-    const getVal = (row: any, keys: string[]) => {
-        for (const k of keys) {
-            if (row[k] !== undefined) return row[k];
-            if (row[k.trim()] !== undefined) return row[k.trim()];
-            // Try removing spaces
-            const noSpaceKey = k.replace(/\s+/g, '');
-            // Find key in row that matches noSpaceKey when row key has no spaces
-            const found = Object.keys(row).find(rk => rk.replace(/\s+/g, '') === noSpaceKey);
-            if (found) return row[found];
-        }
-        return null;
-    };
+
 
     for (const row of main) {
-        const manageId = row['관리ID'] || row['성명'] + '_' + row['회사명']; // Fallback for manage_id if not present
-        if (!manageId) continue; // Skip if no ID
+        // Robust Key Matching
+        const resolveName = getVal(row, ['이름', '성명']);
+        const resolveCompany = getVal(row, ['회사명']);
+
+        // Critical: Skip if Name is missing (Constraint Violation)
+        if (!resolveName) continue;
+
+        const manageId = getVal(row, ['관리ID']) || `${resolveName}_${resolveCompany || 'NoCompany'}`;
 
         // Manager Logic
         let managerUuid = null;
         const excelManagerName = getVal(row, ['담당자']);
         if (excelManagerName && typeof excelManagerName === 'string' && excelManagerName.trim()) {
             managerUuid = managerNameMap.get(excelManagerName.trim()) || null;
-        } else {
-            managerUuid = null;
         }
 
         // Parse Registered Date
@@ -518,10 +584,10 @@ async function handleBatchUpload(payload: any) {
         cardsToUpsert.push({
             manage_id: manageId,
             company_id: uploaderCompanyId, // Auto-assign to Uploader's company
-            name: getVal(row, ['이름', '성명']),
+            name: resolveName,
             category: getVal(row, ['분류']),
             position: getVal(row, ['직급']),
-            company_name: getVal(row, ['회사명']),
+            company_name: resolveCompany,
             company_address: getVal(row, ['회사주소']),
             department: getVal(row, ['부서']),
             home_address: getVal(row, ['자택주소']),
@@ -542,14 +608,14 @@ async function handleBatchUpload(payload: any) {
         });
     }
 
-    if (cardsToUpsert.length > 0) {
-        // Deduplicate cardsToUpsert based on manage_id (Last one wins)
-        const uniqueCardsMap = new Map();
-        cardsToUpsert.forEach(card => {
-            uniqueCardsMap.set(card.manage_id, card);
-        });
-        const uniqueCards = Array.from(uniqueCardsMap.values());
+    // Deduplicate cardsToUpsert based on manage_id (Last one wins)
+    const uniqueCardsMap = new Map();
+    cardsToUpsert.forEach(card => {
+        uniqueCardsMap.set(card.manage_id, card);
+    });
+    const uniqueCards = Array.from(uniqueCardsMap.values());
 
+    if (uniqueCards.length > 0) {
         const { error } = await supabaseAdmin
             .from('business_cards')
             .upsert(uniqueCards, { onConflict: 'manage_id', ignoreDuplicates: false });
@@ -558,7 +624,7 @@ async function handleBatchUpload(payload: any) {
             console.error('Upsert cards error:', error);
             return NextResponse.json({ error: `Failed to upsert cards: ${error.message}` }, { status: 500 });
         }
-        updatedCount = cardsToUpsert.length; // Approximate
+        updatedCount = uniqueCards.length;
     }
 
     // 2. Clear Old Linked Data (Promoted & History) for these cards? 
@@ -568,14 +634,33 @@ async function handleBatchUpload(payload: any) {
     // For simplicity and safety, let's DELETE specific types for these cards and re-insert?
     // Actually, without unique IDs on items, idempotency is hard.
     // I will implemented: Delete all promoted/history for the *affected cards* and re-insert.
-    const manageIds = cardsToUpsert.map(c => c.manage_id);
-    const { data: validCards, error: mapError } = await supabaseAdmin
-        .from('business_cards')
-        .select('id, manage_id')
-        .in('manage_id', manageIds);
+    const manageIds = uniqueCards.map(c => String(c.manage_id));
+    let validCards: any[] = [];
 
-    if (mapError || !validCards) {
-        return NextResponse.json({ error: 'Failed to map IDs' }, { status: 500 });
+    // Chunked Fetch to avoid Query Too Long error
+    const chunkSize = 50;
+    for (let i = 0; i < manageIds.length; i += chunkSize) {
+        const chunk = manageIds.slice(i, i + chunkSize);
+        if (chunk.length === 0) continue;
+
+        const { data: chunkData, error: mapError } = await supabaseAdmin
+            .from('business_cards')
+            .select('id, manage_id')
+            .in('manage_id', chunk);
+
+        if (mapError) {
+            console.error('Map IDs error:', mapError);
+            console.warn(`Failed to map IDs for chunk ${i}: ${mapError.message}`);
+            continue;
+        }
+        if (chunkData) {
+            validCards = [...validCards, ...chunkData];
+        }
+    }
+
+    if (validCards.length === 0 && manageIds.length > 0) {
+        // Should have found something if upsert succeeded
+        console.warn('Upsert succeeded but Map IDs found nothing? RLS or Replication lag?');
     }
 
     const cardMap = new Map(); // manage_id -> uuid
@@ -693,9 +778,30 @@ export async function PUT(request: Request) {
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
     try {
-        // Validate UUID for manager_id
-        const isValidUUID = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-        const safeManagerId = (managerId && isValidUUID(managerId)) ? managerId : null;
+        const requesterRaw = body.requesterId || managerId || body.manager_id || null;
+        const requesterProfile = await getRequesterProfile(supabaseAdmin, requesterRaw);
+        if (!requesterProfile) {
+            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+        }
+
+        const { data: existingCard, error: existingCardError } = await supabaseAdmin
+            .from('business_cards')
+            .select('id, company_id, manager_id')
+            .eq('id', id)
+            .single();
+
+        if (existingCardError || !existingCard) {
+            return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+        }
+
+        if (!canAccessCard(requesterProfile, existingCard)) {
+            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+        }
+
+        const safeManagerId = managerId ? await resolveUserUuid(supabaseAdmin, managerId) : null;
+        if (managerId && !safeManagerId) {
+            return NextResponse.json({ error: 'Invalid managerId' }, { status: 400 });
+        }
 
         // 1. Update Core Data
         const updateData: any = {
@@ -715,9 +821,12 @@ export async function PUT(request: Request) {
             homepage: homepage,
             gender: gender,
             is_favorite: isFavorite,
-            manager_id: safeManagerId, // Use safe ID
             updated_at: new Date().toISOString()
         };
+
+        if (safeManagerId) {
+            updateData.manager_id = safeManagerId;
+        }
 
         // Remove undefined keys to avoid overwriting with null if strictly undefined
         Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
@@ -837,7 +946,28 @@ export async function DELETE(request: Request) {
 
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
 
+    const requesterRaw = searchParams.get('requesterId') || request.headers.get('x-user-id');
+
     const supabaseAdmin = getSupabaseAdmin();
+    const requesterProfile = await getRequesterProfile(supabaseAdmin, requesterRaw);
+    if (!requesterProfile) {
+        return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+    }
+
+    const { data: targetCard, error: targetCardError } = await supabaseAdmin
+        .from('business_cards')
+        .select('id, company_id, manager_id')
+        .eq('id', id)
+        .single();
+
+    if (targetCardError || !targetCard) {
+        return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+    }
+
+    if (!canAccessCard(requesterProfile, targetCard)) {
+        return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+    }
+
     const { error } = await supabaseAdmin.from('business_cards').delete().eq('id', id);
 
     if (error) {

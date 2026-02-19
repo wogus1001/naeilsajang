@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Star, Plus, UserPlus, X, Trash2, Contact, FileSpreadsheet, ChevronDown, RefreshCw } from 'lucide-react';
+import { Plus, Search, RefreshCw, Star, ChevronDown, LayoutTemplate, Sidebar, Maximize2, Trash2, Contact, FileSpreadsheet, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from '@/app/(main)/customers/page.module.css'; // Reusing Customer styles
 import BusinessCard from '@/components/business/BusinessCard';
@@ -39,6 +39,7 @@ function BusinessCardListContent() {
     const [managers, setManagers] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
     // Filter States
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -46,9 +47,49 @@ function BusinessCardListContent() {
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
     const categoryDropdownRef = useRef<HTMLDivElement>(null);
+    const fetchControllerRef = useRef<AbortController | null>(null);
 
     // Selection State
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
+    // Limit State with Persistence
+    const [limit, setLimit] = useState<number | 'all'>(500);
+    const [isCustomLimit, setIsCustomLimit] = useState(false);
+
+    useEffect(() => {
+        const savedLimit = localStorage.getItem('businessCardLimit');
+        if (savedLimit) {
+            const val = savedLimit === 'all' ? 'all' : Number(savedLimit);
+            setLimit(val);
+            // Check if saved value is a standard option
+            const standardOptions = [100, 300, 500, 1000, 'all'];
+            if (!standardOptions.includes(val)) {
+                setIsCustomLimit(true);
+            }
+        }
+    }, []);
+
+    const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        if (val === 'custom') {
+            setIsCustomLimit(true);
+            // Don't change limit value yet, just switch UI
+        } else {
+            const numVal = val === 'all' ? 'all' : Number(val);
+            setLimit(numVal);
+            localStorage.setItem('businessCardLimit', numVal.toString());
+            setIsCustomLimit(false);
+        }
+    };
+
+    const handleCustomLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = Number(e.target.value);
+        if (!isNaN(val)) {
+            setLimit(val);
+            localStorage.setItem('businessCardLimit', val.toString());
+        }
+    };
 
     // View Mode State
     const [viewMode, setViewMode] = useState<ViewMode>('center');
@@ -93,9 +134,11 @@ function BusinessCardListContent() {
     }, [searchParams]);
 
     useEffect(() => {
+        // Assuming 'user' is implicitly handled within fetchCards or is not a direct dependency here.
+        // If 'user' were a state variable, it would be added here.
         fetchCards();
         fetchManagers();
-    }, []);
+    }, [limit]); // Added limit to dependency array
 
     // Close Dropdown on Click Outside
     useEffect(() => {
@@ -114,7 +157,12 @@ function BusinessCardListContent() {
 
     const fetchManagers = async () => {
         try {
-            const res = await fetch('/api/users');
+            const userStr = localStorage.getItem('user');
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const user = parsed.user || parsed;
+            const companyQuery = user?.companyName ? `?company=${encodeURIComponent(user.companyName)}` : '';
+
+            const res = await fetch(`/api/users${companyQuery}`);
             if (res.ok) {
                 const data = await res.json();
                 const map: Record<string, string> = {};
@@ -130,21 +178,38 @@ function BusinessCardListContent() {
     };
 
     const fetchCards = async () => {
+        // Cancel previous request if exists
+        if (fetchControllerRef.current) {
+            fetchControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        fetchControllerRef.current = controller;
+
         try {
+            setLoading(true);
             const userStr = localStorage.getItem('user');
-            let query = '';
+
+            const params = new URLSearchParams();
+
+            // Limit Param
+            if (limit !== 'all') {
+                params.append('limit', limit.toString());
+            } else {
+                params.append('limit', 'all');
+            }
+
             if (userStr) {
                 const parsed = JSON.parse(userStr);
                 const user = parsed.user || parsed; // Handle wrapped 'user' object
-                const params = new URLSearchParams();
                 if (user.companyName) params.append('company', user.companyName);
                 // Use uid (UUID) if available, fallback to id (legacy)
                 if (user.uid) params.append('userId', user.uid);
                 else if (user.id) params.append('userId', user.id);
-                query = `?${params.toString()}`;
             }
 
-            const res = await fetch(`/api/business-cards${query}`);
+            const query = `?${params.toString()}`;
+
+            const res = await fetch(`/api/business-cards${query}`, { signal: controller.signal });
             if (res.ok) {
                 const data = await res.json();
 
@@ -155,10 +220,14 @@ function BusinessCardListContent() {
                 setCategories(uniqueCats);
                 setSelectedCategories(uniqueCats); // Default select all
             }
-        } catch (error) {
+        } catch (error: any) {
+            if (error.name === 'AbortError') return;
             console.error(error);
         } finally {
-            setLoading(false);
+            if (fetchControllerRef.current === controller) {
+                fetchControllerRef.current = null;
+                setLoading(false);
+            }
         }
     };
 
@@ -387,8 +456,13 @@ function BusinessCardListContent() {
         showConfirm(`${selectedIds.length}개의 명함을 삭제하시겠습니까?`, async () => {
             setLoading(true);
             try {
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const user = parsed.user || parsed;
+                const requesterId = user?.uid || user?.id || '';
+
                 for (const id of selectedIds) {
-                    await fetch(`/api/business-cards?id=${id}`, { method: 'DELETE' });
+                    await fetch(`/api/business-cards?id=${id}&requesterId=${encodeURIComponent(requesterId)}`, { method: 'DELETE' });
                 }
                 showAlert('삭제되었습니다.', 'success');
                 setSelectedIds([]);
@@ -409,10 +483,15 @@ function BusinessCardListContent() {
         setCards(prev => prev.map(c => c.id === id ? { ...c, isFavorite: newStatus } : c));
 
         try {
+            const userStr = localStorage.getItem('user');
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const user = parsed.user || parsed;
+            const requesterId = user?.uid || user?.id || '';
+
             await fetch('/api/business-cards', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, isFavorite: newStatus })
+                body: JSON.stringify({ id, isFavorite: newStatus, requesterId })
             });
         } catch (e) {
             console.error(e);
@@ -427,6 +506,19 @@ function BusinessCardListContent() {
         const sorted = [...history].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         return sorted[0].date || '-';
     };
+
+    const handleSort = (key: string) => {
+        // Map 'no' to 'createdAt'
+        const startKey = key === 'no' ? 'createdAt' : key;
+
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === startKey && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key: startKey, direction });
+    };
+
+
 
     const filteredCards = cards.filter(c => {
         if (showFavoritesOnly && !c.isFavorite) return false;
@@ -445,26 +537,49 @@ function BusinessCardListContent() {
             );
         }
         return true;
+    }).sort((a, b) => {
+        if (!sortConfig) return 0;
+        const { key, direction } = sortConfig;
+
+        let aValue: any = '';
+        let bValue: any = '';
+
+        if (key === 'manager') {
+            aValue = managers[a.managerId || ''] || managers[a.manager_id || ''] || a.managerId || '';
+            bValue = managers[b.managerId || ''] || managers[b.manager_id || ''] || b.managerId || '';
+        } else if (key === 'latestWork') {
+            aValue = getLatestWorkDate(a.history || []);
+            bValue = getLatestWorkDate(b.history || []);
+        } else {
+            // @ts-ignore
+            aValue = a[key] || '';
+            // @ts-ignore
+            bValue = b[key] || '';
+        }
+
+        if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+        return 0;
     });
 
     return (
         <div className={styles.container}>
             {/* Toolbar */}
             <div className={styles.toolbar}>
-                <div
-                    className={`${styles.title} ${showFavoritesOnly ? styles.activeFavorite : ''} `}
-                    onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-                    style={{ cursor: 'pointer', userSelect: 'none' }}
-                >
-                    <div className={styles.checkboxSquare}>
-                        {showFavoritesOnly && <div className={styles.checkboxInner} />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div
+                        className={`${styles.title} ${showFavoritesOnly ? styles.activeFavorite : ''} `}
+                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                        style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                        <div className={styles.checkboxSquare}>
+                            {showFavoritesOnly && <div className={styles.checkboxInner} />}
+                        </div>
+                        <Star size={18} fill={showFavoritesOnly ? "#FAB005" : "none"} color={showFavoritesOnly ? "#FAB005" : "#868e96"} />
+                        <span style={{ color: showFavoritesOnly ? '#343a40' : '#868e96' }}>관심명함</span>
                     </div>
-                    <Star size={18} fill={showFavoritesOnly ? "#FAB005" : "none"} color={showFavoritesOnly ? "#FAB005" : "#868e96"} />
-                    <span style={{ color: showFavoritesOnly ? '#343a40' : '#868e96' }}>관심명함</span>
-                </div>
 
-                {/* Category Dropdown Filter */}
-                <div className={styles.searchGroup}>
+                    {/* Category Dropdown moved here */}
                     <div className={styles.dropdownContainer} ref={categoryDropdownRef} style={{ position: 'relative' }}>
                         <button
                             className={styles.statusFilterBtn}
@@ -493,7 +608,9 @@ function BusinessCardListContent() {
                                 minWidth: 160,
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: 4
+                                gap: 4,
+                                maxHeight: '300px',
+                                overflowY: 'auto'
                             }}>
                                 <div
                                     onClick={() => handleSelectAllCategories(selectedCategories.length !== categories.length)}
@@ -544,7 +661,7 @@ function BusinessCardListContent() {
 
                 {/* Search & Actions - Wrapped for Mobile Layout */}
                 <div className={styles.searchInputWrap}>
-                    <span>검색어 : </span>
+                    <span className={styles.mobileHidden}>검색어 : </span>
                     <input
                         className={styles.searchInput}
                         placeholder="이름, 회사, 전화번호, 분류"
@@ -568,7 +685,7 @@ function BusinessCardListContent() {
                 <table className={styles.table} style={{ tableLayout: 'fixed' }}>
                     <colgroup>
                         <col style={{ width: 30 }} />
-                        <col style={{ width: 40 }} />
+                        <col style={{ width: 50 }} />
                         <col style={{ width: 30 }} />
                         <col style={{ width: 80 }} />
                         <col style={{ width: 100 }} />
@@ -591,18 +708,18 @@ function BusinessCardListContent() {
                                     checked={filteredCards.length > 0 && selectedIds.length === filteredCards.length}
                                 />
                             </th>
-                            <th>No</th>
+                            <th onClick={() => handleSort('no')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>No</th>
                             <th></th>
-                            <th>분류</th>
-                            <th>이름</th>
-                            <th>회사명</th>
-                            <th>부서/직급</th>
-                            <th>핸드폰</th>
-                            <th>회사전화</th>
-                            <th>이메일</th>
-                            <th>담당자</th>
-                            <th>등록일</th>
-                            <th>작업일</th>
+                            <th onClick={() => handleSort('category')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>분류</th>
+                            <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>이름</th>
+                            <th onClick={() => handleSort('companyName')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>회사명</th>
+                            <th onClick={() => handleSort('department')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>부서/직급</th>
+                            <th onClick={() => handleSort('mobile')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>핸드폰</th>
+                            <th onClick={() => handleSort('companyPhone1')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>회사전화</th>
+                            <th onClick={() => handleSort('email')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>이메일</th>
+                            <th onClick={() => handleSort('manager')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>담당자</th>
+                            <th onClick={() => handleSort('createdAt')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>등록일</th>
+                            <th onClick={() => handleSort('latestWork')} style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>작업일</th>
                             <th>메모</th>
                         </tr>
                     </thead>
@@ -616,7 +733,13 @@ function BusinessCardListContent() {
                                         onChange={(e) => toggleSelectOne(card.id, e.target.checked)}
                                     />
                                 </td>
-                                <td>{filteredCards.length - index}</td>
+                                <td style={{ textAlign: 'center' }}>
+                                    {
+                                        (sortConfig?.key === 'createdAt' || sortConfig?.key === 'no') && sortConfig.direction === 'asc'
+                                            ? index + 1
+                                            : filteredCards.length - index
+                                    }
+                                </td>
                                 <td onClick={(e) => { e.stopPropagation(); toggleFavorite(card.id, card.isFavorite); }} style={{ cursor: 'pointer', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'visible' }}>
                                     <Star size={16} color={card.isFavorite ? "#FAB005" : "#ced4da"} fill={card.isFavorite ? "#FAB005" : "none"} />
                                 </td>
@@ -641,7 +764,48 @@ function BusinessCardListContent() {
 
             {/* Footer */}
             <div className={styles.footer}>
-                <div>목록 : {filteredCards.length}건</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div>목록 : {filteredCards.length}건</div>
+                    {/* Limit Selector (Left) */}
+                    <div style={{ position: 'relative' }}>
+                        {!isCustomLimit ? (
+                            <select
+                                className={styles.footerBtn}
+                                value={limit}
+                                onChange={handleLimitChange}
+                                style={{ padding: '0 8px', height: 32, borderColor: '#dee2e6', color: '#495057' }}
+                            >
+                                <option value={100}>100개</option>
+                                <option value={300}>300개</option>
+                                <option value={500}>500개</option>
+                                <option value={1000}>1000개</option>
+                                <option value="all">전체</option>
+                                <option value="custom">직접입력</option>
+                            </select>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <input
+                                    type="number"
+                                    className={styles.footerBtn}
+                                    value={limit === 'all' ? '' : limit}
+                                    onChange={handleCustomLimitChange}
+                                    placeholder="입력"
+                                    autoFocus
+                                    style={{ padding: '0 8px', height: 32, borderColor: '#dee2e6', color: '#495057', width: 80, textAlign: 'center' }}
+                                />
+                                <button
+                                    onClick={() => setIsCustomLimit(false)}
+                                    className={styles.footerBtn}
+                                    style={{ padding: '0 6px', height: 32, borderColor: '#dee2e6', color: '#868e96' }}
+                                    title="목록으로 돌아가기"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div className={styles.footerActions}>
                     {selectedIds.length > 0 && (
                         <button

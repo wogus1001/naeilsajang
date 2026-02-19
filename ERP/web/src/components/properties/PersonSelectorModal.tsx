@@ -53,7 +53,25 @@ export default function PersonSelectorModal({ isOpen, onClose, onSelect, company
         setIsLoading(true);
         try {
             const url = activeTab === 'customer' ? '/api/customers' : '/api/business-cards';
-            const res = await fetch(`${url}?company=${encodeURIComponent(companyName)}`);
+            const params = new URLSearchParams();
+            if (companyName) {
+                params.set('company', companyName);
+            }
+
+            if (activeTab === 'businessCard') {
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const parsed = JSON.parse(userStr);
+                    const user = parsed.user || parsed;
+                    const userId = user?.uid || user?.id;
+                    if (userId) {
+                        params.set('userId', userId);
+                    }
+                }
+            }
+
+            const query = params.toString();
+            const res = await fetch(`${url}${query ? `?${query}` : ''}`);
             if (res.ok) {
                 const data = await res.json();
                 if (activeTab === 'customer') {

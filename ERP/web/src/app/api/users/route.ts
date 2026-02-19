@@ -2,6 +2,53 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveUserUuid(supabaseAdmin: any, rawId: string | null) {
+    if (!rawId) return null;
+    if (UUID_REGEX.test(rawId)) return rawId;
+
+    const emailToSearch = rawId.includes('@') ? rawId : `${rawId}@example.com`;
+    const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', emailToSearch)
+        .single();
+
+    return profile?.id || null;
+}
+
+async function getRequesterProfile(supabaseAdmin: any, request: Request, searchParams: URLSearchParams) {
+    const requesterRaw = searchParams.get('requesterId') || request.headers.get('x-user-id');
+    const requesterUuid = await resolveUserUuid(supabaseAdmin, requesterRaw);
+
+    if (!requesterUuid) {
+        return { error: NextResponse.json({ error: 'requesterId is required' }, { status: 401 }) };
+    }
+
+    const { data: requesterProfile, error: requesterError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, role, company_id')
+        .eq('id', requesterUuid)
+        .single();
+
+    if (requesterError || !requesterProfile) {
+        return { error: NextResponse.json({ error: 'Requester profile not found' }, { status: 401 }) };
+    }
+
+    return { profile: requesterProfile };
+}
+
+async function requireAdminRequester(supabaseAdmin: any, request: Request, searchParams: URLSearchParams) {
+    const requester = await getRequesterProfile(supabaseAdmin, request, searchParams);
+    if ('error' in requester) return requester;
+
+    if (requester.profile.role !== 'admin') {
+        return { error: NextResponse.json({ error: 'Forbidden: Admins only' }, { status: 403 }) };
+    }
+
+    return requester;
+}
 
 export async function GET(request: Request) {
     // Force rebuild: Fix ambiguous relationship
@@ -13,6 +60,9 @@ export async function GET(request: Request) {
         const supabaseAdmin = await getSupabaseAdmin();
 
         if (isDebug) {
+            const adminCheck = await requireAdminRequester(supabaseAdmin, request, searchParams);
+            if ('error' in adminCheck) return adminCheck.error;
+
             const debugInfo = {
                 envUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
                 count: 0,
@@ -29,6 +79,12 @@ export async function GET(request: Request) {
             debugInfo.error = error;
 
             return NextResponse.json(debugInfo);
+        }
+
+        // Global user list is admin-only.
+        if (!companyFilter) {
+            const adminCheck = await requireAdminRequester(supabaseAdmin, request, searchParams);
+            if ('error' in adminCheck) return adminCheck.error;
         }
 
         // Build query
@@ -94,6 +150,9 @@ export async function DELETE(request: Request) {
         }
 
         const supabaseAdmin = await getSupabaseAdmin();
+        const requester = await getRequesterProfile(supabaseAdmin, request, searchParams);
+        if ('error' in requester) return requester.error;
+        const requesterProfile = requester.profile;
 
         // Resolve ID to UUID
         let targetUuid = idToDelete;
@@ -158,6 +217,21 @@ export async function DELETE(request: Request) {
                     }
                 }
             }
+        }
+
+        const { data: targetProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('id, role, company_id')
+            .eq('id', targetUuid)
+            .single();
+
+        if (!targetProfile) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        // Only admin can delete others. Non-admin can delete only self account.
+        if (requesterProfile.role !== 'admin' && requesterProfile.id !== targetUuid) {
+            return NextResponse.json({ error: 'Forbidden: You can only delete your own account' }, { status: 403 });
         }
 
         // 1. Unlink references (Foreign Key Cleanup) to prevent constraint violations
@@ -297,6 +371,7 @@ export async function DELETE(request: Request) {
 
 export async function PUT(request: Request) {
     try {
+        const { searchParams } = new URL(request.url);
         const body = await request.json();
         const { id, status, role, companyName } = body;
         // id is likely email from the frontend list
@@ -306,10 +381,12 @@ export async function PUT(request: Request) {
         }
 
         const supabaseAdmin = await getSupabaseAdmin();
+        const adminCheck = await requireAdminRequester(supabaseAdmin, request, searchParams);
+        if ('error' in adminCheck) return adminCheck.error;
 
         // Resolve ID to UUID
         let targetUuid = id;
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        const isUuid = UUID_REGEX.test(id);
 
         if (!isUuid) {
             let emailToSearch = id;

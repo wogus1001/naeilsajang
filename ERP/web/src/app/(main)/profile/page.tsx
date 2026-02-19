@@ -446,7 +446,8 @@ export default function ProfilePage() {
                                     onClick={async () => {
                                         showConfirm('정말로 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.', async () => {
                                             try {
-                                                const res = await fetch(`/api/users?id=${user.uid || user.id}`, { method: 'DELETE' });
+                                                const requesterId = user.uid || user.id;
+                                                const res = await fetch(`/api/users?id=${user.uid || user.id}&requesterId=${encodeURIComponent(requesterId)}`, { method: 'DELETE' });
                                                 const data = await res.json();
 
                                                 if (res.ok) {

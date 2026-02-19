@@ -306,7 +306,7 @@ async function handleBatchUpload(payload: any) {
 
                 memoSituation: memoSituation // Renamed from customerSituation
             },
-            created_at: getValue(row, '등록일') ? parseDate(getValue(row, '등록일')) : now,
+            created_at: (getValue(row, '등록일') ? parseDate(getValue(row, '등록일')) : null) || now,
             updated_at: now
         };
 
@@ -314,80 +314,49 @@ async function handleBatchUpload(payload: any) {
         customersToUpsert.push(customerData);
     }
 
-    if (customersToUpsert.length > 0) {
-        // Upsert customers
-        const { error } = await supabaseAdmin
-            .from('customers')
-            .upsert(customersToUpsert, { onConflict: 'id' }); // Use ID as conflict target
+    // Upsert logic deferred to include history/promoted data
 
-        if (error) {
-            console.error('Upsert customers error:', error);
-            return NextResponse.json({ error: 'Failed to upsert customers: ' + error.message }, { status: 500 });
-        }
-        updatedCount = customersToUpsert.length;
-    }
-
-    // 3. Process History (Overwrite Logic)
-    // First, delete existing history for these customers? 
-    // Customers table stores history in `data->history` JSON array usually??
-    // Wait, `CustomerCard.tsx` uses `data.history`. 
-    // BUT `api/customers/route.ts` likely maps it?
-    // Let's check `api/customers/route.ts` again. 
-    // It returns `...data` (JSONB). So `history` is inside JSONB.
-    // AND there is `memo_history` column (Text summary).
-    // The Excel `customer_work_history.xlsx` contains list items.
-    // SO we need to update the `data->history` array in the JSONB column.
-
-    // We cannot easily "Upsert" into JSONB array via bulk SQL.
-    // We have to:
-    // 1. Group history by ID in memory.
-    // 2. Fetch existing? Or just Overwrite? 
-    // "Batch Upload" implies overwrite or merge. 
-    // Since we just Upserted the customers (replacing row or updating), 
-    // we should prepare the FULL JSONB object in the Upsert above.
-
-    // RE-FACTOR: 
-    // I should generate the `history` and `promotedProperties` arrays BEFORE upserting `customers`
-    // and put them into the `data` JSONB field.
-
-    // 3.1 Group History
+    // 3. Process History (Merge/Overwrite Logic)
     const historyMap = new Map<string, any[]>();
-    history.forEach((h: any) => {
-        const id = String(h['관리번호']);
-        if (!id) return;
-        const items = historyMap.get(id) || [];
-        items.push({
-            id: Date.now() + Math.random(), // Generate random ID for item
-            date: h['날짜'],
-            worker: h['작업자'],
-            relatedProperty: h['관련물건'] || h['점포명'] || '', // Mapped to relatedProperty (UI expects this)
-            content: h['내역'],
-            details: h['상세내역'],
-            target: h['대상']
+    if (history && Array.isArray(history)) {
+        history.forEach((h: any) => {
+            const id = String(h['관리번호']);
+            if (!id) return;
+            const items = historyMap.get(id) || [];
+            if (!historyMap.has(id)) historyMap.set(id, items);
+            items.push({
+                id: `h-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                date: h['날짜'],
+                worker: h['작업자'],
+                relatedProperty: h['관련물건'] || h['점포명'] || '',
+                content: h['내역'],
+                details: h['상세내역'],
+                target: h['대상']
+            });
         });
-        historyMap.set(id, items);
-    });
+    }
 
     // 3.2 Group Promoted
     const promotedMap = new Map<string, any[]>();
-    promoted.forEach((p: any) => {
-        const id = String(p['관리번호']);
-        if (!id) return;
-        const items = promotedMap.get(id) || [];
-        items.push({
-            id: Date.now() + Math.random(),
-            date: p['날짜'],
-            itemName: p['물건명'], // Mapped to itemName
-            name: p['물건명'], // Compatible key
-            type: p['종류'], // '테이크아웃커피' etc
-            totalPrice: String(p['금액']).replace(/,/g, ''), // Remove commas for Number() conversion
-            amount: String(p['금액']).replace(/,/g, ''),
-            address: p['주소'],
-            industrySector: p['물건종류'], // '점포', '호텔' etc
-            isSynced: false // Mark as unsynced (from Excel)
+    if (promoted && Array.isArray(promoted)) {
+        promoted.forEach((p: any) => {
+            const id = String(p['관리번호']);
+            if (!id) return;
+            const items = promotedMap.get(id) || [];
+            if (!promotedMap.has(id)) promotedMap.set(id, items);
+            items.push({
+                id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                date: p['날짜'],
+                itemName: p['물건명'],
+                name: p['물건명'],
+                type: p['종류'],
+                amount: String(p['금액'] || '').replace(/,/g, ''),
+                address: p['주소'],
+                industrySector: p['물건종류'],
+                isSynced: false
+            });
         });
-        promotedMap.set(id, items);
-    });
+    }
 
     // 4. Update 'data' in customersToUpsert with History/Promoted
     customersToUpsert.forEach(c => {
@@ -399,20 +368,21 @@ async function handleBatchUpload(payload: any) {
         c.data.promotedProperties = promo;
     });
 
-    // 5. Perform Upsert with complete data
-    // (We already did Upsert above, but without history/promoted. 
-    //  Actually, if we upsert TWICE, it's waste. 
-    //  So I shouldn't have awaited the first Upsert.
-    //  Let's fix the flow: Build lists -> Upsert ONCE.)
-
-    // Correct Flow:
+    // 5. Perform Upsert with complete data (ONCE)
     if (customersToUpsert.length > 0) {
-        const { error } = await supabaseAdmin
-            .from('customers')
-            .upsert(customersToUpsert, { onConflict: 'id' });
+        // Chunking to avoid request size limits
+        const UPSERT_CHUNK_SIZE = 100;
+        for (let i = 0; i < customersToUpsert.length; i += UPSERT_CHUNK_SIZE) {
+            const chunk = customersToUpsert.slice(i, i + UPSERT_CHUNK_SIZE);
+            const { error } = await supabaseAdmin
+                .from('customers')
+                .upsert(chunk, { onConflict: 'id' });
 
-        if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            if (error) {
+                console.error('Upsert customers error:', error);
+                return NextResponse.json({ error: `Failed to upsert customers: ${error.message}` }, { status: 500 });
+            }
+            updatedCount += chunk.length;
         }
     }
 

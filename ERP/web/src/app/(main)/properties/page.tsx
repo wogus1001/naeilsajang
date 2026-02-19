@@ -651,10 +651,15 @@ function PropertiesPageContent() {
         showConfirm(`선택한 ${selectedIds.size}개 항목을 삭제하시겠습니까?`, async () => {
             setIsLoading(true);
             try {
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const user = parsed.user || parsed;
+                const userCompanyName = user?.companyName || '';
+
                 // Sequential delete as API likely doesn't support bulk yet
                 // Ideally: await fetch('/api/properties/bulk-delete', { ... })
                 const deletePromises = Array.from(selectedIds).map(id =>
-                    fetch(`/api/properties?id=${id}`, { method: 'DELETE' })
+                    fetch(`/api/properties?id=${id}&company=${encodeURIComponent(userCompanyName)}`, { method: 'DELETE' })
                 );
 
                 await Promise.all(deletePromises);

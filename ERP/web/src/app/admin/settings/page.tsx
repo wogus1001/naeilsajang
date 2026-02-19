@@ -113,6 +113,15 @@ export default function AdminSettingsPage() {
         }
     };
 
+    const handleUserExport = () => {
+        const userStr = localStorage.getItem('user');
+        const parsed = userStr ? JSON.parse(userStr) : {};
+        const user = parsed.user || parsed;
+        const requesterId = user?.uid || user?.id || '';
+        const query = requesterId ? `?requesterId=${encodeURIComponent(requesterId)}` : '';
+        window.open(`/api/users${query}`, '_blank');
+    };
+
     if (isLoading) return <div style={{ padding: 40, textAlign: 'center' }}>Loading...</div>;
 
     return (
@@ -293,7 +302,7 @@ export default function AdminSettingsPage() {
                     </div>
                     <div style={styles.card}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                            <button style={{ ...styles.btn, ...styles.downloadBtn, margin: 0 }} onClick={() => window.open('/api/users', '_blank')}>
+                            <button style={{ ...styles.btn, ...styles.downloadBtn, margin: 0 }} onClick={handleUserExport}>
                                 <Download size={14} /> 사용자 정보
                             </button>
                             <button style={{ ...styles.btn, ...styles.downloadBtn, margin: 0 }} onClick={() => window.open('/api/contracts', '_blank')}>

@@ -141,7 +141,12 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                     setFormData(prev => ({ ...prev, managerId: myId }));
                 }
 
-                const res = await fetch(`/api/business-cards${myCompany ? `?company=${encodeURIComponent(myCompany)}` : ''}`, { cache: 'no-store' });
+                const listParams = new URLSearchParams();
+                if (myCompany) listParams.set('company', myCompany);
+                if (myId) listParams.set('userId', myId);
+
+                const query = listParams.toString();
+                const res = await fetch(`/api/business-cards${query ? `?${query}` : ''}`, { cache: 'no-store' });
                 if (res.ok) {
                     const cards: BusinessCardData[] = await res.json();
                     const categories = Array.from(new Set(['기타', ...cards.map(c => c.category).filter(Boolean)])).sort();
@@ -808,7 +813,12 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         showConfirm('삭제하시겠습니까?', async () => {
             setLoading(true);
             try {
-                const res = await fetch(`/api/business-cards?id=${id}`, { method: 'DELETE' });
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const user = parsed.user || parsed;
+                const requesterId = user?.uid || user?.id || '';
+
+                const res = await fetch(`/api/business-cards?id=${id}&requesterId=${encodeURIComponent(requesterId)}`, { method: 'DELETE' });
                 if (res.ok) {
                     showAlert('삭제되었습니다.', 'success', () => {
                         if (onSuccess) onSuccess();
@@ -913,7 +923,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                                 <div className={styles.inputWrapper}>
                                     <select
                                         className={styles.select}
-                                        value={getSelectedManagerId()}
+                                        value={getSelectedManagerId() || ""}
                                         onChange={(e) => handleChange('managerId', e.target.value)}
                                     >
                                         <option value="">(선택)</option>
@@ -984,7 +994,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                                 ) : (
                                     <select
                                         className={styles.select}
-                                        value={formData.category}
+                                        value={formData.category || ""}
                                         onChange={handleCategoryChange}
                                     >
                                         {categoryOptions.map((opt, i) => (
@@ -1084,7 +1094,8 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 </div>
 
                 {/* Right Panel: History & Promoted Items */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* Right Panel: History & Promoted Items */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%', overflow: 'hidden', minWidth: 0 }}>
                     {/* Work History */}
                     <div className={styles.panel} style={{ flex: 1 }}>
                         <div className={styles.panelHeaderBlue}>
@@ -1283,7 +1294,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 )}
 
                 {/* Action Buttons - Bottom on Mobile */}
-                <div className={styles.footerActions}>
+                <div className={styles.footerActions} style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
                     <button className={styles.footerBtn} onClick={handleSave} disabled={loading}>
                         <Save size={16} /> 저장
                     </button>

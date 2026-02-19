@@ -75,7 +75,13 @@ export default function AdminDashboardPage() {
 
     const fetchStats = async () => {
         try {
-            const res = await fetch('/api/users');
+            const userStr = localStorage.getItem('user');
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const currentUser = parsed.user || parsed;
+            const requesterId = currentUser.uid || currentUser.id || '';
+            const query = requesterId ? `?requesterId=${encodeURIComponent(requesterId)}` : '';
+
+            const res = await fetch(`/api/users${query}`);
             if (res.ok) {
                 const users = await res.json();
 

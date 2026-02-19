@@ -449,7 +449,12 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
 
             try {
                 // 1. Fetch Min List
-                const res = await fetch('/api/properties?min=true');
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const user = parsed.user || parsed;
+                const companyQuery = user?.companyName ? `&company=${encodeURIComponent(user.companyName)}` : '';
+
+                const res = await fetch(`/api/properties?min=true${companyQuery}`);
                 if (!res.ok) throw new Error('매물 정보를 불러오는데 실패했습니다.');
                 const properties = await res.json();
 

@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.2.0] - 2026-02-19
+
+### Changed (변경됨)
+- **ERP 권한/회사스코프 보강 (Authorization & Company Scope Hardening)**
+  - **Users API** (`api/users/route.ts`):
+    - `requesterId` 기반 요청자 식별. 전체 조회/수정/삭제 admin만 허용. 일반 사용자는 본인 삭제만 가능.
+  - **Business Cards API** (`api/business-cards/route.ts`):
+    - 회사/권한 접근 체크 (admin or 동일 company_id or 소유자). 목록 조회 시 `userId` 필수. 배치 업로드 회사 스코프 강제.
+  - **Properties API** (`api/properties/route.ts`):
+    - Manager UUID 검증 및 소속 회사 불일치 차단. 삭제 시 `id` + `company` 동시 조건 필수.
+  - **Frontend 호출부 동기화**: 모든 API 호출에 `requesterId`/`company` 파라미터 전달.
+
 ## [v1.1.19] - 2026-02-19
 
 ### Added (추가됨)

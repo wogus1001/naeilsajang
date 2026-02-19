@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic'; // Ensure fresh data on every request
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Helper Query: Resolve Company/User UUIDs
 async function resolveIds(legacyCompany: string | null, legacyManager: string | null) {
@@ -22,6 +23,13 @@ async function resolveIds(legacyCompany: string | null, legacyManager: string | 
     }
 
     return { companyId, managerId };
+}
+
+async function resolveManagerUuid(legacyManager: string | null) {
+    if (!legacyManager) return null;
+    if (UUID_REGEX.test(legacyManager)) return legacyManager;
+    const { managerId } = await resolveIds(null, legacyManager);
+    return managerId;
 }
 
 // Helper: Transform DB Row -> Frontend Object
@@ -174,7 +182,19 @@ export async function POST(request: Request) {
 
         const { companyId, managerId: mgrUuid } = await resolveIds(companyName, managerId);
 
-        if (!companyId) return NextResponse.json({ error: 'Invalid Company' }, { status: 400 });
+        if (!companyId || !mgrUuid) {
+            return NextResponse.json({ error: 'Valid companyName and managerId are required' }, { status: 400 });
+        }
+
+        const { data: managerProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('company_id')
+            .eq('id', mgrUuid)
+            .single();
+
+        if (!managerProfile || managerProfile.company_id !== companyId) {
+            return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+        }
 
         const newId = Date.now().toString(); // Consistent ID gen
 
@@ -231,18 +251,34 @@ export async function PUT(request: Request) {
 
         // Resolve refs if changed
         let updates: any = { updated_at: new Date().toISOString() };
+        let targetCompanyId = existing.company_id;
 
         if (companyName) {
             const { companyId } = await resolveIds(companyName, '');
-            if (companyId) updates.company_id = companyId;
+            if (companyId) {
+                updates.company_id = companyId;
+                targetCompanyId = companyId;
+            }
             updates.data = { ...existing.data, ...rest, companyName }; // Update data.companyName too
         } else {
             updates.data = { ...existing.data, ...rest };
         }
 
         if (managerId) {
-            const { managerId: mgrUuid } = await resolveIds('', managerId);
-            if (mgrUuid) updates.manager_id = mgrUuid;
+            const mgrUuid = await resolveManagerUuid(managerId);
+            if (!mgrUuid) return NextResponse.json({ error: 'Invalid managerId' }, { status: 400 });
+
+            const { data: managerProfile } = await supabaseAdmin
+                .from('profiles')
+                .select('company_id')
+                .eq('id', mgrUuid)
+                .single();
+
+            if (!managerProfile || (targetCompanyId && managerProfile.company_id !== targetCompanyId)) {
+                return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+            }
+
+            updates.manager_id = mgrUuid;
             updates.data.managerId = managerId;
         }
 
@@ -276,10 +312,19 @@ export async function DELETE(request: Request) {
         const supabaseAdmin = getSupabaseAdmin();
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
+        const company = searchParams.get('company');
 
         if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        if (!company) return NextResponse.json({ error: 'company is required' }, { status: 400 });
 
-        const { error } = await supabaseAdmin.from('properties').delete().eq('id', id);
+        const { companyId } = await resolveIds(company, null);
+        if (!companyId) return NextResponse.json({ error: 'Invalid company' }, { status: 400 });
+
+        const { error } = await supabaseAdmin
+            .from('properties')
+            .delete()
+            .eq('id', id)
+            .eq('company_id', companyId);
 
         if (error) throw error;
 

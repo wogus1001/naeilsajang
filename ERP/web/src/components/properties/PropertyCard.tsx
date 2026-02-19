@@ -2181,7 +2181,12 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         showConfirm('정말 삭제하시겠습니까?', async () => {
             setIsLoading(true);
             try {
-                const res = await fetch(`/api/properties?id=${formData.id}`, {
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const user = parsed.user || parsed;
+                const companyName = formData.companyName || user?.companyName || '';
+
+                const res = await fetch(`/api/properties?id=${formData.id}&company=${encodeURIComponent(companyName)}`, {
                     method: 'DELETE',
                 });
                 if (res.ok) {
@@ -2488,7 +2493,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                     <input
                         name="name"
                         className={styles.titleInput}
-                        value={formData.name || ''}
+                        value={formData.name ?? ''}
                         onChange={handleChange}
                         placeholder="물건명"
                     />
@@ -2514,7 +2519,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                         <User size={14} />
                         <select
                             name="managerId"
-                            value={formData.managerId || ''}
+                            value={formData.managerId ?? ''}
                             onChange={handleManagerChange}
                             className={styles.managerSelect}
                         >
@@ -2546,7 +2551,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>물건명</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="name" className={styles.input} value={formData.name || ''} onChange={handleChange} />
+                                            <input name="name" className={styles.input} value={formData.name ?? ''} onChange={handleChange} />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
@@ -2558,7 +2563,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                     <select
                                                         name="industryCategory"
                                                         className={styles.select}
-                                                        value={formData.industryCategory || ''}
+                                                        value={formData.industryCategory ?? ''}
                                                         onChange={(e) => {
                                                             setFormData((prev: any) => ({
                                                                 ...prev,
@@ -2580,7 +2585,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                     <select
                                                         name="industrySector"
                                                         className={styles.select}
-                                                        value={formData.industrySector || ''}
+                                                        value={formData.industrySector ?? ''}
                                                         onChange={(e) => {
                                                             const newVal = e.target.value;
                                                             const details = (formData.industryCategory && INDUSTRY_DATA[formData.industryCategory])
@@ -2607,7 +2612,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                     <select
                                                         name="industryDetail"
                                                         className={styles.select}
-                                                        value={formData.industryDetail || ''}
+                                                        value={formData.industryDetail ?? ''}
                                                         onChange={(e) => {
                                                             if (e.target.value === '___DIRECT_INPUT___') {
                                                                 setIsCategoryInputOpen(true);
@@ -2715,7 +2720,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         <div className={styles.fieldLabel}>소재지</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
                                             <div style={{ display: 'flex', width: '100%', gap: 4 }}>
-                                                <input name="address" className={styles.input} value={formData.address || ''} readOnly onClick={() => setIsSearchOpen(true)} placeholder="주소 검색" />
+                                                <input name="address" className={styles.input} value={formData.address ?? ''} readOnly onClick={() => setIsSearchOpen(true)} placeholder="주소 검색" />
                                                 <button
                                                     type="button"
                                                     onClick={() => setIsSearchOpen(true)}
@@ -2778,7 +2783,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>상세주소</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="detailAddress" className={styles.input} value={formData.detailAddress || ''} onChange={handleChange} />
+                                            <input name="detailAddress" className={styles.input} value={formData.detailAddress ?? ''} onChange={handleChange} />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
@@ -2819,27 +2824,27 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                         <div className={styles.fieldLabel}>층수</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="totalFloor" className={styles.input} style={{ width: 40 }} value={formData.totalFloor || ''} onChange={handleChange} />
+                                            <input name="totalFloor" className={styles.input} style={{ width: 40 }} value={formData.totalFloor ?? ''} onChange={handleChange} />
                                             <span style={{ margin: '0 4px' }}>층 중</span>
-                                            <input name="currentFloor" className={styles.input} style={{ width: 40 }} value={formData.currentFloor || ''} onChange={handleChange} />
+                                            <input name="currentFloor" className={styles.input} style={{ width: 40 }} value={formData.currentFloor ?? ''} onChange={handleChange} />
                                             <span style={{ marginLeft: 4 }}>층</span>
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>주차</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="parking" className={styles.input} value={formData.parking || ''} onChange={handleChange} />
+                                            <input name="parking" className={styles.input} value={formData.parking ?? ''} onChange={handleChange} />
                                         </div>
                                         <div className={styles.fieldLabel}>개업일</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="openingDate" type="text" className={styles.input} value={formData.openingDate || ''} onChange={handleChange} placeholder="예: 2023.05" />
+                                            <input name="openingDate" type="text" className={styles.input} value={formData.openingDate ?? ''} onChange={handleChange} placeholder="예: 2023.05" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>프랜차이즈</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <div style={{ display: 'flex', gap: 4, width: '100%' }}>
-                                                <input name="franchiseBrand" className={styles.input} value={formData.franchiseBrand || ''} readOnly placeholder="브랜드명" />
+                                                <input name="franchiseBrand" className={styles.input} value={formData.franchiseBrand ?? ''} readOnly placeholder="브랜드명" />
                                                 <button
                                                     type="button"
                                                     onClick={() => setIsBrandSearchOpen(true)}
@@ -2854,19 +2859,19 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>위치/상권</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <textarea name="locationMemo" className={styles.textarea} value={formData.locationMemo || ''} onChange={handleChange} placeholder="위치 및 상권 특징을 입력하세요" />
+                                            <textarea name="locationMemo" className={styles.textarea} value={formData.locationMemo ?? ''} onChange={handleChange} placeholder="위치 및 상권 특징을 입력하세요" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>특징</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <textarea name="featureMemo" className={styles.textarea} value={formData.featureMemo || ''} onChange={handleChange} placeholder="물건 특징을 입력하세요" />
+                                            <textarea name="featureMemo" className={styles.textarea} value={formData.featureMemo ?? ''} onChange={handleChange} placeholder="물건 특징을 입력하세요" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>메모</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <textarea name="overviewMemo" className={styles.textarea} value={formData.overviewMemo || ''} onChange={handleChange} placeholder="기타 메모를 입력하세요" />
+                                            <textarea name="overviewMemo" className={styles.textarea} value={formData.overviewMemo ?? ''} onChange={handleChange} placeholder="기타 메모를 입력하세요" />
                                         </div>
                                     </div>
                                 </div>
@@ -2887,34 +2892,34 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>업소전화</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="storePhone" className={styles.input} value={formData.storePhone || ''} onChange={handleChange} />
+                                            <input name="storePhone" className={styles.input} value={formData.storePhone ?? ''} onChange={handleChange} />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>임대인</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="landlordName" className={styles.input} placeholder="이름" value={formData.landlordName || ''} onChange={handleChange} style={{ width: '30%', marginRight: 8 }} />
-                                            <input name="landlordPhone" className={styles.input} placeholder="연락처" value={formData.landlordPhone || ''} onChange={handleChange} style={{ width: '60%' }} />
+                                            <input name="landlordName" className={styles.input} placeholder="이름" value={formData.landlordName ?? ''} onChange={handleChange} style={{ width: '30%', marginRight: 8 }} />
+                                            <input name="landlordPhone" className={styles.input} placeholder="연락처" value={formData.landlordPhone ?? ''} onChange={handleChange} style={{ width: '60%' }} />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>임차인</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="tenantName" className={styles.input} placeholder="이름" value={formData.tenantName || ''} onChange={handleChange} style={{ width: '30%', marginRight: 8 }} />
-                                            <input name="tenantPhone" className={styles.input} placeholder="연락처" value={formData.tenantPhone || ''} onChange={handleChange} style={{ width: '60%' }} />
+                                            <input name="tenantName" className={styles.input} placeholder="이름" value={formData.tenantName ?? ''} onChange={handleChange} style={{ width: '30%', marginRight: 8 }} />
+                                            <input name="tenantPhone" className={styles.input} placeholder="연락처" value={formData.tenantPhone ?? ''} onChange={handleChange} style={{ width: '60%' }} />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>기타</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="otherContactName" className={styles.input} placeholder="이름" value={formData.otherContactName || ''} onChange={handleChange} style={{ width: '30%', marginRight: 8 }} />
-                                            <input name="otherContactPhone" className={styles.input} placeholder="연락처" value={formData.otherContactPhone || ''} onChange={handleChange} style={{ width: '60%' }} />
+                                            <input name="otherContactName" className={styles.input} placeholder="이름" value={formData.otherContactName ?? ''} onChange={handleChange} style={{ width: '30%', marginRight: 8 }} />
+                                            <input name="otherContactPhone" className={styles.input} placeholder="연락처" value={formData.otherContactPhone ?? ''} onChange={handleChange} style={{ width: '60%' }} />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>연락처메모</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="contactMemo" className={styles.input} value={formData.contactMemo || ''} onChange={handleChange} placeholder="연락처 관련 특이사항" />
+                                            <input name="contactMemo" className={styles.input} value={formData.contactMemo ?? ''} onChange={handleChange} placeholder="연락처 관련 특이사항" />
                                         </div>
                                     </div>
                                 </div>
@@ -2936,12 +2941,12 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>보증금</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="deposit" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.deposit)} onChange={handlePriceChange} placeholder="0" />
+                                            <input name="deposit" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.deposit) ?? ''} onChange={handlePriceChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                         <div className={styles.fieldLabel}>월임대료</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="monthlyRent" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.monthlyRent)} onChange={handlePriceChange} placeholder="0" />
+                                            <input name="monthlyRent" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.monthlyRent) ?? ''} onChange={handlePriceChange} placeholder="0" />
                                             <button
                                                 type="button"
                                                 className={styles.smallBtn}
@@ -2956,19 +2961,19 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>권리금</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="premium" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.premium)} onChange={handlePriceChange} placeholder="0" />
+                                            <input name="premium" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.premium) ?? ''} onChange={handlePriceChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                         <div className={styles.fieldLabel}>관리비</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="maintenance" type="text" className={`${styles.input} ${styles.priceInput}`} value={formData.maintenance || ''} onChange={handlePriceChange} placeholder="0 (텍스트 가능)" />
+                                            <input name="maintenance" type="text" className={`${styles.input} ${styles.priceInput}`} value={formData.maintenance ?? ''} onChange={handlePriceChange} placeholder="0 (텍스트 가능)" />
                                             {/* <span style={{ fontSize: 12, marginLeft: 4 }}>만</span> - Removed fixed unit for free text */}
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>브리핑가</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="briefingPrice" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.briefingPrice)} onChange={handlePriceChange} placeholder="0" />
+                                            <input name="briefingPrice" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.briefingPrice) ?? ''} onChange={handlePriceChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                         <div className={styles.fieldLabel}>부가세</div>
@@ -2977,7 +2982,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                 name="vat"
                                                 type="text"
                                                 className={styles.input}
-                                                value={formData.vat || ''}
+                                                value={formData.vat ?? ''}
                                                 onChange={handleChange}
                                                 placeholder="예: 별도, 포함, 10%"
                                                 style={{ width: '100%' }}
@@ -2992,7 +2997,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                         <div className={styles.fieldLabel}>메모</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="priceMemo" className={styles.input} value={formData.priceMemo || ''} onChange={handleChange} placeholder="금액 관련 메모" />
+                                            <input name="priceMemo" className={styles.input} value={formData.priceMemo ?? ''} onChange={handleChange} placeholder="금액 관련 메모" />
                                         </div>
                                     </div>
                                 </div>
@@ -3016,7 +3021,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                             <input
                                                 type="text"
                                                 className={`${styles.input} ${styles.priceInput}`}
-                                                value={formatInput(formData.hqDeposit)}
+                                                value={formatInput(formData.hqDeposit) ?? ''}
                                                 onChange={(e) => handleFranchiseChange(e, 'hqDeposit')}
                                                 placeholder="0"
                                             />
@@ -3029,7 +3034,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                             <input
                                                 type="text"
                                                 className={`${styles.input} ${styles.priceInput}`}
-                                                value={formatInput(formData.franchiseFee)}
+                                                value={formatInput(formData.franchiseFee) ?? ''}
                                                 onChange={(e) => handleFranchiseChange(e, 'franchiseFee')}
                                                 placeholder="0"
                                             />
@@ -3042,7 +3047,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                             <input
                                                 type="text"
                                                 className={`${styles.input} ${styles.priceInput}`}
-                                                value={formatInput(formData.educationFee)}
+                                                value={formatInput(formData.educationFee) ?? ''}
                                                 onChange={(e) => handleFranchiseChange(e, 'educationFee')}
                                                 placeholder="0"
                                             />
@@ -3055,7 +3060,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                             <input
                                                 type="text"
                                                 className={`${styles.input} ${styles.priceInput}`}
-                                                value={formatInput(formData.renewal)}
+                                                value={formatInput(formData.renewal) ?? ''}
                                                 onChange={(e) => handleFranchiseChange(e, 'renewal')}
                                                 placeholder="0"
                                             />
@@ -3068,7 +3073,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                             <input
                                                 type="text"
                                                 className={`${styles.input} ${styles.priceInput}`}
-                                                value={formatInput(formData.royalty)}
+                                                value={formatInput(formData.royalty) ?? ''}
                                                 onChange={(e) => handleFranchiseChange(e, 'royalty')}
                                                 placeholder="0"
                                             />
@@ -3099,7 +3104,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>메모</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <textarea name="franchiseMemo" className={styles.textarea} value={formData.franchiseMemo || ''} onChange={handleChange} placeholder="가맹 관련 메모를 입력하세요" />
+                                            <textarea name="franchiseMemo" className={styles.textarea} value={formData.franchiseMemo ?? ''} onChange={handleChange} placeholder="가맹 관련 메모를 입력하세요" />
                                         </div>
                                     </div>
                                 </div>
@@ -3120,12 +3125,12 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>월총매출</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="monthlyRevenue" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.monthlyRevenue)} onChange={handleFinancialChange} placeholder="0" />
+                                            <input name="monthlyRevenue" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.monthlyRevenue) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                         <div className={styles.fieldLabel}>인건비</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="laborCost" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.laborCost)} onChange={handleFinancialChange} placeholder="0" />
+                                            <input name="laborCost" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.laborCost) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                     </div>
@@ -3136,7 +3141,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                 name="materialCostPercent" // Keep name for handler logic
                                                 type="text"
                                                 className={`${styles.input} ${styles.priceInput}`}
-                                                value={formatInput((formData.materialCostUnit || 'percent') === 'percent' ? formData.materialCostPercent : formData.materialCost)}
+                                                value={formatInput((formData.materialCostUnit || 'percent') === 'percent' ? formData.materialCostPercent : formData.materialCost) ?? ''}
                                                 onChange={handleFinancialChange}
                                                 placeholder="0"
                                             />
@@ -3154,31 +3159,31 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                         <div className={styles.fieldLabel}>임대관리비</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="rentMaintenance" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.rentMaintenance)} onChange={handleFinancialChange} placeholder="0" />
+                                            <input name="rentMaintenance" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.rentMaintenance) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>제세공과금</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="taxUtilities" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.taxUtilities)} onChange={handleFinancialChange} placeholder="0" />
+                                            <input name="taxUtilities" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.taxUtilities) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                         <div className={styles.fieldLabel}>유지보수</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="maintenanceDepreciation" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.maintenanceDepreciation)} onChange={handleFinancialChange} placeholder="0" />
+                                            <input name="maintenanceDepreciation" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.maintenanceDepreciation) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>기타경비</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="promoMisc" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.promoMisc)} onChange={handleFinancialChange} placeholder="0" />
+                                            <input name="promoMisc" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.promoMisc) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                         <div className={styles.fieldLabel} style={{ fontWeight: 'bold' }}>월 총경비</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="totalExpense" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.totalExpense)} onChange={handleTotalExpenseChange} placeholder="0" style={{ fontWeight: 'bold' }} />
+                                            <input name="totalExpense" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.totalExpense) ?? ''} onChange={handleTotalExpenseChange} placeholder="0" style={{ fontWeight: 'bold' }} />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                     </div>
@@ -3197,13 +3202,13 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>매출오픈여부</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="revenueOpen" className={styles.input} value={formData.revenueOpen || ''} onChange={handleChange} placeholder="예: 공개, 비공개, 조건부공개" />
+                                            <input name="revenueOpen" className={styles.input} value={formData.revenueOpen ?? ''} onChange={handleChange} placeholder="예: 공개, 비공개, 조건부공개" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>매출/지출 메모</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <textarea name="revenueMemo" className={styles.textarea} value={formData.revenueMemo || ''} onChange={handleChange} placeholder="매출 및 지출 관련 특이사항" />
+                                            <textarea name="revenueMemo" className={styles.textarea} value={formData.revenueMemo ?? ''} onChange={handleChange} placeholder="매출 및 지출 관련 특이사항" />
                                         </div>
                                     </div>
 
@@ -3226,27 +3231,27 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>시설/인테리어</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="facilityInterior" className={styles.input} value={formData.facilityInterior || ''} onChange={handleChange} placeholder="예: 상, 중, 하" />
+                                            <input name="facilityInterior" className={styles.input} value={formData.facilityInterior ?? ''} onChange={handleChange} placeholder="예: 상, 중, 하" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>주요고객층</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="mainCustomer" className={styles.input} value={formData.mainCustomer || ''} onChange={handleChange} />
+                                            <input name="mainCustomer" className={styles.input} value={formData.mainCustomer ?? ''} onChange={handleChange} />
                                         </div>
                                         <div className={styles.fieldLabel}>피크타임</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="peakTime" className={styles.input} value={formData.peakTime || ''} onChange={handleChange} />
+                                            <input name="peakTime" className={styles.input} value={formData.peakTime ?? ''} onChange={handleChange} />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>테이블/룸</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="tableCount" className={styles.input} value={formData.tableCount || ''} onChange={handleChange} />
+                                            <input name="tableCount" className={styles.input} value={formData.tableCount ?? ''} onChange={handleChange} />
                                         </div>
                                         <div className={styles.fieldLabel}>추천업종</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="recommendedBusiness" className={styles.input} value={formData.recommendedBusiness || ''} onChange={handleChange} />
+                                            <input name="recommendedBusiness" className={styles.input} value={formData.recommendedBusiness ?? ''} onChange={handleChange} />
                                         </div>
                                     </div>
                                     {/* Custom Operation Fields */}
@@ -3255,7 +3260,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                             <div className={styles.fieldLabel}>{field.label}</div>
                                             <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                                 <input
-                                                    value={field.value || ''}
+                                                    value={field.value ?? ''}
                                                     className={styles.input}
                                                     onChange={(e) => handleCustomFieldChange('operation', idx, e.target.value)}
                                                 />
@@ -3265,7 +3270,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>메모</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <textarea name="operationMemo" className={styles.textarea} value={formData.operationMemo || ''} onChange={handleChange} placeholder="영업 관련 메모를 입력하세요" />
+                                            <textarea name="operationMemo" className={styles.textarea} value={formData.operationMemo ?? ''} onChange={handleChange} placeholder="영업 관련 메모를 입력하세요" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
@@ -3309,37 +3314,37 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>임대기간</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="leasePeriod" className={styles.input} value={formData.leasePeriod || ''} onChange={handleChange} placeholder="예: 2년" />
+                                            <input name="leasePeriod" className={styles.input} value={formData.leasePeriod ?? ''} onChange={handleChange} placeholder="예: 2년" />
                                         </div>
                                         <div className={styles.fieldLabel}>임대료변동</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="rentFluctuation" className={styles.input} value={formData.rentFluctuation || ''} onChange={handleChange} placeholder="예: 5% 인상" />
+                                            <input name="rentFluctuation" className={styles.input} value={formData.rentFluctuation ?? ''} onChange={handleChange} placeholder="예: 5% 인상" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>공부서류 하자</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="docDefects" className={styles.input} value={formData.docDefects || ''} onChange={handleChange} placeholder="없음" />
+                                            <input name="docDefects" className={styles.input} value={formData.docDefects ?? ''} onChange={handleChange} placeholder="없음" />
                                         </div>
                                         <div className={styles.fieldLabel}>양수도통보</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="transferNotice" className={styles.input} value={formData.transferNotice || ''} onChange={handleChange} placeholder="완료" />
+                                            <input name="transferNotice" className={styles.input} value={formData.transferNotice ?? ''} onChange={handleChange} placeholder="완료" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>화해조서</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="settlementDefects" className={styles.input} value={formData.settlementDefects || ''} onChange={handleChange} placeholder="없음" />
+                                            <input name="settlementDefects" className={styles.input} value={formData.settlementDefects ?? ''} onChange={handleChange} placeholder="없음" />
                                         </div>
                                         <div className={styles.fieldLabel}>임대인정보</div>
                                         <div className={styles.fieldValue}>
-                                            <input name="lessorInfo" className={styles.input} value={formData.lessorInfo || ''} onChange={handleChange} placeholder="성향 등" />
+                                            <input name="lessorInfo" className={styles.input} value={formData.lessorInfo ?? ''} onChange={handleChange} placeholder="성향 등" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>동업/권리</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <input name="partnershipRights" className={styles.input} value={formData.partnershipRights || ''} onChange={handleChange} placeholder="특이사항 없음" />
+                                            <input name="partnershipRights" className={styles.input} value={formData.partnershipRights ?? ''} onChange={handleChange} placeholder="특이사항 없음" />
                                         </div>
                                     </div>
                                     {/* Custom Lease Fields */}
@@ -3348,7 +3353,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                             <div className={styles.fieldLabel}>{field.label}</div>
                                             <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                                 <input
-                                                    value={field.value || ''}
+                                                    value={field.value ?? ''}
                                                     className={styles.input}
                                                     onChange={(e) => handleCustomFieldChange('lease', idx, e.target.value)}
                                                 />
@@ -3358,7 +3363,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                     <div className={styles.fieldRow}>
                                         <div className={styles.fieldLabel}>메모</div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
-                                            <textarea name="leaseMemo" className={styles.textarea} value={formData.leaseMemo || ''} onChange={handleChange} placeholder="임대차 관련 메모를 입력하세요" />
+                                            <textarea name="leaseMemo" className={styles.textarea} value={formData.leaseMemo ?? ''} onChange={handleChange} placeholder="임대차 관련 메모를 입력하세요" />
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
@@ -4029,7 +4034,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                             </div>
                                             <input
                                                 type="text"
-                                                value={(formData.videoUrls && formData.videoUrls[index]) || ''}
+                                                value={(formData.videoUrls && formData.videoUrls[index]) ?? ''}
                                                 onChange={(e) => {
                                                     const newUrls = [...(formData.videoUrls || [])];
                                                     // Ensure array is long enough

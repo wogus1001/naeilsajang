@@ -89,7 +89,13 @@ export default function AdminUsersPage() {
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch('/api/users');
+            const userStr = localStorage.getItem('user');
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const currentUser = parsed.user || parsed;
+            const requesterId = currentUser.uid || currentUser.id || '';
+            const query = requesterId ? `?requesterId=${encodeURIComponent(requesterId)}` : '';
+
+            const res = await fetch(`/api/users${query}`);
             if (res.ok) {
                 const data = await res.json();
                 setUsers(data);
@@ -104,12 +110,18 @@ export default function AdminUsersPage() {
     const handleApprove = (user: any) => {
         showConfirm(`${user.name}님의 가입을 승인하시겠습니까?`, async () => {
             try {
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const currentUser = parsed.user || parsed;
+                const requesterId = currentUser.uid || currentUser.id || '';
+
                 const res = await fetch('/api/users', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         id: user.uuid,
-                        status: 'active'
+                        status: 'active',
+                        requesterId
                     })
                 });
 
@@ -130,7 +142,12 @@ export default function AdminUsersPage() {
         if (!deleteTargetId) return;
 
         try {
-            const res = await fetch(`/api/users?id=${deleteTargetId}`, { method: 'DELETE' });
+            const userStr = localStorage.getItem('user');
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const currentUser = parsed.user || parsed;
+            const requesterId = currentUser.uid || currentUser.id || '';
+
+            const res = await fetch(`/api/users?id=${deleteTargetId}&requesterId=${encodeURIComponent(requesterId)}`, { method: 'DELETE' });
             if (res.ok) {
                 setDeleteTargetId(null);
                 fetchUsers();

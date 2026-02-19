@@ -229,6 +229,7 @@ const BuilderContent = () => {
 
     const [title, setTitle] = useState('');
     const [category, setCategory] = useState('기타');
+    const [isSystem, setIsSystem] = useState(false);
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
@@ -322,7 +323,17 @@ const BuilderContent = () => {
                 const template = templates.find(t => t.id === templateId);
 
                 if (template) {
-                    setEditingTemplateId(templateId);
+                    // Fork Logic for System Templates:
+                    // If opening a System Template, treating it as "Create New based on..." (Fork).
+                    // We clear the ID so saving creates a NEW record.
+                    if (template.is_system) {
+                        setEditingTemplateId(null);
+                        setIsSystem(false); // Default to custom copy
+                    } else {
+                        setEditingTemplateId(templateId);
+                        setIsSystem(false);
+                    }
+
                     setTitle(template.name);
                     setCategory(template.category);
 
@@ -1199,11 +1210,27 @@ const BuilderContent = () => {
         const storageHTML = doc.body.innerHTML;
 
         try {
+            // Instantiate supabase client locally to ensure access
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            let userId = session?.user?.id;
+
+            if (!userId) {
+                // Fallback to local storage
+                try {
+                    const stored = localStorage.getItem('user');
+                    if (stored) {
+                        const parsed = JSON.parse(stored);
+                        userId = parsed.id;
+                    }
+                } catch (e) { /* ignore */ }
+            }
+
             // Priority: Save to Cloud (DB)
             let currentId = editingTemplateId;
             const isCustom = currentId && currentId.startsWith('usr-t-');
             const method = (!currentId || isCustom) ? 'POST' : 'PUT';
-            const url = method === 'PUT' ? `/api/templates/${currentId}` : '/api/templates';
+            const url = method === 'PUT' ? `/api/templates/${currentId}?userId=${userId}` : `/api/templates?userId=${userId}`;
 
             const payload = {
                 id: currentId, // Explicitly send ID (API will fallback to generated if null)
@@ -1211,11 +1238,11 @@ const BuilderContent = () => {
                 category,
                 formSchema: schema,
                 htmlTemplate: storageHTML,
-                description: '사용자 정의 템플릿'
+                description: isSystem ? '기본 템플릿' : '사용자 정의 템플릿',
+                is_system: isSystem
             };
 
-            // Get session for Authorization header
-            const { data: { session } } = await supabase.auth.getSession();
+            // Session already fetched above
             const token = session?.access_token;
 
             const cloudRes = await fetch(url, {
@@ -1276,7 +1303,7 @@ const BuilderContent = () => {
             }
         } catch (e) {
             console.error('Save failed:', e);
-            showAlert('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+            showAlert(`저장 중 오류가 발생했습니다: ${(e as Error).message || '알 수 없는 오류'}`);
         } finally {
             setIsSaving(false);
         }
@@ -1318,6 +1345,18 @@ const BuilderContent = () => {
                             <option value="비즈니스">비즈니스</option>
                             <option value="법률">법률</option>
                         </select>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '10px' }}>
+                            <input
+                                type="checkbox"
+                                id="isSystemCheck"
+                                checked={isSystem}
+                                onChange={(e) => setIsSystem(e.target.checked)}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                            />
+                            <label htmlFor="isSystemCheck" style={{ fontSize: '13px', fontWeight: 600, color: '#495057', cursor: 'pointer' }}>
+                                기본 템플릿으로 저장 (삭제 방지)
+                            </label>
+                        </div>
 
                         <button
                             onClick={() => setIsToolbarExpanded(!isToolbarExpanded)}

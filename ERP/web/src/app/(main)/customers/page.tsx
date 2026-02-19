@@ -339,7 +339,12 @@ function CustomerListPageContent() {
 
     const fetchManagers = async () => {
         try {
-            const res = await fetch('/api/users');
+            const userStr = localStorage.getItem('user');
+            const parsed = userStr ? JSON.parse(userStr) : {};
+            const user = parsed.user || parsed;
+            const companyQuery = user?.companyName ? `?company=${encodeURIComponent(user.companyName)}` : '';
+
+            const res = await fetch(`/api/users${companyQuery}`);
             if (res.ok) {
                 const data = await res.json();
                 const map: Record<string, string> = {};
