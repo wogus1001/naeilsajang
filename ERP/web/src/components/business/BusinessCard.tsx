@@ -125,11 +125,10 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         return `${url}${separator}requesterId=${encodeURIComponent(requesterId)}`;
     };
 
-    const withRequesterPayload = <T extends Record<string, any>>(payload: T): T & { requesterId: string } => {
-        return {
-            ...payload,
-            requesterId: getRequesterId()
-        };
+    const withRequesterPayload = <T extends Record<string, unknown>>(payload: T): T | (T & { requesterId: string }) => {
+        const requesterId = getRequesterId();
+        if (!requesterId) return payload;
+        return { ...payload, requesterId };
     };
 
     // Load Data & Managers
@@ -317,7 +316,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
             const res = await fetch('/api/business-cards', {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(withRequesterPayload(payload))
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -367,7 +366,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 await fetch('/api/business-cards', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(withRequesterPayload(updatedData))
+                    body: JSON.stringify(updatedData)
                 });
                 await createScheduleSync(newHistory, formData.name, formData.id);
             } catch (e) { console.error(e) }
@@ -408,7 +407,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 fetch('/api/business-cards', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(withRequesterPayload({ ...formData, history: newHistoryList }))
+                    body: JSON.stringify({ ...formData, history: newHistoryList })
                 }).catch(console.error);
 
                 // TODO: Also sync update to Property/Schedule if Linked? 
@@ -530,7 +529,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                     await fetch('/api/business-cards', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(withRequesterPayload(updatedData))
+                        body: JSON.stringify(updatedData)
                     });
                     // Sync Delete to Property
                     if (itemToDelete.targetId) {
@@ -693,7 +692,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
             await fetch('/api/business-cards', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(withRequesterPayload(updatedData))
+                body: JSON.stringify(updatedData)
             });
 
             // Sync to Property
@@ -801,7 +800,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 await fetch('/api/business-cards', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(withRequesterPayload(updatedData))
+                    body: JSON.stringify(updatedData)
                 });
 
                 // Sync Deletion to Property
