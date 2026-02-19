@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { Search, Filter, Plus, MoreHorizontal, Printer, Save, Trash2, X, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Settings, Layout, Check, MapPin, Users, Banknote, Maximize, TrendingUp, Star, Eye, EyeOff, Type, Calendar, FileSpreadsheet, Copy, Upload } from 'lucide-react';
 import Link from 'next/link';
 import Script from 'next/script';
@@ -114,6 +114,9 @@ function PropertiesPageContent() {
     const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('center');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const fetchControllerRef = useRef<AbortController | null>(null);
+    const [isCustomLimit, setIsCustomLimit] = useState(false);
+
 
     const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
         isOpen: false,
@@ -253,6 +256,56 @@ function PropertiesPageContent() {
     // const [sortConfig, setSortConfig] = useState<{ key: SortKey | null, direction: SortDirection }>({ key: 'createdAt', direction: 'desc' }); // DEPRECATED
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [limit, setLimit] = useState<number | 'all'>(500); // 기본값 500건
+
+    // 저장된 Limit / ItemsPerPage 불러오기
+    useEffect(() => {
+        const savedLimit = localStorage.getItem('propertyLimit');
+        if (savedLimit) {
+            const val = savedLimit === 'all' ? 'all' : Number(savedLimit);
+            setLimit(val);
+            // 표준 옵션이 아닌 경우 직접입력 모드로 전환
+            const standardOptions: (number | string)[] = [100, 300, 500, 1000, 'all'];
+            if (!standardOptions.includes(val)) {
+                setIsCustomLimit(true);
+            }
+        }
+        const savedItemsPerPage = localStorage.getItem('propertyItemsPerPage');
+        if (savedItemsPerPage) {
+            setItemsPerPage(Number(savedItemsPerPage));
+        }
+    }, []);
+
+    // Limit 드롭다운 변경 핸들러
+    const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        if (val === 'custom') {
+            setIsCustomLimit(true);
+            // 아직 limit 값은 변경하지 않고 UI만 전환
+        } else {
+            const numVal = val === 'all' ? 'all' : Number(val);
+            setLimit(numVal);
+            localStorage.setItem('propertyLimit', numVal.toString());
+            setIsCustomLimit(false);
+        }
+    };
+
+    // 직접입력 핸들러
+    const handleCustomLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = Number(e.target.value);
+        if (!isNaN(val)) {
+            setLimit(val);
+            localStorage.setItem('propertyLimit', val.toString());
+        }
+    };
+
+    // 페이지당 표시 건수 변경 핸들러
+    const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = Number(e.target.value);
+        setItemsPerPage(val);
+        setCurrentPage(1); // 첫 페이지로 리셋
+        localStorage.setItem('propertyItemsPerPage', val.toString());
+    };
 
     // Initial Filter Data
     const [managers, setManagers] = useState<{ id: string, name: string }[]>([]);
@@ -522,28 +575,47 @@ function PropertiesPageContent() {
     }, [handleDrawerMouseMove, handleMouseMove]); // Cleaned up deps
 
     const fetchProperties = React.useCallback(async () => {
+        // Cancel previous request
+        if (fetchControllerRef.current) {
+            fetchControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        fetchControllerRef.current = controller;
+
         setIsLoading(true);
         try {
             const userStr = localStorage.getItem('user');
-            let query = '';
+            const params = new URLSearchParams();
+
             if (userStr) {
                 const user = JSON.parse(userStr);
                 if (user.companyName && user.role !== 'admin' && user.id !== 'admin') {
-                    query = `?company=${encodeURIComponent(user.companyName)}`;
+                    params.append('company', user.companyName);
                 }
             }
 
-            const res = await fetch(`/api/properties${query}`);
+            // Limit
+            if (limit !== 'all') {
+                params.append('limit', limit.toString());
+            }
+
+            const queryString = params.toString() ? `?${params.toString()}` : '';
+
+            const res = await fetch(`/api/properties${queryString}`, { signal: controller.signal });
             if (res.ok) {
                 const data = await res.json();
                 setProperties(data);
             }
-        } catch (error) {
+        } catch (error: any) {
+            if (error.name === 'AbortError') return;
             console.error('Failed to fetch properties:', error);
         } finally {
-            setIsLoading(false);
+            if (fetchControllerRef.current === controller) {
+                fetchControllerRef.current = null;
+                setIsLoading(false);
+            }
         }
-    }, []);
+    }, [limit]);
 
     useEffect(() => {
         fetchProperties();
@@ -2082,11 +2154,62 @@ function PropertiesPageContent() {
 
             {/* Footer & Pagination */}
             <div className={`${styles.footer} flex-col md:flex-row gap-4 md:gap-0`}>
-                <div className={`${styles.totalCount} text-center w-full md:w-auto`}>
-                    전체 <strong>{filteredProperties.length}</strong>건 중 {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredProperties.length)}
+                <div className={`${styles.totalCount} text-center w-full md:w-auto flex items-center justify-center md:justify-start gap-3`}>
+                    <div>전체 <strong>{filteredProperties.length}</strong>건 중 {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredProperties.length)}</div>
+
+                    {/* Limit Selector - 직접입력 토글 지원 */}
+                    <div style={{ position: 'relative' }}>
+                        {!isCustomLimit ? (
+                            <select
+                                className={styles.footerBtn}
+                                value={limit}
+                                onChange={handleLimitChange}
+                                style={{ padding: '0 8px', height: 32, borderColor: '#dee2e6', color: '#495057' }}
+                            >
+                                <option value={100}>100개</option>
+                                <option value={300}>300개</option>
+                                <option value={500}>500개</option>
+                                <option value={1000}>1000개</option>
+                                <option value="all">전체</option>
+                                <option value="custom">직접입력</option>
+                            </select>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <input
+                                    type="number"
+                                    className={styles.footerBtn}
+                                    value={limit === 'all' ? '' : limit}
+                                    onChange={handleCustomLimitChange}
+                                    placeholder="입력"
+                                    autoFocus
+                                    style={{ padding: '0 8px', height: 32, borderColor: '#dee2e6', color: '#495057', width: 80, textAlign: 'center' }}
+                                />
+                                <button
+                                    onClick={() => setIsCustomLimit(false)}
+                                    className={styles.footerBtn}
+                                    style={{ padding: '0 6px', height: 32, borderColor: '#dee2e6', color: '#868e96' }}
+                                    title="목록으로 돌아가기"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className={styles.pagination}>
+                    {/* Items Per Page */}
+                    <select
+                        className={styles.footerBtn}
+                        value={itemsPerPage}
+                        onChange={handleItemsPerPageChange}
+                        style={{ padding: '0 8px', height: 32, borderColor: '#dee2e6', color: '#495057', marginRight: 10 }}
+                    >
+                        <option value="20">20개씩 보기</option>
+                        <option value="50">50개씩 보기</option>
+                        <option value="100">100개씩 보기</option>
+                    </select>
+
                     <button
                         className={styles.pageBtn}
                         disabled={currentPage === 1}

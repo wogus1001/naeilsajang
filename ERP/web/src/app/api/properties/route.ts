@@ -119,7 +119,7 @@ export async function GET(request: Request) {
             return NextResponse.json(transformProperty(prop));
         }
 
-        let query = supabaseAdmin.from('properties').select('*').order('created_at', { ascending: false });
+        let query = supabaseAdmin.from('properties').select('*').order('created_at', { ascending: false }).range(0, 9999);
 
         if (company) {
             // Resolve company name -> UUID
@@ -142,7 +142,22 @@ export async function GET(request: Request) {
             })));
         }
 
-        return NextResponse.json(properties.map(transformProperty));
+        // Apply Limit if provided
+        const limitParam = searchParams.get('limit');
+        let resultPosts = properties;
+
+        if (limitParam && limitParam !== 'all') {
+            const limitVal = parseInt(limitParam);
+            if (!isNaN(limitVal)) {
+                resultPosts = resultPosts.slice(0, limitVal);
+            }
+        } else if (!limitParam) {
+            // Default limit if not specified? 
+            // Current behavior: returns all (up to 9999 from range(0, 9999))
+            // Let's keep it as is (all) unless limit is specified.
+        }
+
+        return NextResponse.json(resultPosts.map(transformProperty));
 
     } catch (error) {
         console.error('Properties GET error:', error);

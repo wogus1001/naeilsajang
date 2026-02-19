@@ -3,6 +3,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
+export const dynamic = 'force-dynamic';
+
 // Service Role Client
 // Service Role Client
 // Removed top level
@@ -81,18 +83,62 @@ export async function GET(request: Request) {
             return NextResponse.json(transformCustomer(cust));
         }
 
-        let query = supabaseAdmin.from('customers').select('*').order('created_at', { ascending: false });
+        // Limit Handling
+        const limitParam = searchParams.get('limit'); // limit=100 or 'all'
+        // If 'all' -> 10000 (Safety Cap), Else -> parsed limit or default 10000 (if not specified, original logic was 1000 page size but loop until done)
+        // Original logic: "Chunked Fetching to bypass 1000 row limit" -> fetched ALL until 10000.
+        // New logic: If limit specified, fetch UP TO that limit.
+        // Default (no limit param) -> keep existing behavior (fetch up to 10000).
+        const maxLimit = limitParam === 'all' ? 10000 : (limitParam ? parseInt(limitParam, 10) : 10000);
 
+        // Chunked Fetching to bypass 1000 row limit
+        let allCustomers: any[] = [];
+        const PAGE_SIZE = 1000;
+        let page = 0;
+        let hasMore = true;
+
+        // Resolve Company ID once
+        let targetCompanyId: string | null = null;
         if (company) {
             const { companyId } = await resolveIds(company, '');
-            if (companyId) query = query.eq('company_id', companyId);
+            if (companyId) targetCompanyId = companyId;
             else return NextResponse.json([]);
         }
 
-        const { data: customers, error } = await query;
-        if (error) throw error;
+        while (hasMore) {
+            let query = supabaseAdmin
+                .from('customers')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .order('id', { ascending: true })
+                .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-        let result = customers.map(transformCustomer);
+            if (targetCompanyId) {
+                query = query.eq('company_id', targetCompanyId);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                allCustomers = [...allCustomers, ...data];
+                if (data.length < PAGE_SIZE) hasMore = false;
+                page++;
+            } else {
+                hasMore = false;
+            }
+
+            // Safety Cap or User Limit
+            if (allCustomers.length >= maxLimit) {
+                hasMore = false;
+                // Truncate if we over-fetched in the last chunk
+                if (allCustomers.length > maxLimit) {
+                    allCustomers = allCustomers.slice(0, maxLimit);
+                }
+            }
+        }
+
+        let result = allCustomers.map(transformCustomer);
 
         if (name) {
             result = result.filter(c => c.name?.includes(name));
@@ -109,6 +155,12 @@ export async function POST(request: Request) {
     try {
         const supabaseAdmin = getSupabaseAdmin();
         const body = await request.json();
+
+        // Check for Bulk Delete Action (POST /api/customers with specific action, or just use DELETE method)
+        // But since we are inside POST, we handle creation.
+        // Wait, standard REST implies DELETE method for deletion.
+        // Let's keep POST for creation.
+
         const {
             companyName, managerId, name, grade, mobile, isFavorite,
             memoInterest, memoHistory, progressSteps, wantedFeature,
@@ -257,16 +309,9 @@ export async function PUT(request: Request) {
         if (error) throw error;
 
         // [PUSH SYNC] Active Sync to Properties
-        // Find properties linked to this customer and update their snapshot
         try {
-            // Fetch properties that have this customer in their promoted list
-            // Note: JSONB path query or just fetch all properties for company and filter (safer for small scale)
-            // Given "My Project" scale, fetching properties for company is okay.
-            // Better: use .contains for index usage if possible.
-            // .contains('data', { promotedCustomers: [{ targetId: id }] }) works for array
             let propQuery = supabaseAdmin.from('properties').select('id, data').contains('data', { promotedCustomers: [{ targetId: id }] });
 
-            // Scope to company for safety (though ID contained is unique enough)
             if (updates.company_id || existing.company_id) {
                 propQuery = propQuery.eq('company_id', updates.company_id || existing.company_id);
             }
@@ -307,7 +352,6 @@ export async function PUT(request: Request) {
             }
         } catch (syncError) {
             console.error('[PushSync] Failed to sync to properties:', syncError);
-            // Don't fail the main request
         }
 
         return NextResponse.json(transformCustomer(updated));
@@ -324,15 +368,47 @@ export async function DELETE(request: Request) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        // Retrieve BODY for Bulk Delete (optional)
+        // Note: DELETE with body is not strictly standard but supported by Next.js/fetch
+        let bodyIds: string[] = [];
+        try {
+            const body = await request.json();
+            if (body && Array.isArray(body.ids)) {
+                bodyIds = body.ids;
+            }
+        } catch (e) {
+            // Body might be empty
+        }
+
+        if (bodyIds.length > 0) {
+            // 대량 삭제 시 Supabase .in() URL 길이 제한 방지 → 100개씩 배치 삭제
+            const BATCH_SIZE = 100;
+            let totalDeleted = 0;
+
+            for (let i = 0; i < bodyIds.length; i += BATCH_SIZE) {
+                const batch = bodyIds.slice(i, i + BATCH_SIZE);
+                const { error, count } = await supabaseAdmin
+                    .from('customers')
+                    .delete({ count: 'exact' })
+                    .in('id', batch);
+                if (error) throw error;
+                totalDeleted += (count || 0);
+            }
+
+            return NextResponse.json({ success: true, count: totalDeleted });
+        }
+
+        if (!id) return NextResponse.json({ error: 'ID or IDs required' }, { status: 400 });
 
         const { error } = await supabaseAdmin.from('customers').delete().eq('id', id);
 
         if (error) throw error;
 
         return NextResponse.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Customers DELETE error:', error);
-        return NextResponse.json({ error: 'Failed to delete customer' }, { status: 500 });
+        // Supabase 에러 상세 메시지 포함
+        const message = error?.message || error?.details || 'Failed to delete customer';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

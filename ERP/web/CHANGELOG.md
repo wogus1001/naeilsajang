@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.1.19] - 2026-02-19
+
+### Added (추가됨)
+- **매물 목록 Limit & 페이지네이션** (`properties/page.tsx`, `api/properties/route.ts`)
+  - Limit 셀렉터 (100/300/500/1000/전체/직접입력) 및 페이지당 표시 건수 (20/50/100) 추가.
+    - 매물 목록에서 데이터 조회 건수를 선택하고, 페이지당 표시 건수를 조절할 수 있습니다. 설정은 `localStorage`에 저장됩니다.
+  - `AbortController`를 사용한 레이스 컨디션 방지.
+    - Limit 변경 시 이전 API 요청을 자동 취소하여 데이터 불일치를 방지합니다.
+
+### Fixed (수정됨)
+- **테이블 헤더 고정** (`customers/page.tsx`)
+  - Fixed sticky header not working due to inline `position: relative` overriding CSS `position: sticky`.
+    - 고객/명함 목록에서 스크롤 시 테이블 헤더가 상단에 고정되도록 수정했습니다.
+- **고객 전체 삭제 오류 수정** (`api/customers/route.ts`)
+  - Fixed 400 Bad Request error when bulk-deleting large numbers of customers by batching `.in()` queries (100 per batch).
+    - 대량 고객 삭제 시 Supabase URL 길이 제한 초과로 발생하던 오류를 100건씩 배치 처리하여 해결했습니다.
+- **물건등급 "completed" 표시 버그** (`customers/page.tsx`)
+  - Fixed incorrect display of status values (e.g., "completed") in the grade/class column when the field is empty.
+    - 물건등급이 비어있을 때 진행상태 영문값이 잘못 표시되던 문제를 수정했습니다.
 
 
 ## [v1.1.18] - 2026-01-29
