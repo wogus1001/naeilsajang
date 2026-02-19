@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { UserCheck, Shield, Users as UsersIcon, AlertCircle } from 'lucide-react';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { getRequesterId, getStoredCompanyName, getStoredUser } from '@/utils/userUtils';
 
 export default function StaffManagementPage() {
     const router = useRouter();
@@ -38,18 +39,20 @@ export default function StaffManagementPage() {
     };
 
     useEffect(() => {
-        const userStr = localStorage.getItem('user');
-        if (!userStr) {
+        const parsedUser = getStoredUser();
+        if (!parsedUser) {
             router.push('/login');
             return;
         }
-        const parsedUser = JSON.parse(userStr);
         if (parsedUser.role !== 'manager') {
             showAlert('접근 권한이 없습니다.', 'error', () => router.push('/dashboard'));
             return;
         }
         setUser(parsedUser);
-        fetchStaff(parsedUser.companyName, parsedUser.companyId);
+        fetchStaff(
+            getStoredCompanyName(parsedUser),
+            (parsedUser.companyId as string) || (parsedUser.company_id as string)
+        );
     }, [router]);
 
     const fetchStaff = async (companyName: string, companyId?: string) => {
@@ -74,13 +77,19 @@ export default function StaffManagementPage() {
 
         showConfirm(confirmMsg, async () => {
             try {
+                const requesterId = getRequesterId(user);
+                if (!requesterId) {
+                    showAlert('로그인 정보가 없습니다. 다시 로그인 해주세요.', 'error');
+                    return;
+                }
+
                 const res = await fetch('/api/company/staff', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         targetUserId,
                         action,
-                        requesterId: user.id
+                        requesterId
                     })
                 });
 

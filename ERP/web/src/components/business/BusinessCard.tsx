@@ -8,6 +8,7 @@ import PropertySelector from '../customers/PropertySelector';
 import PropertyCard from '../properties/PropertyCard';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { getRequesterId as resolveRequesterId, getStoredCompanyName, getStoredUser } from '@/utils/userUtils';
 
 interface BusinessCardData {
     id?: string;
@@ -114,10 +115,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
     };
 
     const getRequesterId = () => {
-        const userStr = localStorage.getItem('user');
-        const parsed = userStr ? JSON.parse(userStr) : {};
-        const user = parsed.user || parsed;
-        return user?.uid || user?.id || '';
+        return resolveRequesterId(getStoredUser());
     };
 
     const withRequesterId = (url: string) => {
@@ -134,15 +132,9 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
         const loadData = async () => {
             try {
-                const userStr = localStorage.getItem('user');
-                let myCompany = '';
-                let myId = '';
-                if (userStr) {
-                    const parsed = JSON.parse(userStr);
-                    const user = parsed.user || parsed;
-                    myCompany = user.companyName || '';
-                    myId = user.uid || user.id;
-                }
+                const currentUser = getStoredUser();
+                const myCompany = getStoredCompanyName(currentUser);
+                const myId = resolveRequesterId(currentUser);
 
                 // Fetch Managers (Filtered by Company)
                 if (myCompany) {
@@ -254,13 +246,11 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
     const createScheduleSync = async (historyItem: any, cardName: string, cardId: string) => {
         try {
-            const userStr = localStorage.getItem('user');
-            let userInfo = { userId: '', companyName: '' };
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const { id, companyName } = parsed.user || parsed;
-                userInfo = { userId: id, companyName };
-            }
+            const currentUser = getStoredUser();
+            const userInfo = {
+                userId: resolveRequesterId(currentUser),
+                companyName: getStoredCompanyName(currentUser)
+            };
 
             const payload = {
                 title: `[고객작업] ${cardName} - ${historyItem.content}`,
@@ -306,16 +296,9 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
     const handleSave = async () => {
         setLoading(true);
         try {
-            const userStr = localStorage.getItem('user');
-            let userCompanyName = '';
-            let managerId = '';
-
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const user = parsed.user || parsed;
-                userCompanyName = user.companyName;
-                managerId = user.uid || user.id;
-            }
+            const currentUser = getStoredUser();
+            const userCompanyName = getStoredCompanyName(currentUser);
+            const managerId = resolveRequesterId(currentUser);
 
             const payload = {
                 ...formData,
@@ -596,13 +579,11 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
             });
 
             // 4. Create Schedule Event
-            const userStr = localStorage.getItem('user');
-            let userInfo = { userId: '', companyName: '' };
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const user = parsed.user || parsed;
-                userInfo = { userId: user.id, companyName: user.companyName || '' };
-            }
+            const currentUser = getStoredUser();
+            const userInfo = {
+                userId: resolveRequesterId(currentUser),
+                companyName: getStoredCompanyName(currentUser)
+            };
 
             const schedulePayload = {
                 title: `[추진등록] ${card.name} - ${property.name}`,
@@ -833,10 +814,11 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         showConfirm('삭제하시겠습니까?', async () => {
             setLoading(true);
             try {
-                const userStr = localStorage.getItem('user');
-                const parsed = userStr ? JSON.parse(userStr) : {};
-                const user = parsed.user || parsed;
-                const requesterId = user?.uid || user?.id || '';
+                const requesterId = getRequesterId();
+                if (!requesterId) {
+                    showAlert('로그인 정보가 없습니다. 다시 로그인 해주세요.', 'error');
+                    return;
+                }
 
                 const res = await fetch(`/api/business-cards?id=${id}&requesterId=${encodeURIComponent(requesterId)}`, { method: 'DELETE' });
                 if (res.ok) {

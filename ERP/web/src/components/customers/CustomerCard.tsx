@@ -8,6 +8,7 @@ import PropertySelector from './PropertySelector';
 import PropertyCard from '../properties/PropertyCard';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { getRequesterId, getStoredCompanyName, getStoredUser } from '@/utils/userUtils';
 
 // Mock Data Removed
 
@@ -137,17 +138,16 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
     useEffect(() => {
         const loadManagers = async () => {
             try {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const parsed = JSON.parse(userStr);
-                    const user = parsed.user || parsed;
-                    const requesterId = user?.uid || user?.id || '';
+                const user = getStoredUser();
+                if (user) {
+                    const requesterId = getRequesterId(user);
                     if (!id) {
                         setFormData(prev => prev.managerId ? prev : { ...prev, managerId: requesterId });
                     }
-                    if (user.companyName) {
+                    const companyName = getStoredCompanyName(user);
+                    if (companyName) {
                         const query = new URLSearchParams({
-                            company: user.companyName
+                            company: companyName
                         });
                         if (requesterId) query.set('requesterId', requesterId);
                         const res = await fetch(`/api/users?${query.toString()}`);
@@ -271,17 +271,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
         try {
             const method = data.id ? 'PUT' : 'POST';
 
-            // Inject Company Name
-            let companyName = '';
-            try {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    if (user.companyName) companyName = user.companyName;
-                }
-            } catch (e) {
-                console.error(e);
-            }
+            const companyName = getStoredCompanyName();
 
             const payload = {
                 ...(data.id ? data : { ...data, id: undefined }),
@@ -317,12 +307,11 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
 
     const createScheduleSync = async (historyItem: any, customerName: string, customerId: string) => {
         try {
-            const userStr = localStorage.getItem('user');
-            let userInfo = { userId: '', companyName: '' };
-            if (userStr) {
-                const { id, companyName } = JSON.parse(userStr);
-                userInfo = { userId: id, companyName };
-            }
+            const currentUser = getStoredUser();
+            const userInfo = {
+                userId: getRequesterId(currentUser),
+                companyName: getStoredCompanyName(currentUser)
+            };
 
             const payload = {
                 title: `[고객작업] ${customerName} - ${historyItem.content}`,
@@ -735,16 +724,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
 
     const handleReset = () => {
         showConfirm('기존 입력 내용이 초기화됩니다. 계속하시겠습니까?', () => {
-            let defaultManagerId = '';
-            const userStr = localStorage.getItem('user');
-            if (userStr) {
-                try {
-                    const user = JSON.parse(userStr);
-                    defaultManagerId = user.id;
-                } catch (e) {
-                    console.error(e);
-                }
-            }
+            const defaultManagerId = getRequesterId();
             setFormData({
                 ...INITIAL_DATA,
                 managerId: defaultManagerId

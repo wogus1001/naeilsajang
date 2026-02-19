@@ -12,6 +12,7 @@ import PropertyUploadModal from '@/components/properties/PropertyUploadModal';
 import ViewModeSwitcher, { ViewMode } from '@/components/properties/ViewModeSwitcher';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { getRequesterId, getStoredCompanyName, getStoredUser } from '@/utils/userUtils';
 
 const Resizer = ({ onResize, onAutoFit }: { onResize: (e: React.MouseEvent) => void, onAutoFit: () => void }) => (
     <div
@@ -316,27 +317,20 @@ function PropertiesPageContent() {
     const PYEONG_TO_M2 = 3.305785;
 
     useEffect(() => {
-        const userStr = localStorage.getItem('user');
+        const user = getStoredUser();
         let query = '';
-        if (userStr) {
-            try {
-                const parsed = JSON.parse(userStr);
-                const user = parsed.user || parsed;
-                setCurrentUser(user); // Set current user state
-                if (user.companyName) {
-                    query = `?company=${encodeURIComponent(user.companyName)}`;
-                    const requesterId = user.uid || user.id || '';
-                    if (requesterId) {
-                        query += `&requesterId=${encodeURIComponent(requesterId)}`;
-                    }
-                } else {
-                    const requesterId = user.uid || user.id || '';
-                    if (requesterId) {
-                        setManagers([{ id: requesterId, name: user.name || requesterId }]);
-                    }
+        if (user) {
+            setCurrentUser(user); // Set current user state
+            const companyName = getStoredCompanyName(user);
+            const requesterId = getRequesterId(user);
+
+            if (companyName) {
+                query = `?company=${encodeURIComponent(companyName)}`;
+                if (requesterId) {
+                    query += `&requesterId=${encodeURIComponent(requesterId)}`;
                 }
-            } catch (e) {
-                console.error("Error parsing user from localStorage", e);
+            } else if (requesterId) {
+                setManagers([{ id: requesterId, name: String(user.name || requesterId) }]);
             }
         }
         if (query) {
@@ -596,13 +590,19 @@ function PropertiesPageContent() {
 
         setIsLoading(true);
         try {
-            const userStr = localStorage.getItem('user');
             const params = new URLSearchParams();
+            const user = getStoredUser();
 
-            if (userStr) {
-                const user = JSON.parse(userStr);
-                if (user.companyName && user.role !== 'admin' && user.id !== 'admin') {
-                    params.append('company', user.companyName);
+            if (user) {
+                const requesterId = getRequesterId(user);
+                const companyName = getStoredCompanyName(user);
+                const isAdmin = user.role === 'admin' || user.id === 'admin';
+
+                if (requesterId) {
+                    params.append('requesterId', requesterId);
+                }
+                if (companyName && !isAdmin) {
+                    params.append('company', companyName);
                 }
             }
 
@@ -617,6 +617,9 @@ function PropertiesPageContent() {
             if (res.ok) {
                 const data = await res.json();
                 setProperties(data);
+            } else {
+                setProperties([]);
+                console.error('Failed to fetch properties:', await res.text());
             }
         } catch (error: any) {
             if (error.name === 'AbortError') return;
