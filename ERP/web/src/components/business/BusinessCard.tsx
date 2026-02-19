@@ -1379,3 +1379,4 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         </div >
     );
 }
+
