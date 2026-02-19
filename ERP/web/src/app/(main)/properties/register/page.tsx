@@ -91,6 +91,57 @@ export default function RegisterPropertyPage() {
         setAlertConfig(prev => ({ ...prev, isOpen: false }));
     };
 
+    type StoredUser = {
+        id?: string;
+        uid?: string;
+        uuid?: string;
+        userId?: string;
+        user_id?: string;
+        name?: string;
+        companyName?: string;
+        company_name?: string;
+        companyId?: string;
+        company_id?: string;
+    };
+
+    type ManagerOption = {
+        id?: string;
+        uid?: string;
+        uuid?: string;
+        name?: string;
+    };
+
+    const getStoredUser = (): StoredUser | null => {
+        if (typeof window === 'undefined') return null;
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return null;
+        try {
+            const parsed = JSON.parse(userStr);
+            return (parsed?.user || parsed) as StoredUser;
+        } catch {
+            return null;
+        }
+    };
+
+    const getRequesterId = (): string => {
+        const user = getStoredUser();
+        return user?.uid || user?.uuid || user?.id || user?.userId || user?.user_id || '';
+    };
+
+    const getCompanyName = (): string => {
+        const user = getStoredUser();
+        return user?.companyName || user?.company_name || '';
+    };
+
+    const getCompanyId = (): string => {
+        const user = getStoredUser();
+        return user?.companyId || user?.company_id || '';
+    };
+
+    const getManagerValue = (mgr: ManagerOption): string => {
+        return mgr.uuid || mgr.uid || mgr.id || '';
+    };
+
     // Brand Search State
     const [brandSearchQuery, setBrandSearchQuery] = useState('');
     const [brandSearchResults, setBrandSearchResults] = useState<any[]>([]);
@@ -114,16 +165,12 @@ export default function RegisterPropertyPage() {
     React.useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const user = JSON.parse(userStr);
-                    const companyId = user.companyId || user.company_id;
-                    if (companyId) {
-                        const res = await fetch(`/api/categories?companyId=${companyId}&type=industry_detail`);
-                        if (res.ok) {
-                            const data = await res.json();
-                            setCustomCategories(data);
-                        }
+                const companyId = getCompanyId();
+                if (companyId) {
+                    const res = await fetch(`/api/categories?companyId=${companyId}&type=industry_detail`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setCustomCategories(data);
                     }
                 }
             } catch (e) {
@@ -442,7 +489,7 @@ export default function RegisterPropertyPage() {
     };
 
     // Manager State
-    const [managers, setManagers] = useState<any[]>([]);
+    const [managers, setManagers] = useState<ManagerOption[]>([]);
     const [selectedManager, setSelectedManager] = useState('');
 
     // Revenue History State (Excel Upload)
@@ -512,16 +559,15 @@ export default function RegisterPropertyPage() {
     React.useEffect(() => {
         const loadManagers = async () => {
             try {
-                const userStr = localStorage.getItem('user');
-                if (userStr) {
-                    const parsed = JSON.parse(userStr);
-                    const user = parsed.user || parsed;
-                    const requesterId = user?.uid || user?.id || '';
+                const user = getStoredUser();
+                if (user) {
+                    const requesterId = getRequesterId();
                     setSelectedManager(requesterId); // Default to current user
 
-                    if (user.companyName) {
+                    const companyName = user.companyName || user.company_name;
+                    if (companyName) {
                         const query = new URLSearchParams({
-                            company: user.companyName
+                            company: companyName
                         });
                         if (requesterId) query.set('requesterId', requesterId);
                         const res = await fetch(`/api/users?${query.toString()}`);
@@ -530,7 +576,7 @@ export default function RegisterPropertyPage() {
                             setManagers(data);
                         }
                     } else {
-                        setManagers([user]);
+                        setManagers([user as ManagerOption]);
                     }
                 }
             } catch (error) {
@@ -701,18 +747,11 @@ export default function RegisterPropertyPage() {
         const formData = new FormData(e.currentTarget);
         const data = Object.fromEntries(formData.entries());
 
-        // Helper to get company name
-        const getCompany = () => {
-            const userStr = localStorage.getItem('user');
-            if (userStr) return JSON.parse(userStr).companyName;
-            return '';
-        };
-
         const payload = {
             ...data,
-            companyName: getCompany(), // Add company name
+            companyName: getCompanyName(), // Add company name
             managerId: selectedManager,
-            managerName: managers.find(m => m.id === selectedManager)?.name || '',
+            managerName: managers.find(m => getManagerValue(m) === selectedManager)?.name || '',
             address: address,
             coordinates: coordinates,
 
@@ -745,6 +784,7 @@ export default function RegisterPropertyPage() {
 
             // Revenue History
             revenueHistory,
+            requesterId: selectedManager || getRequesterId(),
         };
 
         try {
@@ -764,11 +804,19 @@ export default function RegisterPropertyPage() {
                     router.push('/properties');
                 });
             } else {
-                throw new Error('Failed to register');
+                let apiError = 'Failed to register';
+                try {
+                    const errorBody = await response.json();
+                    apiError = errorBody?.error || errorBody?.message || apiError;
+                } catch {
+                    // keep default
+                }
+                throw new Error(apiError);
             }
         } catch (error) {
             console.error(error);
-            showAlert('매물 등록 중 오류가 발생했습니다.', 'error');
+            const message = error instanceof Error ? error.message : '매물 등록 중 오류가 발생했습니다.';
+            showAlert(`매물 등록 실패: ${message}`, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -827,8 +875,8 @@ export default function RegisterPropertyPage() {
                         >
                             <option value="">담당자 미지정</option>
                             {managers.map(mgr => (
-                                <option key={mgr.id} value={mgr.id}>
-                                    {mgr.name} {mgr.id === selectedManager ? '(나)' : ''}
+                                <option key={getManagerValue(mgr) || mgr.name || ''} value={getManagerValue(mgr)}>
+                                    {mgr.name} {getManagerValue(mgr) === selectedManager ? '(나)' : ''}
                                 </option>
                             ))}
                         </select>

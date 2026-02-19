@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.2.2] - 2026-02-19
+
+### Fixed (수정됨)
+- **매물 등록 오류 수정 (Property Registration Fix)**
+  - Fixed parsing error in `properties/register/page.tsx` that caused "Registration Failed".
+    - 매물 등록 시 발생하던 파싱 오류(깨진 문자열 상태)를 수정했습니다.
+  - **Requester ID Handling**: Ensure `requesterId` is always included in the payload (User UUID).
+    - 등록 요청 시 `requesterId`가 누락되지 않도록 로직을 보강했습니다.
+  - **Manager ID Mapping**: Prioritize UUID over legacy ID/UID.
+    - 담당자 지정 시 UUID를 최우선으로 매핑하여 정합성을 높였습니다.
+
+### Changed (변경됨)
+- **Error Messaging Improvement (에러 메시지 개선)**
+  - Registration failures now display the actual server error message instead of a generic "Error occurred".
+    - 매물 등록 실패 시 "오류가 발생했습니다" 대신 구체적인 서버 에러 사유를 표시하도록 개선했습니다.
+  - Updated API error messages for clarity (e.g., "Valid managerId and company scope are required").
+
 ## [v1.2.1] - 2026-02-19
 
 ### Changed (변경됨)
