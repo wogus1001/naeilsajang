@@ -125,6 +125,12 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         return `${url}${separator}requesterId=${encodeURIComponent(requesterId)}`;
     };
 
+    const withRequesterPayload = <T extends Record<string, unknown>>(payload: T): T | (T & { requesterId: string }) => {
+        const requesterId = getRequesterId();
+        if (!requesterId) return payload;
+        return { ...payload, requesterId };
+    };
+
     // Load Data & Managers
     useEffect(() => {
         // Fetch Managers
@@ -210,7 +216,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
     // Fetch Property Detail
     useEffect(() => {
         if (openedPropertyId) {
-            fetch(`/api/properties?id=${openedPropertyId}`)
+            fetch(withRequesterId(`/api/properties?id=${openedPropertyId}`))
                 .then(res => res.json())
                 .then(data => setOpenedPropertyData(data))
                 .catch(err => console.error(err));
@@ -431,7 +437,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
     const syncWorkHistoryToProperty = async (propertyId: string, historyItem: any, personName: string) => {
         try {
-            const res = await fetch(`/api/properties?id=${propertyId}`);
+            const res = await fetch(withRequesterId(`/api/properties?id=${propertyId}`));
             if (!res.ok) return;
             const propertyData = await res.json();
 
@@ -452,10 +458,10 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 workHistory: [...(propertyData.workHistory || []), newWorkHistory]
             };
 
-            const putRes = await fetch(`/api/properties?id=${propertyId}`, {
+            const putRes = await fetch(withRequesterId(`/api/properties?id=${propertyId}`), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedProperty)
+                body: JSON.stringify(withRequesterPayload(updatedProperty))
             });
 
             if (putRes.ok) {
@@ -471,7 +477,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
     const deleteWorkHistoryFromProperty = async (propertyId: string, historyItem: any) => {
         try {
-            const res = await fetch(`/api/properties?id=${propertyId}`);
+            const res = await fetch(withRequesterId(`/api/properties?id=${propertyId}`));
             if (!res.ok) return;
             const propertyData = await res.json();
 
@@ -499,10 +505,10 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 workHistory: updatedWorkHistory
             };
 
-            await fetch(`/api/properties?id=${propertyId}`, {
+            await fetch(withRequesterId(`/api/properties?id=${propertyId}`), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedProperty)
+                body: JSON.stringify(withRequesterPayload(updatedProperty))
             });
 
         } catch (e) {
@@ -546,7 +552,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
     const syncToProperty = async (card: BusinessCardData, property: any) => {
         try {
             // 1. Fetch Property
-            const res = await fetch(`/api/properties?id=${property.id}`);
+            const res = await fetch(withRequesterId(`/api/properties?id=${property.id}`));
             if (!res.ok) return;
             const propData = await res.json();
 
@@ -572,10 +578,10 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 promotedCustomers: [...currentPromoted, newPromoted]
             };
 
-            await fetch(`/api/properties?id=${property.id}`, {
+            await fetch(withRequesterId(`/api/properties?id=${property.id}`), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedProp)
+                body: JSON.stringify(withRequesterPayload(updatedProp))
             });
 
             // 4. Create Schedule Event
@@ -757,7 +763,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
 
     const deletePromotedCustomerFromProperty = async (propertyId: string, businessCardId: string) => {
         try {
-            const res = await fetch(`/api/properties?id=${propertyId}`);
+            const res = await fetch(withRequesterId(`/api/properties?id=${propertyId}`));
             if (!res.ok) return;
             const propertyData = await res.json();
 
@@ -770,10 +776,10 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 promotedCustomers: updatedPromoted
             };
 
-            await fetch(`/api/properties?id=${propertyId}`, {
+            await fetch(withRequesterId(`/api/properties?id=${propertyId}`), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedProperty)
+                body: JSON.stringify(withRequesterPayload(updatedProperty))
             });
         } catch (e) {
             console.error('Failed to sync promoted customer deletion to property:', e);

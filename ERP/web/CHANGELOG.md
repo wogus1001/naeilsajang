@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.2.3] - 2026-02-19
+
+### Fixed (수정됨)
+- **BusinessCard Conflict Fix**: Resolved Git merge conflicts and removed markers in `BusinessCard.tsx`.
+- **Turbopack Error**: Fixed parsing error caused by conflict markers.
+
+### Changed (변경됨)
+- **Properties API Security (P0-1)**
+  - **Scope Enforcement**: Enforced company scope for POST/PUT.
+  - **ShareToken Hardening**: Added expiration check and sensitive data filtering.
+  - **Admin Exception**: Allowed admins to delete properties regardless of company scope.
+  - **Requester Identification**: Unified logic with `api-auth` utility.
+
 ## [v1.2.2] - 2026-02-19
 
 ### Fixed (수정됨)
