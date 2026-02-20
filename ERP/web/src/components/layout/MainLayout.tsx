@@ -131,6 +131,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 // Temporary Debug: Show alert on ANY failure to identify root cause
                 const errorText = await meRes.text().catch(() => '');
                 const currentUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'undefined';
+
+                // If 401/403 (Auth Fail), force logout to clear invalid tokens
+                if (meRes.status === 401 || meRes.status === 403) {
+                    alert(`[인증 정보 만료] 브라우저에 저장된 인증 정보가 유효하지 않습니다.\n(새로운 서버 설정 적용을 위해 다시 로그인해주세요.)\n\n상세: ${errorText}\n현재 Client URL: ${currentUrl}`);
+                    await supabase.auth.signOut();
+                    localStorage.removeItem('user');
+                    localStorage.removeItem('sb-' + currentUrl.split('.')[0].split('//')[1] + '-auth-token'); // Try to clear supabase token
+                    window.location.href = '/login';
+                    return null;
+                }
+
                 alert(`인증 실패(코드:${meRes.status}): ${meRes.statusText}\n상세: ${errorText}\n현재 Client URL: ${currentUrl}\n관리자에게 캡처해서 보내주세요.`);
                 return null;
             }

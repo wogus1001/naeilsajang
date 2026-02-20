@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.3.9] - 2026-02-20
+
+### Fixed (수정됨)
+- **Token Invalidation**: Added auto-logout and storage cleanup on 401/403 errors.
+  - This forces a fresh login to issue new tokens when environment configuration (like Supabase URL) changes.
+
 ## [v1.3.8] - 2026-02-20
 
 ### Fixed (수정됨)
