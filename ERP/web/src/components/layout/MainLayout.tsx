@@ -3,6 +3,7 @@
 import React from 'react';
 import { Megaphone, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { getSupabase } from '@/lib/supabase';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import styles from './MainLayout.module.css';
@@ -11,39 +12,58 @@ interface MainLayoutProps {
     children: React.ReactNode;
 }
 
+type AuthUser = {
+    id?: string;
+    uid?: string;
+    email?: string;
+    name?: string;
+    role?: string;
+    companyName?: string;
+    companyId?: string;
+    status?: string;
+};
+
+type AnnouncementConfig = {
+    active?: boolean;
+    message?: string;
+    level?: string;
+} | null;
+
+type MaintenanceConfig = {
+    active?: boolean;
+    message?: string;
+} | null;
+
 const MainLayout = ({ children }: MainLayoutProps) => {
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
-    const [announcement, setAnnouncement] = React.useState<any>(null);
-    const [maintenance, setMaintenance] = React.useState<any>(null);
+    const [announcement, setAnnouncement] = React.useState<AnnouncementConfig>(null);
+    const [maintenance, setMaintenance] = React.useState<MaintenanceConfig>(null);
+    const [authUser, setAuthUser] = React.useState<AuthUser | null>(null);
+    const [isAuthReady, setIsAuthReady] = React.useState(false);
     const [userRole, setUserRole] = React.useState<string>('');
-    const [isBannerDismissed, setIsBannerDismissed] = React.useState(false);
 
-    const router = useRouter(); // Import useRouter
+    const router = useRouter();
 
     React.useEffect(() => {
-        const checkAuth = () => {
-            const userStr = localStorage.getItem('user');
-            if (!userStr) {
-                // No user found, redirect to login
-                router.replace('/login');
-                return false;
-            }
+        let cancelled = false;
+
+        const clearAuthAndRedirect = async () => {
             try {
-                const user = JSON.parse(userStr);
-                setUserRole(user.role || '');
-                return true;
-            } catch (e) {
-                console.error(e);
-                router.replace('/login'); // Invalid JSON
-                return false;
+                const supabase = getSupabase();
+                await supabase.auth.signOut();
+            } catch (error) {
+                console.error('Failed to sign out stale session:', error);
+            }
+            localStorage.removeItem('user');
+            if (!cancelled) {
+                setIsAuthReady(true);
+                router.replace('/login');
             }
         };
 
-        if (!checkAuth()) return; // Stop if not authenticated
-
         const fetchSettings = async () => {
             try {
-                const res = await fetch('/api/system/settings');
+                const res = await fetch('/api/system/settings', { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
 
@@ -60,28 +80,121 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                         }
                     }
                 }
-            } catch (e) {
-                console.error(e);
+            } catch (error) {
+                console.error(error);
             }
         };
 
-        fetchSettings();
-    }, []);
+        const verifyAuth = async (): Promise<AuthUser | null> => {
+            const supabase = getSupabase();
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            if (sessionError || !sessionData.session?.access_token) {
+                return null;
+            }
+
+            const meRes = await fetch('/api/auth/me', {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${sessionData.session.access_token}`,
+                },
+                cache: 'no-store'
+            });
+
+            if (!meRes.ok) {
+                return null;
+            }
+
+            const payload = await meRes.json() as { user?: AuthUser };
+            if (!payload.user) {
+                return null;
+            }
+
+            const storedRaw = localStorage.getItem('user');
+            let storedUser: Partial<AuthUser> = {};
+
+            if (storedRaw) {
+                try {
+                    storedUser = JSON.parse(storedRaw) as Partial<AuthUser>;
+                } catch {
+                    storedUser = {};
+                }
+            }
+
+            const mergedUser: AuthUser = {
+                ...storedUser,
+                ...payload.user,
+                id: storedUser.id || payload.user.id || payload.user.uid || payload.user.email
+            };
+            localStorage.setItem('user', JSON.stringify(mergedUser));
+            return mergedUser;
+        };
+
+        const initializeLayout = async () => {
+            const verifiedUser = await verifyAuth();
+            if (!verifiedUser) {
+                await clearAuthAndRedirect();
+                return;
+            }
+
+            if (cancelled) return;
+
+            setAuthUser(verifiedUser);
+            setUserRole(verifiedUser.role || '');
+            await fetchSettings();
+
+            if (!cancelled) {
+                setIsAuthReady(true);
+            }
+        };
+
+        void initializeLayout();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [router]);
 
     const handleDismissBanner = () => {
-        if (announcement) {
+        if (announcement?.message) {
             localStorage.setItem('dismissed_banner_msg', announcement.message);
-            setAnnouncement(null);
         }
+        setAnnouncement(null);
     };
 
-    const getBannerColor = (level: string) => {
+    const handleLogout = async () => {
+        try {
+            const userId = authUser?.uid || authUser?.id;
+            if (userId) {
+                await fetch(`/api/ucansign/disconnect?userId=${encodeURIComponent(userId)}`, {
+                    method: 'DELETE'
+                });
+            }
+        } catch (error) {
+            console.error('Failed to disconnect uCanSign on logout:', error);
+        }
+
+        try {
+            const supabase = getSupabase();
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error('Failed to sign out:', error);
+        }
+
+        localStorage.removeItem('user');
+        router.replace('/login');
+    };
+
+    const getBannerColor = (level?: string) => {
         switch (level) {
             case 'error': return '#fa5252'; // Red
             case 'warning': return '#fd7e14'; // Orange
             default: return '#1971c2'; // Blue
         }
     };
+
+    if (!isAuthReady) {
+        return null;
+    }
 
     // If maintenance mode is active and user is NOT an admin, block the whole page
     if (maintenance?.active && userRole !== 'admin') {
@@ -141,7 +254,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 className={`${styles.mainWrapper} ${!isSidebarOpen ? styles.collapsed : ''} global-main-wrapper`}
                 style={{ marginTop: announcement ? '40px' : 0, height: announcement ? 'calc(100vh - 40px)' : '100vh' }}
             >
-                <Header />
+                <Header user={authUser} onLogout={handleLogout} />
                 <main className={`${styles.content} global-content`}>
                     {children}
                 </main>

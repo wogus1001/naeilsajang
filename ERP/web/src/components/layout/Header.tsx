@@ -1,19 +1,27 @@
 "use client";
 
 import React from 'react';
-import { Bell, ChevronDown, LogOut, LogIn, User } from 'lucide-react';
+import { ChevronDown, LogOut, LogIn, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import styles from './Header.module.css';
 
-const Header = () => {
-    const [user, setUser] = React.useState<any>(null);
+type HeaderUser = {
+    id?: string;
+    uid?: string;
+    name?: string;
+    role?: string;
+    companyName?: string;
+};
+
+interface HeaderProps {
+    user: HeaderUser | null;
+    onLogout: () => Promise<void> | void;
+}
+
+const Header = ({ user, onLogout }: HeaderProps) => {
     const [isLoaded, setIsLoaded] = React.useState(false);
 
     React.useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
         setIsLoaded(true);
     }, []);
 
@@ -32,19 +40,6 @@ const Header = () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, []);
-
-    const handleLogout = async () => {
-        try {
-            if (user?.id) {
-                // Auto-disconnect uCanSign on logout
-                await fetch(`/api/ucansign/disconnect?userId=${user.id}`, { method: 'DELETE' });
-            }
-        } catch (e) {
-            console.error('Failed to disconnect uCanSign on logout:', e);
-        }
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-    };
 
     const pathname = usePathname();
 
@@ -186,7 +181,7 @@ const Header = () => {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleLogout();
+                                    void onLogout();
                                 }}
                                 style={{
                                     display: 'flex',

@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.2.4] - 2026-02-20
+
+### Added (추가됨)
+- **Server-Side Auth Sync (P0-2)**
+  - **API**: `/api/auth/me` for server-side session verification.
+  - **Auth Logic**: Enforced server-session validation on `MainLayout` and `LoginPage`.
+  - **Security**: Auto-logout on session mismatch or invalid token.
+
 ## [v1.2.3] - 2026-02-19
 
 ### Fixed (수정됨)
