@@ -89,6 +89,10 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             const supabase = getSupabase();
             const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
             if (sessionError || !sessionData.session?.access_token) {
+                // Temporary Debug: Show alert on missing session
+                if (!window.location.pathname.includes('/login')) { // Only alert if NOT on login page
+                    alert(`[세션 확인 불가] 저장된 로그인 정보(Access Token)가 없습니다.\n원인: sessionError=${sessionError?.message || 'null'}\n로그인 페이지로 이동합니다.`);
+                }
                 return null;
             }
 

@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.3.6] - 2026-02-20
+
+### Fixed (수정됨)
+- **Session Debugging**: Force `alert` when `getSession()` fails locally after login redirect.
+  - Helps to diagnose Cookie domain issues or LocalStorage sync delays.
+
 ## [v1.3.5] - 2026-02-20
 
 ### Fixed (수정됨)
