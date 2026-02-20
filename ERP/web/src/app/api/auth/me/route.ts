@@ -55,7 +55,7 @@ export async function GET(request: Request) {
         const supabaseAdmin = getSupabaseAdmin();
         const { data: profile, error: profileError } = await supabaseAdmin
             .from('profiles')
-            .select('id, name, role, company_id, status, email, company:companies(name)')
+            .select('id, name, role, company_id, status, email, company:companies!company_id(name)')
             .eq('id', userData.user.id)
             .single<ProfileRow>();
 
