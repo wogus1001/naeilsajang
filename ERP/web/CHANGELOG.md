@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.4.0] - 2026-02-20
+
+### Fixed (수정됨) - 핵심 인증 버그
+- **Auth Token Validation**: Fixed root cause of 401 errors in `/api/auth/me`.
+  - `supabase.auth.getUser(token)` 방식으로 변경 (기존 `global.headers` 방식은 서버사이드에서 신뢰할 수 없음).
+  - 이제 Access Token을 직접 Supabase Auth 서버에 전달하여 유효성 검증.
+
 ## [v1.3.9] - 2026-02-20
 
 ### Fixed (수정됨)

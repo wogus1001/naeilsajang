@@ -38,15 +38,13 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Supabase environment is not configured' }, { status: 500 });
         }
 
-        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-            global: {
-                headers: { Authorization: `Bearer ${token}` }
-            }
-        });
+        // createClient: anon key로 초기화 후, getUser(token)에 직접 JWT 전달
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        const { data: userData, error: userError } = await supabase.auth.getUser();
+        // ✅ global.headers 방식이 아닌, 토큰을 직접 전달하는 방식으로 수정
+        const { data: userData, error: userError } = await supabase.auth.getUser(token);
         if (userError || !userData.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized', details: userError?.message }, { status: 401 });
         }
 
         const supabaseAdmin = getSupabaseAdmin();
