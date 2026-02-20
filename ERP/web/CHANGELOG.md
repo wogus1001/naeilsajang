@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.3.5] - 2026-02-20
+
+### Fixed (수정됨)
+- **Critical Debugging**: Force `alert` on ANY auth failure (4xx/5xx) to catch silent failures.
+  - This is a temporary measure to diagnose production login issues.
+
 ## [v1.3.4] - 2026-02-20
 
 ### Fixed (수정됨)

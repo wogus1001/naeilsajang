@@ -102,11 +102,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             });
 
             if (!meRes.ok) {
-                console.error(`[AuthCheck] /api/auth/me failed with status: ${meRes.status}`);
-                // Temporary Debug: Show alert on production failure to identify root cause
-                if (meRes.status >= 500) {
-                    alert(`서버 내부 오류(${meRes.status})로 인증 정보를 불러올 수 없습니다. 관리자에게 문의해주세요.`);
-                }
+                // Temporary Debug: Show alert on ANY failure to identify root cause
+                const errorText = await meRes.text().catch(() => '');
+                alert(`인증 실패(코드:${meRes.status}): ${meRes.statusText}\n상세: ${errorText}\n관리자에게 캡처해서 보내주세요.`);
                 return null;
             }
 
