@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.3.8] - 2026-02-20
+
+### Fixed (수정됨)
+- **Env Debugging**: Expose current Supabase URL in auth error alerts to verify Vercel environment application.
+  - Helps to distinguish between legacy and new project keys.
+
 ## [v1.3.7] - 2026-02-20
 
 ### Fixed (수정됨)

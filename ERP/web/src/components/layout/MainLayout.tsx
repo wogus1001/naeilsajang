@@ -130,7 +130,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             if (!meRes.ok) {
                 // Temporary Debug: Show alert on ANY failure to identify root cause
                 const errorText = await meRes.text().catch(() => '');
-                alert(`인증 실패(코드:${meRes.status}): ${meRes.statusText}\n상세: ${errorText}\n관리자에게 캡처해서 보내주세요.`);
+                const currentUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'undefined';
+                alert(`인증 실패(코드:${meRes.status}): ${meRes.statusText}\n상세: ${errorText}\n현재 Client URL: ${currentUrl}\n관리자에게 캡처해서 보내주세요.`);
                 return null;
             }
 
