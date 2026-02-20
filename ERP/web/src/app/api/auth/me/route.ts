@@ -79,8 +79,11 @@ export async function GET(request: Request) {
         };
 
         return NextResponse.json({ user: normalizedUser });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Auth me error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json(
+            { error: 'Internal Server Error', details: error?.message || 'Unknown error' },
+            { status: 500 }
+        );
     }
 }

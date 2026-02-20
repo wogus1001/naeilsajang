@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.3.4] - 2026-02-20
+
+### Fixed (수정됨)
+- **Env Var Diagnostics**: Improved `supabase-admin.ts` to log *which* specific environment variable is missing.
+- **Error Reporting**: `/api/auth/me` now returns detailed error message in 500 responses to aid debugging.
+
 ## [v1.3.3] - 2026-02-20
 
 ### Fixed (수정됨)
