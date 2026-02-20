@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { randomUUID } from 'crypto';
 import {
@@ -10,6 +9,7 @@ import {
     resolveUserUuid,
     type RequesterProfile
 } from '@/lib/api-auth';
+import { fail, ok } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic'; // Ensure fresh data on every request
 const SHARED_TOP_LEVEL_BLOCKLIST = new Set([
@@ -141,24 +141,24 @@ export async function GET(request: Request) {
             : null;
 
         if (!requesterProfile && !sharedPropertyId) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         if (id) {
             const { data: prop, error } = await supabaseAdmin.from('properties').select('*').eq('id', id).single();
-            if (error || !prop) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+            if (error || !prop) return fail(404, 'NOT_FOUND', 'Property not found');
 
             const requesterCanAccess = canAccessProperty(requesterProfile, prop);
             const tokenCanAccess = sharedPropertyId === id;
 
             if (!requesterCanAccess && !tokenCanAccess) {
                 if (requesterProfile) {
-                    return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+                    return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
                 }
                 if (shareToken) {
-                    return NextResponse.json({ error: 'Forbidden: invalid share token' }, { status: 403 });
+                    return fail(403, 'FORBIDDEN', 'Forbidden: invalid share token');
                 }
-                return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+                return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
             }
 
             // [Hydration] Fetch fresh data for Promoted Customers
@@ -224,10 +224,10 @@ export async function GET(request: Request) {
             }
 
             if (!requesterCanAccess && tokenCanAccess) {
-                return NextResponse.json(transformSharedProperty(prop));
+                return ok(transformSharedProperty(prop));
             }
 
-            return NextResponse.json(transformProperty(prop));
+            return ok(transformProperty(prop));
         }
 
         if (!requesterProfile && sharedPropertyId) {
@@ -237,17 +237,17 @@ export async function GET(request: Request) {
                 .eq('id', sharedPropertyId)
                 .single();
             if (sharedError || !sharedProperty) {
-                return NextResponse.json([]);
+                return ok([]);
             }
             const rows = [sharedProperty];
             if (min) {
-                return NextResponse.json(rows.map((p: any) => ({
+                return ok(rows.map((p: any) => ({
                     id: p.id,
                     manageId: p.data?.manageId || p.data?.legacyId || p.data?.['관리번호'],
                     name: p.data?.name || p.name
                 })));
             }
-            return NextResponse.json(rows.map(transformSharedProperty));
+            return ok(rows.map(transformSharedProperty));
         }
 
         let query = supabaseAdmin.from('properties').select('*').order('created_at', { ascending: false }).range(0, 9999);
@@ -258,28 +258,28 @@ export async function GET(request: Request) {
                 if (companyId) {
                     query = query.eq('company_id', companyId);
                 } else {
-                    return NextResponse.json([]);
+                    return ok([]);
                 }
             }
         } else if (requesterProfile?.company_id) {
             if (company) {
                 const companyId = await resolveCompanyIdByName(supabaseAdmin, company);
                 if (companyId && companyId !== requesterProfile.company_id) {
-                    return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+                    return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
                 }
             }
             query = query.eq('company_id', requesterProfile.company_id);
         } else if (requesterProfile?.id) {
             query = query.eq('manager_id', requesterProfile.id);
         } else {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const { data: properties, error } = await query;
         if (error) throw error;
 
         if (min) {
-            return NextResponse.json(properties.map((p: any) => ({
+            return ok(properties.map((p: any) => ({
                 id: p.id,
                 manageId: p.data?.manageId || p.data?.legacyId || p.data?.['관리번호'],
                 name: p.data?.name || p.name
@@ -301,11 +301,11 @@ export async function GET(request: Request) {
             // Let's keep it as is (all) unless limit is specified.
         }
 
-        return NextResponse.json(resultPosts.map(transformProperty));
+        return ok(resultPosts.map(transformProperty));
 
     } catch (error) {
         console.error('Properties GET error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Internal Server Error');
     }
 }
 
@@ -318,7 +318,7 @@ export async function POST(request: Request) {
         const requesterProfile = await getRequesterProfile(supabaseAdmin, request, requesterFallbackFromBody(body));
 
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const resolvedCompanyId = await resolveCompanyIdByName(supabaseAdmin, companyName || null);
@@ -326,7 +326,7 @@ export async function POST(request: Request) {
         const companyId = resolvedCompanyId || requesterProfile.company_id;
 
         if (!companyId || !mgrUuid) {
-            return NextResponse.json({ error: 'Valid managerId and company scope are required' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'Valid managerId and company scope are required');
         }
 
         const { data: managerProfile } = await supabaseAdmin
@@ -336,11 +336,11 @@ export async function POST(request: Request) {
             .single();
 
         if (!managerProfile || managerProfile.company_id !== companyId) {
-            return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: manager/company mismatch');
         }
 
         if (!canAccessCompanyScope(requesterProfile, companyId)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company create denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company create denied');
         }
 
         const newId = randomUUID();
@@ -371,11 +371,11 @@ export async function POST(request: Request) {
 
         if (error) throw error;
 
-        return NextResponse.json(transformProperty(inserted), { status: 201 });
+        return ok(transformProperty(inserted), 201);
 
     } catch (error) {
         console.error('Properties POST error:', error);
-        return NextResponse.json({ error: 'Failed to create property' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to create property');
     }
 }
 
@@ -388,14 +388,14 @@ export async function PUT(request: Request) {
         const body = await request.json();
         const requesterProfile = await getRequesterProfile(supabaseAdmin, request, requesterFallbackFromBody(body));
 
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
-        if (!requesterProfile) return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+        if (!id) return fail(400, 'VALIDATION_ERROR', 'ID required');
+        if (!requesterProfile) return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
 
         // 1. Fetch existing to merge JSONB
         const { data: existing, error: fetchError } = await supabaseAdmin.from('properties').select('*').eq('id', id).single();
-        if (fetchError || !existing) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+        if (fetchError || !existing) return fail(404, 'NOT_FOUND', 'Property not found');
         if (!canAccessProperty(requesterProfile, existing)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
         }
 
         // 2. Prepare updates
@@ -410,19 +410,19 @@ export async function PUT(request: Request) {
 
         if (companyName) {
             const companyId = await resolveCompanyIdByName(supabaseAdmin, companyName);
-            if (!companyId) return NextResponse.json({ error: 'Invalid companyName' }, { status: 400 });
+            if (!companyId) return fail(400, 'VALIDATION_ERROR', 'Invalid companyName');
             updates.company_id = companyId;
             targetCompanyId = companyId;
         }
         updates.data = mergedData;
 
         if (!canAccessCompanyScope(requesterProfile, targetCompanyId)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company update denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company update denied');
         }
 
         if (managerId) {
             const mgrUuid = await resolveUserUuid(supabaseAdmin, managerId);
-            if (!mgrUuid) return NextResponse.json({ error: 'Invalid managerId' }, { status: 400 });
+            if (!mgrUuid) return fail(400, 'VALIDATION_ERROR', 'Invalid managerId');
 
             const { data: managerProfile } = await supabaseAdmin
                 .from('profiles')
@@ -431,7 +431,7 @@ export async function PUT(request: Request) {
                 .single();
 
             if (!managerProfile || (targetCompanyId && managerProfile.company_id !== targetCompanyId)) {
-                return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: manager/company mismatch');
             }
 
             updates.manager_id = mgrUuid;
@@ -454,11 +454,11 @@ export async function PUT(request: Request) {
 
         if (error) throw error;
 
-        return NextResponse.json(transformProperty(updated));
+        return ok(transformProperty(updated));
 
     } catch (error) {
         console.error('Properties PUT error:', error);
-        return NextResponse.json({ error: 'Failed to update property' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to update property');
     }
 }
 
@@ -470,10 +470,10 @@ export async function DELETE(request: Request) {
         const id = searchParams.get('id');
         const company = searchParams.get('company');
 
-        if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+        if (!id) return fail(400, 'VALIDATION_ERROR', 'ID required');
 
         const requesterProfile = await getRequesterProfile(supabaseAdmin, request);
-        if (!requesterProfile) return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+        if (!requesterProfile) return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
 
         const { data: targetProperty, error: targetError } = await supabaseAdmin
             .from('properties')
@@ -481,17 +481,17 @@ export async function DELETE(request: Request) {
             .eq('id', id)
             .single();
         if (targetError || !targetProperty) {
-            return NextResponse.json({ error: 'Property not found' }, { status: 404 });
+            return fail(404, 'NOT_FOUND', 'Property not found');
         }
         if (!canAccessProperty(requesterProfile, targetProperty)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
         }
 
         if (!isAdmin(requesterProfile) && company) {
             const companyId = await resolveCompanyIdByName(supabaseAdmin, company);
-            if (!companyId) return NextResponse.json({ error: 'Invalid company' }, { status: 400 });
+            if (!companyId) return fail(400, 'VALIDATION_ERROR', 'Invalid company');
             if (targetProperty.company_id !== companyId) {
-                return NextResponse.json({ error: 'company mismatch for target property' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'company mismatch for target property');
             }
         }
 
@@ -502,11 +502,11 @@ export async function DELETE(request: Request) {
 
         if (error) throw error;
 
-        return NextResponse.json({ message: 'Deleted successfully' });
+        return ok({ success: true });
 
     } catch (error) {
         console.error('Properties DELETE error:', error);
-        return NextResponse.json({ error: 'Failed to delete property' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to delete property');
     }
 }
 

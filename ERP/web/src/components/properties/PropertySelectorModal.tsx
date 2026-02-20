@@ -1,9 +1,12 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import { X, Search, Check, RefreshCw } from 'lucide-react';
 import styles from './PropertySelectorModal.module.css';
 import PropertyCard from './PropertyCard';
 import { AlertModal } from '@/components/common/AlertModal';
-
+
+import { readApiJson } from '@/utils/apiResponse';
 interface PropertySelectorModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -51,7 +54,7 @@ export default function PropertySelectorModal({ isOpen, onClose, onSelect }: Pro
             }
             const res = await fetch(`/api/properties${query}`);
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 setProperties(data);
             }
         } catch (error) {

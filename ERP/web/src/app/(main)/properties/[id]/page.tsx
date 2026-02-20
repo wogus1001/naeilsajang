@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -20,7 +21,7 @@ export default function PropertyDetailPage() {
                 // console.log('Fetching property with ID:', id);
                 const res = await fetch(`/api/properties?id=${id}`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = await readApiJson(res);
                     setProperty(data);
                 } else {
                     console.error('Property not found');

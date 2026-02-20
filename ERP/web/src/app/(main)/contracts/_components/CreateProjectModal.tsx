@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -222,11 +223,11 @@ export default function CreateProjectModal({ isOpen, onClose, onCreate }: Create
             });
 
             if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
+                const errorData = await readApiJson(res).catch(() => ({}));
                 throw new Error(errorData.error || 'Project creation failed');
             }
 
-            const { project: createdProject } = await res.json();
+            const { project: createdProject } = await readApiJson(res);
             // Use the ID returned from DB
             const finalProjectId = createdProject?.id || projectId;
 

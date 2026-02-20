@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Map, MapMarker, CustomOverlayMap, useKakaoLoader } from 'react-kakao-maps-sdk';
@@ -69,7 +70,7 @@ export default function PropertyMapPage() {
 
                 const res = await fetch(`/api/properties${query}`);
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = await readApiJson(res);
                     setProperties(data);
                 }
             } catch (error) {

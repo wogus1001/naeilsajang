@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect } from 'react';
 import { Search, User, CreditCard, Check } from 'lucide-react';
 import styles from './PersonSelectorModal.module.css';
@@ -74,7 +75,7 @@ export default function PersonSelectorModal({ isOpen, onClose, onSelect, company
             const query = params.toString();
             const res = await fetch(`${url}${query ? `?${query}` : ''}`);
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 if (activeTab === 'customer') {
                     setCustomers(data);
                 } else {

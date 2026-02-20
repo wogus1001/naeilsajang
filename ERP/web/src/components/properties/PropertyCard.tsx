@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
 import styles from './PropertyCard.module.css';
 import { User, Phone, MapPin, Building, DollarSign, FileText, Save, Trash2, Printer, Copy, Plus, Star, ChevronDown, ChevronUp, Search, X, Download, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
@@ -19,7 +21,8 @@ import BusinessCard from '../business/BusinessCard';
 import Customer from '../customers/CustomerCard';
 import { PropertyShareButton } from './PropertyShareButton';
 import { getRequesterId as resolveRequesterId, getStoredCompanyName, getStoredUser } from '@/utils/userUtils';
-
+
+import { readApiJson } from '@/utils/apiResponse';
 interface RevenueItem {
     id: string;
     date: string; // YYYY-MM
@@ -320,7 +323,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         try {
             const res = await fetch(withRequesterId(`/api/properties?id=${id}`));
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 setFormData(data);
                 if (onRefresh) onRefresh(); // Optional: notify parent
             }
@@ -369,7 +372,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                     if (companyId) {
                         const res = await fetch(`/api/categories?companyId=${companyId}&type=industry_detail`);
                         if (res.ok) {
-                            const data = await res.json();
+                            const data = await readApiJson(res);
                             setCustomCategories(data);
                         }
                     }
@@ -401,7 +404,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                         })
                     });
                     if (res.ok) {
-                        const newCat = await res.json();
+                        const newCat = await readApiJson(res);
                         setCustomCategories([...customCategories, newCat]);
                         setFormData({ ...formData, industryDetail: newCategoryName }); // Auto Select
                         setIsCategoryInputOpen(false);
@@ -439,7 +442,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
             const res = await fetch(endpoint);
             if (!res.ok) return;
-            const personData = await res.json();
+            const personData = await readApiJson(res);
 
             let updatedPerson = { ...personData };
             let hasChanges = false;
@@ -915,7 +918,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
             const res = await fetch(endpoint);
             if (!res.ok) return;
-            const personData = await res.json();
+            const personData = await readApiJson(res);
 
             const updatedHistory = (personData.history || []).filter((h: any) => {
                 let isMatch = false;
@@ -960,7 +963,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
 
             const res = await fetch(endpoint);
             if (!res.ok) return;
-            const personData = await res.json();
+            const personData = await readApiJson(res);
 
             // Filter out the promoted property
             const updatedPromoted = (personData.promotedProperties || []).filter((p: any) => p.id !== propertyId);
@@ -994,7 +997,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 console.error(`Sync Error: Failed to fetch person data (Status: ${res.status})`);
                 return;
             }
-            const personData = await res.json();
+            const personData = await readApiJson(res);
 
             // Create History Item for Person
             const newHistory = {
@@ -1045,7 +1048,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 console.error(`Sync Error: Failed to fetch person data (Status: ${res.status})`);
                 return;
             }
-            const personData = await res.json();
+            const personData = await readApiJson(res);
             const currentPromoted = personData.promotedProperties || [];
             const exists = currentPromoted.some((p: any) => p.id === propertyData.id);
             if (!exists) {
@@ -1584,7 +1587,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                         if (requesterId) query.set('requesterId', requesterId);
                         const res = await fetch(`/api/users?${query.toString()}`);
                         if (res.ok) {
-                            const data = await res.json();
+                            const data = await readApiJson(res);
                             setManagers(data);
                         }
                     } else {
@@ -2003,7 +2006,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         try {
             const res = await fetch(`/api/franchise?query=${encodeURIComponent(brandSearchQuery)}`);
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 setBrandSearchResults(data);
             }
         } catch (error) {
@@ -2142,7 +2145,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 });
 
                 if (res.ok) {
-                    const savedData = await res.json();
+                    const savedData = await readApiJson(res);
                     showAlert('저장되었습니다.', 'success');
 
                     // Update local state with saved data
@@ -2286,7 +2289,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                 });
 
                 if (res.ok) {
-                    const createdProperty = await res.json();
+                    const createdProperty = await readApiJson(res);
 
                     // Add to Schedule (New Property from Copy)
                     const totalPrice = (createdProperty.deposit || 0) + (createdProperty.premium || 0) + (createdProperty.briefingPrice || 0);

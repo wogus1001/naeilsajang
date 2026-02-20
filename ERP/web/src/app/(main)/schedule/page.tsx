@@ -1,4 +1,6 @@
 "use client";
+
+import { readApiJson } from '@/utils/apiResponse';
 // Force rebuild
 
 import React, { useState, useEffect } from 'react';
@@ -170,7 +172,7 @@ export default function SchedulePage() {
 
             const res = await fetch(`/api/schedules${query}`);
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 setEvents(data);
             }
         } catch (error) {
@@ -224,7 +226,14 @@ export default function SchedulePage() {
         if (!targetId) return;
 
         try {
-            const res = await fetch(`/api/schedules?id=${targetId}`, {
+            const currentUser = getStoredUser();
+            const requesterId = getRequesterId(currentUser);
+            const query = new URLSearchParams({ id: targetId });
+            if (requesterId) {
+                query.set('requesterId', requesterId);
+            }
+
+            const res = await fetch(`/api/schedules?${query.toString()}`, {
                 method: 'DELETE'
             });
 

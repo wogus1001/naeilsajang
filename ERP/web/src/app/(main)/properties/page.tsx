@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { Search, Filter, Plus, MoreHorizontal, Printer, Save, Trash2, X, ChevronDown, ChevronUp, Download, ChevronLeft, ChevronRight, Settings, Layout, Check, MapPin, Users, Banknote, Maximize, TrendingUp, Star, Eye, EyeOff, Type, Calendar, FileSpreadsheet, Copy, Upload } from 'lucide-react';
 import Link from 'next/link';
@@ -334,7 +335,7 @@ function PropertiesPageContent() {
             }
         }
         if (query) {
-            fetch(`/api/users${query}`).then(res => res.json()).then(data => setManagers(data)).catch(err => console.error(err));
+            fetch(`/api/users${query}`).then(readApiJson).then(data => setManagers(data)).catch(err => console.error(err));
         }
     }, []);
 
@@ -615,7 +616,7 @@ function PropertiesPageContent() {
 
             const res = await fetch(`/api/properties${queryString}`, { signal: controller.signal });
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 setProperties(data);
             } else {
                 setProperties([]);

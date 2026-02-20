@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect } from 'react';
 import { Save, Plus, X, Trash2, Star, List, RefreshCw, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import styles from '@/app/(main)/customers/register/page.module.css'; // Reusing Customer styles for consistency
@@ -149,7 +150,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                     if (myId) managerParams.set('requesterId', myId);
                     const managerQuery = managerParams.toString();
                     fetch(`/api/users${managerQuery ? `?${managerQuery}` : ''}`)
-                        .then(res => res.json())
+                        .then(readApiJson)
                         .then(data => setManagers(data))
                         .catch(err => console.error(err));
                 }
@@ -166,7 +167,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                 const query = listParams.toString();
                 const res = await fetch(`/api/business-cards${query ? `?${query}` : ''}`, { cache: 'no-store' });
                 if (res.ok) {
-                    const cards: BusinessCardData[] = await res.json();
+                    const cards: BusinessCardData[] = await readApiJson(res);
                     const categories = Array.from(new Set(['기타', ...cards.map(c => c.category).filter(Boolean)])).sort();
                     setCategoryOptions(categories);
 
@@ -217,7 +218,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
     useEffect(() => {
         if (openedPropertyId) {
             fetch(withRequesterId(`/api/properties?id=${openedPropertyId}`))
-                .then(res => res.json())
+                .then(readApiJson)
                 .then(data => setOpenedPropertyData(data))
                 .catch(err => console.error(err));
         } else {
@@ -304,15 +305,19 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         try {
             const currentUser = getStoredUser();
             const userCompanyName = getStoredCompanyName(currentUser);
-            const managerId = resolveRequesterId(currentUser);
+            const requesterId = resolveRequesterId(currentUser);
+            const managerId = requesterId;
+            const currentId = formData.id || null;
 
             const payload = {
                 ...formData,
+                ...(currentId ? { id: currentId } : {}),
                 userCompanyName: formData.userCompanyName || userCompanyName,
-                managerId: formData.managerId || managerId
+                managerId: formData.managerId || managerId,
+                requesterId
             };
 
-            const method = id ? 'PUT' : 'POST';
+            const method = currentId ? 'PUT' : 'POST';
             const res = await fetch('/api/business-cards', {
                 method,
                 headers: { 'Content-Type': 'application/json' },
@@ -320,17 +325,17 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
             });
 
             if (res.ok) {
-                const savedData = await res.json();
+                const savedData = await readApiJson(res);
 
                 // 1. Sync History (Original Logic - kept)
-                if (!id && formData.history.length > 0) {
+                if (!currentId && formData.history.length > 0) {
                     for (const h of formData.history) {
                         await createScheduleSync(h, formData.name, savedData.id);
                     }
                 }
 
                 // 2. Sync Promoted Properties (New Logic)
-                if (!id && formData.promotedProperties && formData.promotedProperties.length > 0) {
+                if (!currentId && formData.promotedProperties && formData.promotedProperties.length > 0) {
                     for (const p of formData.promotedProperties) {
                         await syncToProperty(savedData, p);
                     }
@@ -342,7 +347,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                     else onClose();
                 });
             } else {
-                const savedData = await res.json();
+                const savedData = await readApiJson(res);
                 showAlert(`저장에 실패했습니다.\n사유: ${savedData.error || '알 수 없는 오류'}`, 'error');
             }
         } catch (error) {
@@ -439,7 +444,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         try {
             const res = await fetch(withRequesterId(`/api/properties?id=${propertyId}`));
             if (!res.ok) return;
-            const propertyData = await res.json();
+            const propertyData = await readApiJson(res);
 
             // Create Work History Item for Property
             const newWorkHistory = {
@@ -479,7 +484,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         try {
             const res = await fetch(withRequesterId(`/api/properties?id=${propertyId}`));
             if (!res.ok) return;
-            const propertyData = await res.json();
+            const propertyData = await readApiJson(res);
 
             // Match by targetId (BusinessCard ID), Date, and Content
             const updatedWorkHistory = (propertyData.workHistory || []).filter((h: any) => {
@@ -554,7 +559,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
             // 1. Fetch Property
             const res = await fetch(withRequesterId(`/api/properties?id=${property.id}`));
             if (!res.ok) return;
-            const propData = await res.json();
+            const propData = await readApiJson(res);
 
             // 2. Check overlap
             const currentPromoted = propData.promotedCustomers || [];
@@ -647,7 +652,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                     // Reload for consistency
                     const loadRes = await fetch(withRequesterId(`/api/business-cards?id=${id}`));
                     if (loadRes.ok) {
-                        const refreshed = await loadRes.json();
+                        const refreshed = await readApiJson(loadRes);
                         setFormData(prev => ({
                             ...prev,
                             promotedProperties: refreshed.promotedProperties || []
@@ -706,7 +711,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         showConfirm('DB 데이터와 동기화하시겠습니까?', async () => {
             try {
                 const res = await fetch('/api/business-cards/sync', { method: 'POST' });
-                const result = await res.json();
+                const result = await readApiJson(res);
                 if (res.ok) {
                     const dbg = result.debug || {};
                     let debugMsg = `\n(Debug - Found: ${dbg.promotedFound || 0}, Matched: ${dbg.promotedMatches || 0})`;
@@ -718,7 +723,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
                     if (id) {
                         const loadRes = await fetch(withRequesterId(`/api/business-cards?id=${id}`));
                         if (loadRes.ok) {
-                            const newData = await loadRes.json();
+                            const newData = await readApiJson(loadRes);
                             // Sanitize nulls
                             // ... (logic handled in useEffect mainly, but here we do it ad-hoc or could trust useEffect if we trigger it?)
                             // We replicated logic in original code
@@ -765,7 +770,7 @@ export default function BusinessCard({ id, onClose, onSuccess, isModal = false, 
         try {
             const res = await fetch(withRequesterId(`/api/properties?id=${propertyId}`));
             if (!res.ok) return;
-            const propertyData = await res.json();
+            const propertyData = await readApiJson(res);
 
             const updatedPromoted = (propertyData.promotedCustomers || []).filter((c: any) => c.targetId !== businessCardId);
 

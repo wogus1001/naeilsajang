@@ -1,8 +1,8 @@
 
-import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { fail, ok } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,7 +105,7 @@ export async function GET(request: Request) {
         request.headers.get('x-user-id');
     const requesterProfile = await getRequesterProfile(supabaseAdmin, requesterRaw);
     if (!requesterProfile) {
-        return NextResponse.json({ error: 'requesterId or userId is required' }, { status: 401 });
+        return fail(401, 'AUTH_REQUIRED', 'requesterId or userId is required');
     }
 
     const requesterId = requesterProfile.id;
@@ -133,7 +133,7 @@ export async function GET(request: Request) {
         if (company) {
             const { companyId } = await resolveIds(company, null);
             if (!companyId) {
-                return NextResponse.json([]);
+                return ok([]);
             }
             query = query.eq('company_id', companyId);
         }
@@ -143,7 +143,7 @@ export async function GET(request: Request) {
         if (company) {
             const { companyId } = await resolveIds(company, null);
             if (companyId && companyId !== requesterCompanyId) {
-                return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
             }
         }
         const { data: teamMembers } = await supabaseAdmin
@@ -179,11 +179,11 @@ export async function GET(request: Request) {
             .single();
 
         if (targetCardError || !targetCard) {
-            return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+            return fail(404, 'NOT_FOUND', 'Card not found');
         }
 
         if (!canAccessCard(requesterProfile, targetCard)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
         }
 
         query = query.eq('id', id).limit(1);
@@ -192,13 +192,13 @@ export async function GET(request: Request) {
     // Debug Mode
     const debugMode = searchParams.get('debug') === 'true';
     if (debugMode && requesterProfile.role !== 'admin') {
-        return NextResponse.json({ error: 'Forbidden: Admins only' }, { status: 403 });
+        return fail(403, 'FORBIDDEN', 'Forbidden: Admins only');
     }
 
     const { data, error } = await query;
     if (error) {
         console.error('GET business-cards error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', error.message);
     }
 
     if (debugMode) {
@@ -213,7 +213,7 @@ export async function GET(request: Request) {
                 if (teams) dTeamIds = teams.map(t => t.id);
             }
         }
-        return NextResponse.json({
+        return ok({
             debug: true,
             requesterId,
             companyId: dCompanyId,
@@ -303,11 +303,11 @@ export async function GET(request: Request) {
 
     if (id) {
         const card = mappedData.find((c: any) => c.id === id);
-        if (!card) return NextResponse.json({ error: 'Card not found' }, { status: 404 });
-        return NextResponse.json(card);
+        if (!card) return fail(404, 'NOT_FOUND', 'Card not found');
+        return ok(card);
     }
 
-    return NextResponse.json(mappedData);
+    return ok(mappedData);
 }
 
 export async function POST(request: Request) {
@@ -317,7 +317,7 @@ export async function POST(request: Request) {
         const requesterRaw = payload.requesterId || payload.userId || payload.managerId || payload?.meta?.managerId || null;
         const requesterProfile = await getRequesterProfile(supabaseAdmin, requesterRaw);
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         // Check if this is the new 3-file batch upload (has main, promoted, history arrays)
@@ -349,12 +349,12 @@ export async function POST(request: Request) {
         } = payload;
 
         // Validation for Single Create
-        if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+        if (!name) return fail(400, 'VALIDATION_ERROR', 'Name is required');
 
         // Validate UUID for manager_id
         const safeManagerId = await resolveUserUuid(supabaseAdmin, managerId || requesterProfile.id);
         if (!safeManagerId) {
-            return NextResponse.json({ error: 'Valid managerId is required' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'Valid managerId is required');
         }
 
         const { data: managerProfile } = await supabaseAdmin
@@ -368,18 +368,18 @@ export async function POST(request: Request) {
         if (companyName) {
             const { companyId: resolvedCompanyId } = await resolveIds(companyName, null);
             if (resolvedCompanyId && companyId && resolvedCompanyId !== companyId) {
-                return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: manager/company mismatch');
             }
             if (!companyId) companyId = resolvedCompanyId;
         }
 
         if (!companyId) {
-            return NextResponse.json({ error: 'Company scope could not be resolved' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'Company scope could not be resolved');
         }
 
         if (requesterProfile.role !== 'admin') {
             if (!requesterProfile.company_id || requesterProfile.company_id !== companyId) {
-                return NextResponse.json({ error: 'Forbidden: cross-company create denied' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: cross-company create denied');
             }
         }
 
@@ -423,7 +423,7 @@ export async function POST(request: Request) {
 
         if (insertError) {
             console.error('Insert error:', insertError);
-            return NextResponse.json({ error: insertError.message }, { status: 500 });
+            return fail(500, 'INTERNAL_ERROR', insertError.message);
         }
 
         const newId = newCard.id;
@@ -458,11 +458,11 @@ export async function POST(request: Request) {
             await supabaseAdmin.from('business_card_history').insert(historyInsert);
         }
 
-        return NextResponse.json(newCard);
+        return ok(newCard);
 
     } catch (error) {
         console.error('POST error:', error);
-        return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to process request');
     }
 }
 
@@ -474,11 +474,11 @@ async function handleBatchUpload(payload: any, requesterProfile: any) {
     // Get Uploader's Company ID for auto-assignment
     const uploaderId = await resolveUserUuid(supabaseAdmin, managerId || requesterProfile.id);
     if (!uploaderId) {
-        return NextResponse.json({ error: 'Valid uploader managerId is required for batch upload' }, { status: 400 });
+        return fail(400, 'VALIDATION_ERROR', 'Valid uploader managerId is required for batch upload');
     }
 
     if (requesterProfile.role !== 'admin' && requesterProfile.id !== uploaderId) {
-        return NextResponse.json({ error: 'Forbidden: uploader mismatch' }, { status: 403 });
+        return fail(403, 'FORBIDDEN', 'Forbidden: uploader mismatch');
     }
 
     let uploaderCompanyId = null;
@@ -512,11 +512,11 @@ async function handleBatchUpload(payload: any, requesterProfile: any) {
     }
 
     if (!uploaderCompanyId) {
-        return NextResponse.json({ error: 'Uploader company scope could not be resolved' }, { status: 400 });
+        return fail(400, 'VALIDATION_ERROR', 'Uploader company scope could not be resolved');
     }
 
     if (requesterProfile.role !== 'admin' && requesterProfile.company_id && requesterProfile.company_id !== uploaderCompanyId) {
-        return NextResponse.json({ error: 'Forbidden: cross-company batch upload denied' }, { status: 403 });
+        return fail(403, 'FORBIDDEN', 'Forbidden: cross-company batch upload denied');
     }
 
     const now = new Date().toISOString();
@@ -659,7 +659,7 @@ async function handleBatchUpload(payload: any, requesterProfile: any) {
 
         if (error) {
             console.error('Upsert cards error:', error);
-            return NextResponse.json({ error: `Failed to upsert cards: ${error.message}` }, { status: 500 });
+            return fail(500, 'INTERNAL_ERROR', `Failed to upsert cards: ${error.message}`);
         }
         updatedCount = uniqueCards.length;
     }
@@ -760,7 +760,7 @@ async function handleBatchUpload(payload: any, requesterProfile: any) {
         await supabaseAdmin.from('business_card_history').insert(historyToInsert);
     }
 
-    return NextResponse.json({
+    return ok({
         success: true,
         cards: {
             created: createdCount,
@@ -812,13 +812,13 @@ export async function PUT(request: Request) {
         ...rest
     } = body;
 
-    if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+    if (!id) return fail(400, 'VALIDATION_ERROR', 'ID required');
 
     try {
         const requesterRaw = body.requesterId || managerId || body.manager_id || null;
         const requesterProfile = await getRequesterProfile(supabaseAdmin, requesterRaw);
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const { data: existingCard, error: existingCardError } = await supabaseAdmin
@@ -828,16 +828,16 @@ export async function PUT(request: Request) {
             .single();
 
         if (existingCardError || !existingCard) {
-            return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+            return fail(404, 'NOT_FOUND', 'Card not found');
         }
 
         if (!canAccessCard(requesterProfile, existingCard)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
         }
 
         const safeManagerId = managerId ? await resolveUserUuid(supabaseAdmin, managerId) : null;
         if (managerId && !safeManagerId) {
-            return NextResponse.json({ error: 'Invalid managerId' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'Invalid managerId');
         }
 
         // 1. Update Core Data
@@ -969,11 +969,11 @@ export async function PUT(request: Request) {
             console.error('[PushSync] Failed to sync BusinessCard to properties:', syncError);
         }
 
-        return NextResponse.json({ success: true });
+        return ok({ success: true });
 
     } catch (error: any) {
         console.error('PUT error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', error.message);
     }
 }
 
@@ -981,14 +981,14 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
+    if (!id) return fail(400, 'VALIDATION_ERROR', 'ID required');
 
     const requesterRaw = searchParams.get('requesterId') || request.headers.get('x-user-id');
 
     const supabaseAdmin = getSupabaseAdmin();
     const requesterProfile = await getRequesterProfile(supabaseAdmin, requesterRaw);
     if (!requesterProfile) {
-        return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+        return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
     }
 
     const { data: targetCard, error: targetCardError } = await supabaseAdmin
@@ -998,19 +998,19 @@ export async function DELETE(request: Request) {
         .single();
 
     if (targetCardError || !targetCard) {
-        return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+        return fail(404, 'NOT_FOUND', 'Card not found');
     }
 
     if (!canAccessCard(requesterProfile, targetCard)) {
-        return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+        return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
     }
 
     const { error } = await supabaseAdmin.from('business_cards').delete().eq('id', id);
 
     if (error) {
         console.error('Delete card error:', error);
-        return NextResponse.json({ error: `Deletion failed: ${error.message}` }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', `Deletion failed: ${error.message}`);
     }
 
-    return NextResponse.json({ success: true });
+    return ok({ success: true });
 }

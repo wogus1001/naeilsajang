@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect } from 'react';
 import { Search, X, RotateCcw, Save, Store } from 'lucide-react';
 import styles from '@/app/(main)/customers/register/page.module.css';
@@ -108,7 +109,7 @@ export default function PropertySelector({ isOpen, onClose, onSelect, onOpenCard
 
             const res = await fetch(`/api/properties${query}`);
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 setProperties(data);
                 setFilteredProperties(data);
             }

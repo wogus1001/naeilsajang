@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Star, UserPlus, X, Trash2, RefreshCw, FileSpreadsheet, ChevronDown } from 'lucide-react';
@@ -242,13 +243,13 @@ function CustomerListPageContent() {
                 });
 
                 if (res.ok) {
-                    const result = await res.json();
+                    const result = await readApiJson(res);
                     showAlert(`업로드 완료\n- 처리된 데이터: ${result.count || 0}건`);
                     setIsUploadModalOpen(false);
                     setUploadFiles({ main: null, promoted: null, history: null });
                     fetchCustomers();
                 } else {
-                    const err = await res.json();
+                    const err = await readApiJson(res);
                     showAlert(`업로드 실패: ${err.error || '알 수 없는 오류'}`);
                 }
             } catch (error) {
@@ -273,7 +274,7 @@ function CustomerListPageContent() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ companyId: user.companyId || user.company_id })
                 });
-                const result = await res.json();
+                const result = await readApiJson(res);
                 if (res.ok) {
                     showAlert(`동기화 완료\n- 일정 등록: ${result.results.history.matched}건\n- 물건 연결: ${result.results.promoted.linkFound}건`);
                     fetchCustomers();
@@ -327,7 +328,7 @@ function CustomerListPageContent() {
             const res = await fetch(`/api/customers${query}`, { signal: controller.signal });
 
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 setCustomers(data);
             }
         } catch (error: any) {
@@ -361,7 +362,7 @@ function CustomerListPageContent() {
 
             const res = await fetch(`/api/users${companyQuery}`);
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 const map: Record<string, string> = {};
                 data.forEach((u: any) => {
                     if (u.id) map[u.id] = u.name;
@@ -662,28 +663,29 @@ function CustomerListPageContent() {
         showConfirm(`${selectedIds.length}명의 고객을 삭제하시겠습니까?`, async () => {
             setLoading(true);
             try {
+                const userStr = localStorage.getItem('user');
+                const parsed = userStr ? JSON.parse(userStr) : {};
+                const user = parsed.user || parsed;
+                const requesterId = user?.uid || user?.uuid || user?.id || user?.userId || user?.user_id || '';
+                const query = requesterId ? `?requesterId=${encodeURIComponent(requesterId)}` : '';
+
                 // Bulk Delete API Call
-                const res = await fetch('/api/customers', {
+                const res = await fetch(`/api/customers${query}`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ids: selectedIds,
-                        requesterId: (() => {
-                            const userStr = localStorage.getItem('user');
-                            const parsed = userStr ? JSON.parse(userStr) : {};
-                            const user = parsed.user || parsed;
-                            return user?.uid || user?.uuid || user?.id || user?.userId || user?.user_id || '';
-                        })()
+                        requesterId
                     })
                 });
 
                 if (res.ok) {
-                    const result = await res.json();
+                    const result = await readApiJson(res);
                     showAlert(`삭제되었습니다. (${result.count || selectedIds.length}건)`);
                     setSelectedIds([]);
                     fetchCustomers();
                 } else {
-                    const err = await res.json();
+                    const err = await readApiJson(res);
                     showAlert(`삭제 실패: ${err.error || '알 수 없는 오류'}`);
                 }
             } catch (error) {

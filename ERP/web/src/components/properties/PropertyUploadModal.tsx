@@ -1,10 +1,13 @@
+"use client";
+
 import React, { useState } from 'react';
 import { X, Upload, FileSpreadsheet, AlertCircle, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './PropertyUploadModal.module.css'; // We'll assume a CSS module or use global/inline for now
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-
+
+import { readApiJson } from '@/utils/apiResponse';
 interface PropertyUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -196,7 +199,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                 });
 
                 if (res.ok) {
-                    const result = await res.json();
+                    const result = await readApiJson(res);
                     setLogs(prev => [...prev, '업로드 성공!', `- 점포 처리: ${result.mainCount}건`, `- 작업내역 추가: ${result.workCount}건`, `- 가격내역 추가: ${result.priceCount}건`, `- 계약내역 추가: ${result.contractCount || 0}건`, `- 추진고객 추가: ${result.targetCustomerCount || 0}건`]);
 
                     const nextStep = () => {
@@ -243,11 +246,11 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                                             });
 
                                             if (!uploadRes.ok) {
-                                                const errData = await uploadRes.json();
+                                                const errData = await readApiJson(uploadRes);
                                                 throw new Error(errData.error || 'Upload failed');
                                             }
 
-                                            const { publicUrl } = await uploadRes.json();
+                                            const { publicUrl } = await readApiJson(uploadRes);
                                             uploadedUrls.push(publicUrl);
                                         } catch (err: any) {
                                             console.error(`Upload failed for ${file.name}`, err);
@@ -372,7 +375,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                                                     });
 
                                                     if (uploadRes.ok) {
-                                                        const { publicUrl } = await uploadRes.json();
+                                                        const { publicUrl } = await readApiJson(uploadRes);
 
                                                         // Create metadata
                                                         const newDoc = {
@@ -422,7 +425,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
 
                     showAlert(`업로드 완료\n- 점포: ${result.mainCount}\n- 작업: ${result.workCount}\n- 가격: ${result.priceCount}\n- 계약: ${result.contractCount || 0}\n- 추진고객: ${result.targetCustomerCount || 0}`, 'success', nextStep);
                 } else {
-                    const err = await res.json();
+                    const err = await readApiJson(res);
                     setLogs(prev => [...prev, `오류 발생: ${err.error}`]);
                     showAlert(`업로드 실패: ${err.error}`, 'error');
                 }
@@ -456,7 +459,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
 
                 const res = await fetch(`/api/properties?min=true${companyQuery}`);
                 if (!res.ok) throw new Error('매물 정보를 불러오는데 실패했습니다.');
-                const properties = await res.json();
+                const properties = await readApiJson(res);
 
                 setLogs(prev => [...prev, `매물 ${properties.length}건 로드 완료.`, '사진 매칭 및 업로드 시작...']);
 
@@ -515,11 +518,11 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                             });
 
                             if (!uploadRes.ok) {
-                                const errData = await uploadRes.json();
+                                const errData = await readApiJson(uploadRes);
                                 throw new Error(errData.error || 'Upload failed');
                             }
 
-                            const { publicUrl } = await uploadRes.json();
+                            const { publicUrl } = await readApiJson(uploadRes);
                             uploadedUrls.push(publicUrl);
 
                         } catch (err: any) {

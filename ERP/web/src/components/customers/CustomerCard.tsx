@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect } from 'react';
 import { Save, Plus, X, Search, FileText, Trash2, Copy, Printer, Star, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import styles from '@/app/(main)/customers/register/page.module.css';
@@ -152,7 +153,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                         if (requesterId) query.set('requesterId', requesterId);
                         const res = await fetch(`/api/users?${query.toString()}`);
                         if (res.ok) {
-                            const data = await res.json();
+                            const data = await readApiJson(res);
                             setManagers(data);
                         }
                     } else {
@@ -174,7 +175,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                 if (requesterId) query.set('requesterId', requesterId);
                 const res = await fetch(`/api/customers?${query.toString()}`);
                 if (!res.ok) return;
-                const data = await res.json();
+                const data = await readApiJson(res);
                 if (data) setFormData({ ...INITIAL_DATA, ...data });
             };
             fetchCustomer();
@@ -219,7 +220,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
     useEffect(() => {
         if (openedPropertyId) {
             fetch(`/api/properties?id=${openedPropertyId}`)
-                .then(res => res.json())
+                .then(readApiJson)
                 .then(data => {
                     if (data.error) {
                         console.error('Property fetch error:', data.error);
@@ -291,7 +292,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
             if (res.ok) {
                 // ideally creating a new customer via history add is rare/impossible as logic below handles existing check.
                 if (method === 'POST') {
-                    const newData = await res.json();
+                    const newData = await readApiJson(res);
                     return newData;
                 }
                 return data;
@@ -403,7 +404,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
         try {
             const res = await fetch(`/api/properties?id=${propertyId}`);
             if (!res.ok) return;
-            const propertyData = await res.json();
+            const propertyData = await readApiJson(res);
 
             // Find matching item in property history
             const updatedWorkHistory = (propertyData.workHistory || []).filter((h: any) => {
@@ -476,7 +477,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
                 showAlert(`Sync Error: Failed to fetch property data (Status: ${res.status})`, 'error');
                 return;
             }
-            const propertyData = await res.json();
+            const propertyData = await readApiJson(res);
 
             // Create Work History Item for Property
             const newWorkHistory = {
@@ -517,7 +518,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
             // 1. Fetch Property
             const res = await fetch(`/api/properties?id=${property.id}`);
             if (!res.ok) return;
-            const propData = await res.json();
+            const propData = await readApiJson(res);
 
             // 2. Check overlap
             const currentPromoted = propData.promotedCustomers || [];
@@ -624,7 +625,7 @@ export default function CustomerCard({ id, onClose, onSuccess, isModal = false, 
         try {
             const res = await fetch(`/api/properties?id=${propertyId}`);
             if (!res.ok) return;
-            const propertyData = await res.json();
+            const propertyData = await readApiJson(res);
 
             const updatedPromoted = (propertyData.promotedCustomers || []).filter((c: any) => c.targetId !== customerId);
 

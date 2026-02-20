@@ -3,6 +3,32 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.3.0] - 2026-02-20 (API Standardization)
+
+### Changed (변경됨)
+- **API Schema Standardization (P0-3)**
+  - Standardized API responses: Success (`{ data: ... }`), Failure (`{ error, code, message }`)
+  - Applied to core APIs: `properties`, `customers`, `schedules`, `business-cards`
+  - Frontend logic (15+ files) updated to use `readApiJson` utility for safe parsing.
+
+### Fixed (수정됨)
+- **Customer List Deletion**: Fixed 401 Unauthorized caused by missing `requesterId` in DELETE requests.
+- **Business Card Creation**: Fixed bug where new cards were incorrectly treated as PUT requests (`currentId` logic).
+- **Schedule Deletion**: Fixed missing `requesterId` in query params.
+
+## [v1.2.5] - 2026-02-20
+
+### Fixed (수정됨)
+- **Admin Approval Bug**: Fixed `requesterId` missing in `PUT` request for user approval.
+
+## [v1.2.4] - 2026-02-20
+
+### Added (추가됨)
+- **Server-Side Auth Sync (P0-2)**
+  - **API**: `/api/auth/me` for server-side session verification.
+  - **Auth Logic**: Enforced server-session validation on `MainLayout` and `LoginPage`.
+  - **Security**: Auto-logout on session mismatch or invalid token.
+
 ## [v1.2.3] - 2026-02-19
 
 ### Fixed (수정됨)

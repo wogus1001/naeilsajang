@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Search, RefreshCw, Star, ChevronDown, LayoutTemplate, Sidebar, Maximize2, Trash2, Contact, FileSpreadsheet, X } from 'lucide-react';
@@ -175,9 +176,9 @@ function BusinessCardListContent() {
 
             const res = await fetch(`/api/users${companyQuery}`);
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson<Array<{ id: string; name: string; uuid?: string }>>(res);
                 const map: Record<string, string> = {};
-                data.forEach((u: any) => {
+                data.forEach((u) => {
                     map[u.id] = u.name;
                     if (u.uuid) map[u.uuid] = u.name; // Map UUIDs for fallback
                 });
@@ -222,7 +223,7 @@ function BusinessCardListContent() {
 
             const res = await fetch(`/api/business-cards${query}`, { signal: controller.signal });
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
 
                 setCards(data);
 
@@ -312,13 +313,13 @@ function BusinessCardListContent() {
                 });
 
                 if (res.ok) {
-                    const result = await res.json();
+                    const result = await readApiJson(res);
                     showAlert(`업로드 완료\n- 명함: ${result.cards.created}개 생성, ${result.cards.updated}개 수정`, 'success');
                     setIsUploadModalOpen(false);
                     setUploadFiles({ main: null, promoted: null, history: null });
                     fetchCards();
                 } else {
-                    const err = await res.json();
+                    const err = await readApiJson(res);
                     showAlert(`업로드 실패: ${err.error || '알 수 없는 오류'}`, 'error');
                 }
 
@@ -346,7 +347,7 @@ function BusinessCardListContent() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ companyId: user.companyId || user.company_id })
                 });
-                const result = await res.json();
+                const result = await readApiJson(res);
 
                 if (res.ok) {
                     showAlert(`동기화 완료!\n- 작업내역 연결: ${result.results.history.matched}건 성공\n- 추진물건 연결: ${result.results.promoted.matched}건 성공`, 'success');

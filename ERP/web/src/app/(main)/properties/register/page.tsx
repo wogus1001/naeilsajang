@@ -1,5 +1,6 @@
 "use client";
 
+import { readApiJson } from '@/utils/apiResponse';
 import React, { useState } from 'react';
 import { Save, ArrowLeft, Search, MapPin, X, ChevronDown, ChevronUp, Star, User, FileText, Plus } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -169,7 +170,7 @@ export default function RegisterPropertyPage() {
                 if (companyId) {
                     const res = await fetch(`/api/categories?companyId=${companyId}&type=industry_detail`);
                     if (res.ok) {
-                        const data = await res.json();
+                        const data = await readApiJson(res);
                         setCustomCategories(data);
                     }
                 }
@@ -572,7 +573,7 @@ export default function RegisterPropertyPage() {
                         if (requesterId) query.set('requesterId', requesterId);
                         const res = await fetch(`/api/users?${query.toString()}`);
                         if (res.ok) {
-                            const data = await res.json();
+                            const data = await readApiJson(res);
                             setManagers(data);
                         }
                     } else {
@@ -673,7 +674,7 @@ export default function RegisterPropertyPage() {
         try {
             const res = await fetch(`/api/franchise?query=${encodeURIComponent(brandSearchQuery)}`);
             if (res.ok) {
-                const data = await res.json();
+                const data = await readApiJson(res);
                 setBrandSearchResults(data);
             }
         } catch (error) {
@@ -731,7 +732,7 @@ export default function RegisterPropertyPage() {
                 })
             });
             if (res.ok) {
-                const newCat = await res.json();
+                const newCat = await readApiJson(res);
                 setCustomCategories([...customCategories, newCat]);
                 setIndustryDetail(newCategoryName); // Auto Select
                 setIsCategoryInputOpen(false);
@@ -795,7 +796,7 @@ export default function RegisterPropertyPage() {
             });
 
             if (response.ok) {
-                const result = await response.json();
+                const result = await readApiJson(response);
                 // Add to Schedule
                 const scheduleTitle = `[신규] [${data.name as string}] · (${formatCurrency(totalPrice)} 만원)`;
                 await addScheduleEvent(scheduleTitle, new Date().toISOString().split('T')[0], 'work', '#7950f2', result.id);
@@ -806,7 +807,7 @@ export default function RegisterPropertyPage() {
             } else {
                 let apiError = 'Failed to register';
                 try {
-                    const errorBody = await response.json();
+                    const errorBody = await readApiJson(response);
                     apiError = errorBody?.error || errorBody?.message || apiError;
                 } catch {
                     // keep default

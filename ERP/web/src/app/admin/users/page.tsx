@@ -115,13 +115,12 @@ export default function AdminUsersPage() {
                 const currentUser = parsed.user || parsed;
                 const requesterId = currentUser.uid || currentUser.id || '';
 
-                const res = await fetch('/api/users', {
+                const res = await fetch(`/api/users?requesterId=${encodeURIComponent(requesterId)}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         id: user.uuid,
-                        status: 'active',
-                        requesterId
+                        status: 'active'
                     })
                 });
 

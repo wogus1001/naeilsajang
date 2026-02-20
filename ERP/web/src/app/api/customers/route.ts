@@ -1,4 +1,3 @@
-﻿import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import {
     canAccessCompanyResource,
@@ -8,6 +7,7 @@ import {
     resolveCompanyIdByName,
     resolveUserUuid
 } from '@/lib/api-auth';
+import { fail, ok } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +51,7 @@ export async function GET(request: Request) {
 
         const requesterProfile = await getRequesterProfile(supabaseAdmin, request);
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         if (id) {
@@ -62,14 +62,14 @@ export async function GET(request: Request) {
                 .single();
 
             if (error || !customer) {
-                return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+                return fail(404, 'NOT_FOUND', 'Customer not found');
             }
 
             if (!canAccessCompanyResource(requesterProfile, customer)) {
-                return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
             }
 
-            return NextResponse.json(transformCustomer(customer));
+            return ok(transformCustomer(customer));
         }
 
         const limitParam = searchParams.get('limit');
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
         if (company) {
             requestedCompanyId = await resolveCompanyIdByName(supabaseAdmin, company);
             if (!requestedCompanyId) {
-                return NextResponse.json([]);
+                return ok([]);
             }
         }
 
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
             effectiveCompanyId = requestedCompanyId;
         } else if (requesterProfile.company_id) {
             if (requestedCompanyId && requestedCompanyId !== requesterProfile.company_id) {
-                return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
             }
             scopeMode = 'company';
             effectiveCompanyId = requesterProfile.company_id;
@@ -145,10 +145,10 @@ export async function GET(request: Request) {
             result = result.filter((customer) => customer.name?.includes(name));
         }
 
-        return NextResponse.json(result);
+        return ok(result);
     } catch (error) {
         console.error('Customers GET error:', error);
-        return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to fetch customers');
     }
 }
 
@@ -163,7 +163,7 @@ export async function POST(request: Request) {
             body.requesterId || body.userId || body.managerId || null
         );
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const {
@@ -179,7 +179,7 @@ export async function POST(request: Request) {
         const companyId = resolvedCompanyId || requesterProfile.company_id;
 
         if (!companyId || !mgrUuid) {
-            return NextResponse.json({ error: 'Valid managerId and company scope are required' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'Valid managerId and company scope are required');
         }
 
         const { data: managerProfile } = await supabaseAdmin
@@ -189,11 +189,11 @@ export async function POST(request: Request) {
             .single();
 
         if (!managerProfile || managerProfile.company_id !== companyId) {
-            return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: manager/company mismatch');
         }
 
         if (!isAdmin(requesterProfile) && !canAccessCompanyScope(requesterProfile, companyId)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company create denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company create denied');
         }
 
         const newId = String(Date.now());
@@ -259,10 +259,10 @@ export async function POST(request: Request) {
             console.error('Failed to create schedule entry:', scheduleError);
         }
 
-        return NextResponse.json(newCustomer);
+        return ok(newCustomer);
     } catch (error) {
         console.error('Customers POST error:', error);
-        return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to create customer');
     }
 }
 
@@ -277,7 +277,7 @@ export async function PUT(request: Request) {
             body.requesterId || body.userId || body.managerId || null
         );
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const {
@@ -289,7 +289,7 @@ export async function PUT(request: Request) {
         } = body;
 
         if (!id) {
-            return NextResponse.json({ error: 'ID required' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'ID required');
         }
 
         const { data: existing, error: fetchError } = await supabaseAdmin
@@ -299,11 +299,11 @@ export async function PUT(request: Request) {
             .single();
 
         if (fetchError || !existing) {
-            return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+            return fail(404, 'NOT_FOUND', 'Customer not found');
         }
 
         if (!canAccessCompanyResource(requesterProfile, existing)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
         }
 
         const updates: any = { updated_at: new Date().toISOString() };
@@ -323,7 +323,7 @@ export async function PUT(request: Request) {
         if (managerId) {
             const mgrUuid = await resolveUserUuid(supabaseAdmin, managerId);
             if (!mgrUuid) {
-                return NextResponse.json({ error: 'Invalid managerId' }, { status: 400 });
+                return fail(400, 'VALIDATION_ERROR', 'Invalid managerId');
             }
 
             const { data: managerProfile } = await supabaseAdmin
@@ -333,7 +333,7 @@ export async function PUT(request: Request) {
                 .single();
 
             if (!managerProfile || (targetCompanyId && managerProfile.company_id !== targetCompanyId)) {
-                return NextResponse.json({ error: 'Forbidden: manager/company mismatch' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: manager/company mismatch');
             }
 
             updates.manager_id = mgrUuid;
@@ -341,7 +341,7 @@ export async function PUT(request: Request) {
         }
 
         if (!isAdmin(requesterProfile) && targetCompanyId && !canAccessCompanyScope(requesterProfile, targetCompanyId)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company update denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company update denied');
         }
 
         updates.data = targetData;
@@ -420,10 +420,10 @@ export async function PUT(request: Request) {
             console.error('[PushSync] Failed to sync to properties:', syncError);
         }
 
-        return NextResponse.json(transformCustomer(updated));
+        return ok(transformCustomer(updated));
     } catch (error) {
         console.error('Customers PUT error:', error);
-        return NextResponse.json({ error: 'Failed to update customer' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to update customer');
     }
 }
 
@@ -433,20 +433,23 @@ export async function DELETE(request: Request) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
 
-        const requesterProfile = await getRequesterProfile(supabaseAdmin, request);
-        if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+        let body: any = null;
+        try {
+            body = await request.json();
+        } catch {
+            body = null;
         }
 
-        let bodyIds: string[] = [];
-        try {
-            const body = await request.json();
-            if (body && Array.isArray(body.ids)) {
-                bodyIds = body.ids;
-            }
-        } catch {
-            bodyIds = [];
+        const requesterProfile = await getRequesterProfile(
+            supabaseAdmin,
+            request,
+            body?.requesterId || body?.userId || body?.managerId || null
+        );
+        if (!requesterProfile) {
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
+
+        const bodyIds: string[] = body && Array.isArray(body.ids) ? body.ids : [];
 
         if (bodyIds.length > 0) {
             const { data: targets, error: targetError } = await supabaseAdmin
@@ -457,12 +460,12 @@ export async function DELETE(request: Request) {
             if (targetError) throw targetError;
 
             if (!targets || targets.length !== bodyIds.length) {
-                return NextResponse.json({ error: 'Some customers were not found' }, { status: 404 });
+                return fail(404, 'NOT_FOUND', 'Some customers were not found');
             }
 
             const forbidden = targets.some((target) => !canAccessCompanyResource(requesterProfile, target));
             if (forbidden) {
-                return NextResponse.json({ error: 'Forbidden: cross-company delete denied' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: cross-company delete denied');
             }
 
             const BATCH_SIZE = 100;
@@ -479,11 +482,11 @@ export async function DELETE(request: Request) {
                 totalDeleted += count || 0;
             }
 
-            return NextResponse.json({ success: true, count: totalDeleted });
+            return ok({ success: true, count: totalDeleted });
         }
 
         if (!id) {
-            return NextResponse.json({ error: 'ID or IDs required' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'ID or IDs required');
         }
 
         const { data: target, error: targetError } = await supabaseAdmin
@@ -493,11 +496,11 @@ export async function DELETE(request: Request) {
             .single();
 
         if (targetError || !target) {
-            return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+            return fail(404, 'NOT_FOUND', 'Customer not found');
         }
 
         if (!canAccessCompanyResource(requesterProfile, target)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company delete denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company delete denied');
         }
 
         const { error } = await supabaseAdmin
@@ -507,10 +510,10 @@ export async function DELETE(request: Request) {
 
         if (error) throw error;
 
-        return NextResponse.json({ success: true });
+        return ok({ success: true });
     } catch (error: any) {
         console.error('Customers DELETE error:', error);
         const message = error?.message || error?.details || 'Failed to delete customer';
-        return NextResponse.json({ error: message }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', message);
     }
 }

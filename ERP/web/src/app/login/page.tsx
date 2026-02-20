@@ -6,30 +6,82 @@ import { getSupabase } from '@/lib/supabase';
 import styles from './page.module.css';
 import { AlertModal } from '@/components/common/AlertModal';
 
+type LoginUser = {
+    id?: string;
+    uid?: string;
+    name?: string;
+    role?: string;
+    companyName?: string;
+};
+
 export default function LoginPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
-    const [loggedInUser, setLoggedInUser] = useState<any>(null);
+    const [loggedInUser, setLoggedInUser] = useState<LoginUser | null>(null);
 
     const [savedId, setSavedId] = useState('');
     const [rememberId, setRememberId] = useState(false);
 
     React.useEffect(() => {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-            setLoggedInUser(JSON.parse(userStr));
-        }
+        const bootstrap = async () => {
+            const saved = localStorage.getItem('saved_login_id');
+            if (saved) {
+                setSavedId(saved);
+                setRememberId(true);
+            }
 
-        const saved = localStorage.getItem('saved_login_id');
-        if (saved) {
-            setSavedId(saved);
-            setRememberId(true);
-        }
+            try {
+                const supabase = getSupabase();
+                const { data: sessionData } = await supabase.auth.getSession();
+                const accessToken = sessionData.session?.access_token;
+
+                if (!accessToken) {
+                    localStorage.removeItem('user');
+                    setLoggedInUser(null);
+                    return;
+                }
+
+                const meRes = await fetch('/api/auth/me', {
+                    method: 'GET',
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                    cache: 'no-store'
+                });
+
+                if (!meRes.ok) {
+                    await supabase.auth.signOut();
+                    localStorage.removeItem('user');
+                    setLoggedInUser(null);
+                    return;
+                }
+
+                const payload = await meRes.json() as { user?: LoginUser };
+                if (!payload.user) {
+                    localStorage.removeItem('user');
+                    setLoggedInUser(null);
+                    return;
+                }
+
+                localStorage.setItem('user', JSON.stringify(payload.user));
+                setLoggedInUser(payload.user);
+            } catch (error) {
+                console.error('Failed to bootstrap login state:', error);
+                localStorage.removeItem('user');
+                setLoggedInUser(null);
+            }
+        };
+
+        void bootstrap();
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        try {
+            const supabase = getSupabase();
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error('Failed to sign out from login page:', error);
+        }
         localStorage.removeItem('user');
         setLoggedInUser(null);
         window.location.reload();
@@ -148,7 +200,7 @@ export default function LoginPage() {
                             <strong>{loggedInUser.name}</strong>님, 이미 로그인되어 있습니다.
                         </p>
                         <button
-                            onClick={handleLogout}
+                            onClick={() => { void handleLogout(); }}
                             className={styles.loginButton}
                             style={{ backgroundColor: '#ff4444' }}
                         >

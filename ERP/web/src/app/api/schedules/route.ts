@@ -1,4 +1,3 @@
-﻿import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import {
     canAccessCompanyScope,
@@ -8,6 +7,7 @@ import {
     resolveUserUuid,
     type RequesterProfile
 } from '@/lib/api-auth';
+import { fail, ok } from '@/lib/api-response';
 
 function transformSchedule(row: any) {
     if (!row) return null;
@@ -68,23 +68,23 @@ export async function GET(request: Request) {
 
         const requesterProfile = await getRequesterProfile(supabaseAdmin, request);
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const requestedUserId = userIdParam ? await resolveUserUuid(supabaseAdmin, userIdParam) : null;
         if (requestedUserId && !isAdmin(requesterProfile) && requestedUserId !== requesterProfile.id) {
-            return NextResponse.json({ error: 'Forbidden: cannot query another user personal schedule' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cannot query another user personal schedule');
         }
 
         let targetCompanyId: string | null = null;
         if (company) {
             targetCompanyId = await resolveCompanyIdByName(supabaseAdmin, company);
             if (!targetCompanyId) {
-                return NextResponse.json([]);
+                return ok([]);
             }
 
             if (!isAdmin(requesterProfile) && requesterProfile.company_id !== targetCompanyId) {
-                return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
             }
         }
 
@@ -118,10 +118,10 @@ export async function GET(request: Request) {
             });
         }
 
-        return NextResponse.json(result.map(transformSchedule));
+        return ok(result.map(transformSchedule));
     } catch (e) {
         console.error('Schedules GET Error:', e);
-        return NextResponse.json({ error: 'Failed to fetch schedules' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to fetch schedules');
     }
 }
 
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
             body.requesterId || body.userId || null
         );
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const { companyName, userId, customerId, propertyId, businessCardId, companyId: directCompanyId, ...rest } = body;
@@ -152,15 +152,15 @@ export async function POST(request: Request) {
         }
 
         if (!companyId) {
-            return NextResponse.json({ error: 'Invalid Company' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'Invalid Company');
         }
 
         if (!isAdmin(requesterProfile) && !canAccessCompanyScope(requesterProfile, companyId)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company create denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company create denied');
         }
 
         if (!userUuid) {
-            return NextResponse.json({ error: 'Valid userId is required' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'Valid userId is required');
         }
 
         const { data: ownerProfile } = await supabaseAdmin
@@ -170,11 +170,11 @@ export async function POST(request: Request) {
             .single();
 
         if (!ownerProfile || ownerProfile.company_id !== companyId) {
-            return NextResponse.json({ error: 'Forbidden: user/company mismatch' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: user/company mismatch');
         }
 
         if (!isAdmin(requesterProfile) && rest.scope === 'personal' && userUuid !== requesterProfile.id) {
-            return NextResponse.json({ error: 'Forbidden: cannot create personal schedule for another user' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cannot create personal schedule for another user');
         }
 
         const { data, error } = await supabaseAdmin
@@ -197,10 +197,10 @@ export async function POST(request: Request) {
             throw error;
         }
 
-        return NextResponse.json(transformSchedule(data), { status: 201 });
+        return ok(transformSchedule(data), 201);
     } catch (e: any) {
         console.error('Schedules POST Error:', e);
-        return NextResponse.json({ error: 'Failed to create schedule', details: e.message }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to create schedule');
     }
 }
 
@@ -215,13 +215,13 @@ export async function PUT(request: Request) {
             body.requesterId || body.userId || null
         );
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const { id, companyName, userId, companyId: directCompanyId, customerId, propertyId, businessCardId, ...rest } = body;
 
         if (!id) {
-            return NextResponse.json({ error: 'ID required' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'ID required');
         }
 
         const { data: existing, error: existingError } = await supabaseAdmin
@@ -231,11 +231,11 @@ export async function PUT(request: Request) {
             .single();
 
         if (existingError || !existing) {
-            return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+            return fail(404, 'NOT_FOUND', 'Schedule not found');
         }
 
         if (!canWriteSchedule(requesterProfile, existing)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
         }
 
         let targetCompanyId = existing.company_id;
@@ -248,12 +248,12 @@ export async function PUT(request: Request) {
         const targetUserId = userId ? await resolveUserUuid(supabaseAdmin, userId) : existing.user_id;
 
         if (!isAdmin(requesterProfile) && targetCompanyId && !canAccessCompanyScope(requesterProfile, targetCompanyId)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company update denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company update denied');
         }
 
         const nextScope = rest.scope || existing.scope;
         if (!isAdmin(requesterProfile) && nextScope === 'personal' && targetUserId !== requesterProfile.id) {
-            return NextResponse.json({ error: 'Forbidden: cannot manage another user personal schedule' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cannot manage another user personal schedule');
         }
 
         if (targetUserId && targetCompanyId) {
@@ -264,7 +264,7 @@ export async function PUT(request: Request) {
                 .single();
 
             if (!targetUserProfile || targetUserProfile.company_id !== targetCompanyId) {
-                return NextResponse.json({ error: 'Forbidden: user/company mismatch' }, { status: 403 });
+                return fail(403, 'FORBIDDEN', 'Forbidden: user/company mismatch');
             }
         }
 
@@ -288,10 +288,10 @@ export async function PUT(request: Request) {
 
         if (error) throw error;
 
-        return NextResponse.json(transformSchedule(data));
+        return ok(transformSchedule(data));
     } catch (e) {
         console.error('Schedules PUT Error:', e);
-        return NextResponse.json({ error: 'Failed to update schedule' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to update schedule');
     }
 }
 
@@ -302,7 +302,7 @@ export async function DELETE(request: Request) {
         const id = searchParams.get('id');
 
         if (!id) {
-            return NextResponse.json({ error: 'ID required' }, { status: 400 });
+            return fail(400, 'VALIDATION_ERROR', 'ID required');
         }
 
         const requesterProfile = await getRequesterProfile(
@@ -312,7 +312,7 @@ export async function DELETE(request: Request) {
         );
 
         if (!requesterProfile) {
-            return NextResponse.json({ error: 'requesterId is required' }, { status: 401 });
+            return fail(401, 'AUTH_REQUIRED', 'requesterId is required');
         }
 
         const { data: target, error: targetError } = await supabaseAdmin
@@ -322,11 +322,11 @@ export async function DELETE(request: Request) {
             .single();
 
         if (targetError || !target) {
-            return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+            return fail(404, 'NOT_FOUND', 'Schedule not found');
         }
 
         if (!canWriteSchedule(requesterProfile, target)) {
-            return NextResponse.json({ error: 'Forbidden: cross-company access denied' }, { status: 403 });
+            return fail(403, 'FORBIDDEN', 'Forbidden: cross-company access denied');
         }
 
         const { error } = await supabaseAdmin
@@ -336,9 +336,9 @@ export async function DELETE(request: Request) {
 
         if (error) throw error;
 
-        return NextResponse.json({ message: 'Deleted successfully' });
+        return ok({ success: true });
     } catch (e) {
         console.error('Schedules DELETE Error:', e);
-        return NextResponse.json({ error: 'Failed to delete schedule' }, { status: 500 });
+        return fail(500, 'INTERNAL_ERROR', 'Failed to delete schedule');
     }
 }
