@@ -453,23 +453,29 @@ export async function DELETE(request: Request) {
         const bodyIds: string[] = body && Array.isArray(body.ids) ? body.ids : [];
 
         if (bodyIds.length > 0) {
-            const { data: targets, error: targetError } = await supabaseAdmin
-                .from('customers')
-                .select('id, company_id, manager_id')
-                .in('id', bodyIds);
+            // 대량 삭제 시 .in() 쿼리 URL 길이 제한을 피하기 위해 청크 단위로 처리
+            const CHUNK_SIZE = 200;
+            let allTargets: any[] = [];
 
-            if (targetError) throw targetError;
+            for (let i = 0; i < bodyIds.length; i += CHUNK_SIZE) {
+                const chunk = bodyIds.slice(i, i + CHUNK_SIZE);
+                const { data: chunkData, error: chunkError } = await supabaseAdmin
+                    .from('customers')
+                    .select('id, company_id, manager_id')
+                    .in('id', chunk);
 
-            if (!targets || targets.length !== bodyIds.length) {
-                return fail(404, 'NOT_FOUND', 'Some customers were not found');
+                if (chunkError) throw chunkError;
+                if (chunkData) allTargets = allTargets.concat(chunkData);
             }
 
-            const forbidden = targets.some((target) => !canAccessCompanyResource(requesterProfile, target));
+            // 권한 검사 (찾아진 항목에 한해서만 수행, 미존재 항목은 무시)
+            const forbidden = allTargets.some((target) => !canAccessCompanyResource(requesterProfile, target));
             if (forbidden) {
                 return fail(403, 'FORBIDDEN', 'Forbidden: cross-company delete denied');
             }
 
-            const BATCH_SIZE = 100;
+            // 청크 단위로 삭제 수행
+            const BATCH_SIZE = 200;
             let totalDeleted = 0;
 
             for (let i = 0; i < bodyIds.length; i += BATCH_SIZE) {

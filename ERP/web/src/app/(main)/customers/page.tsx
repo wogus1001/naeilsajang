@@ -215,7 +215,7 @@ function CustomerListPageContent() {
                 const promotedData = uploadFiles.promoted ? await parseExcel(uploadFiles.promoted) : [];
                 const historyData = uploadFiles.history ? await parseExcel(uploadFiles.history) : [];
 
-                // Add metadata
+                // 사용자 메타 정보
                 const userStr = localStorage.getItem('user');
                 let userCompanyName = 'Unknown';
                 let managerIdVal = '';
@@ -226,32 +226,45 @@ function CustomerListPageContent() {
                     managerIdVal = user.uid || user.id || '';
                 }
 
-                const payload = {
-                    main: mainData,
-                    promoted: promotedData,
-                    history: historyData,
-                    meta: {
-                        userCompanyName,
-                        managerId: managerIdVal
+                // Vercel 타임아웃(10s) 및 요청 크기 제한(4.5MB) 방지를 위해 청크 단위 업로드
+                const CHUNK_SIZE = 500;
+                let totalCount = 0;
+
+                for (let i = 0; i < mainData.length; i += CHUNK_SIZE) {
+                    const mainChunk = mainData.slice(i, i + CHUNK_SIZE);
+
+                    // 해당 청크에 대응되는 history/promoted 항목만 필터링
+                    const chunkIds = new Set(mainChunk.map((r: any) => String(r['관리번호'])).filter(Boolean));
+                    const promotedChunk = promotedData.filter((p: any) => chunkIds.has(String(p['관리번호'])));
+                    const historyChunk = historyData.filter((h: any) => chunkIds.has(String(h['관리번호'])));
+
+                    const payload = {
+                        main: mainChunk,
+                        promoted: promotedChunk,
+                        history: historyChunk,
+                        meta: { userCompanyName, managerId: managerIdVal }
+                    };
+
+                    const res = await fetch('/api/customers/batch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!res.ok) {
+                        const err = await readApiJson(res);
+                        showAlert(`업로드 실패 (${i + 1}~${i + mainChunk.length}번째 행): ${err.error || '알 수 없는 오류'}`);
+                        return;
                     }
-                };
 
-                const res = await fetch('/api/customers/batch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.ok) {
                     const result = await readApiJson(res);
-                    showAlert(`업로드 완료\n- 처리된 데이터: ${result.count || 0}건`);
-                    setIsUploadModalOpen(false);
-                    setUploadFiles({ main: null, promoted: null, history: null });
-                    fetchCustomers();
-                } else {
-                    const err = await readApiJson(res);
-                    showAlert(`업로드 실패: ${err.error || '알 수 없는 오류'}`);
+                    totalCount += result.count || 0;
                 }
+
+                showAlert(`업로드 완료\n- 처리된 데이터: ${totalCount}건`);
+                setIsUploadModalOpen(false);
+                setUploadFiles({ main: null, promoted: null, history: null });
+                fetchCustomers();
             } catch (error) {
                 console.error(error);
                 showAlert('오류 발생');
@@ -260,6 +273,7 @@ function CustomerListPageContent() {
             }
         });
     };
+
 
     const handleSync = async () => {
         showConfirm('고객 작업내역 및 추진물건을 시스템(일정/부동산)과 동기화하시겠습니까?', async () => {
