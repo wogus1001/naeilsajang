@@ -29,7 +29,7 @@ export async function GET(request: Request) {
         const fallbackToken = request.headers.get('x-access-token')?.trim() || '';
         const token = bearerToken || fallbackToken;
         if (!token) {
-            return NextResponse.json({ error: 'Unauthorized', step: '1_no_token' }, { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -41,15 +41,10 @@ export async function GET(request: Request) {
         // createClient: anon key로 초기화 후, getUser(token)에 직접 JWT 전달
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        // ✅ global.headers 방식이 아닌, 토큰을 직접 전달하는 방식으로 수정
+        // 토큰을 직접 getUser()에 전달하여 서버사이드에서 정확한 유효성 검증
         const { data: userData, error: userError } = await supabase.auth.getUser(token);
         if (userError || !userData.user) {
-            return NextResponse.json({
-                error: 'Unauthorized',
-                step: '2_getUser_fail',
-                details: userError?.message,
-                supabaseUrl: supabaseUrl?.slice(0, 30) // URL 앞부분만 노출 (보안)
-            }, { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const supabaseAdmin = getSupabaseAdmin();
@@ -60,11 +55,7 @@ export async function GET(request: Request) {
             .single<ProfileRow>();
 
         if (profileError || !profile) {
-            return NextResponse.json({
-                error: 'Unauthorized',
-                step: '3_profile_not_found',
-                details: profileError?.message
-            }, { status: 401 });
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         if (profile.status && profile.status !== 'active') {

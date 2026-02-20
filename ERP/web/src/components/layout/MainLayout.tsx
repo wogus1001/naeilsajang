@@ -88,7 +88,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         const verifyAuth = async (): Promise<AuthUser | null> => {
             const supabase = getSupabase();
 
-            // Retry logic to handle potential race condition where session is not yet persisted
+            // 로그인 직후 세션이 저장되기 전에 호출될 수 있어 재시도 로직 적용 (최대 3회, 500ms 간격)
             let sessionData = null;
             let sessionError = null;
             let retryCount = 0;
@@ -103,7 +103,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                     break;
                 }
 
-                // Wait 500ms before retrying if session is missing
                 if (retryCount < MAX_RETRIES - 1) {
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
@@ -111,10 +110,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             }
 
             if (sessionError || !sessionData?.session?.access_token) {
-                // Temporary Debug: Show alert on missing session
-                if (!window.location.pathname.includes('/login')) { // Only alert if NOT on login page
-                    alert(`[세션 확인 불가] 저장된 로그인 정보(Access Token)가 없습니다.\n원인: sessionError=${sessionError?.message || 'null'}\n로그인 페이지로 이동합니다.`);
-                }
                 return null;
             }
 
@@ -128,21 +123,14 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             });
 
             if (!meRes.ok) {
-                // Temporary Debug: Show alert on ANY failure to identify root cause
-                const errorText = await meRes.text().catch(() => '');
-                const currentUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'undefined';
+                console.error(`[AuthCheck] /api/auth/me failed with status: ${meRes.status}`);
 
-                // If 401/403 (Auth Fail), force logout to clear invalid tokens
+                // 401/403: 유효하지 않은 토큰 → 강제 로그아웃 처리
                 if (meRes.status === 401 || meRes.status === 403) {
-                    alert(`[인증 정보 만료] 브라우저에 저장된 인증 정보가 유효하지 않습니다.\n(새로운 서버 설정 적용을 위해 다시 로그인해주세요.)\n\n상세: ${errorText}\n현재 Client URL: ${currentUrl}`);
                     await supabase.auth.signOut();
                     localStorage.removeItem('user');
-                    localStorage.removeItem('sb-' + currentUrl.split('.')[0].split('//')[1] + '-auth-token'); // Try to clear supabase token
-                    window.location.href = '/login';
-                    return null;
                 }
 
-                alert(`인증 실패(코드:${meRes.status}): ${meRes.statusText}\n상세: ${errorText}\n현재 Client URL: ${currentUrl}\n관리자에게 캡처해서 보내주세요.`);
                 return null;
             }
 

@@ -3,7 +3,14 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
-## [v1.4.0] - 2026-02-20
+## [v1.4.3] - 2026-02-20
+
+### Chore (정리)
+- **Code Cleanup**: 로그인 디버깅 과정에서 추가된 임시 `alert()`와 디버그 필드 제거.
+  - `MainLayout.tsx`: 세션/인증 실패 시 alert 제거. 401/403 자동 로그아웃 로직은 유지.
+  - `api/auth/me/route.ts`: 401 응답에서 `step`, `details`, `supabaseUrl` 디버그 필드 제거.
+
+## [v1.4.2] - 2026-02-20
 
 ### Fixed (수정됨) - 핵심 인증 버그
 - **Auth Token Validation**: Fixed root cause of 401 errors in `/api/auth/me`.
