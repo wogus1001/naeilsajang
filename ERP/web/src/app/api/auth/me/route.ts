@@ -23,11 +23,11 @@ function toLegacyLoginId(email: string | null, fallback: string): string {
 export async function GET(request: Request) {
     try {
         const authHeader = request.headers.get('authorization') || '';
-        if (!authHeader.toLowerCase().startsWith('bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const token = authHeader.slice(7).trim();
+        const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+            ? authHeader.slice(7).trim()
+            : '';
+        const fallbackToken = request.headers.get('x-access-token')?.trim() || '';
+        const token = bearerToken || fallbackToken;
         if (!token) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }

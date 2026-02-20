@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 이 프로젝트의 주요 변경 사항은 이 파일에 기록됩니다.
 
+## [v1.3.2] - 2026-02-20
+
+### Fixed (수정됨)
+- **Auth Token Transport**: Added `x-access-token` fallback for `/api/auth/me`.
+  - Fixes potential issues with Proxies/Gateways stripping the `Authorization` header.
+- **Login Stability**: Frontend now sends both `Authorization: Bearer` and `x-access-token`.
+
 ## [v1.3.1] - 2026-02-20
 
 ### Fixed (수정됨)

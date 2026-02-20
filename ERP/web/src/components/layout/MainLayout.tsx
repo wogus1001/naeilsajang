@@ -96,6 +96,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
                 method: 'GET',
                 headers: {
                     Authorization: `Bearer ${sessionData.session.access_token}`,
+                    'x-access-token': sessionData.session.access_token,
                 },
                 cache: 'no-store'
             });

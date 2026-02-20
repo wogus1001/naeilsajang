@@ -45,7 +45,10 @@ export default function LoginPage() {
 
                 const meRes = await fetch('/api/auth/me', {
                     method: 'GET',
-                    headers: { Authorization: `Bearer ${accessToken}` },
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        'x-access-token': accessToken
+                    },
                     cache: 'no-store'
                 });
 
