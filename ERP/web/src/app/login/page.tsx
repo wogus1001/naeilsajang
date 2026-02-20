@@ -69,6 +69,8 @@ export default function LoginPage() {
                 console.error('Failed to bootstrap login state:', error);
                 localStorage.removeItem('user');
                 setLoggedInUser(null);
+            } finally {
+                setIsLoading(false); // Ensure loading state is cleared
             }
         };
 
@@ -125,8 +127,9 @@ export default function LoginPage() {
                     .single();
 
                 if (!profile) {
+                    console.error('[Login Error] Profile not found for User ID:', data.user.id);
                     await supabase.auth.signOut();
-                    setErrorMsg('사용자 정보를 찾을 수 없습니다. 관리자에게 문의하세요.');
+                    setErrorMsg('사용자 프로필을 찾을 수 없습니다. (DB 누락 가능성)');
                     setIsLoading(false);
                     return;
                 }

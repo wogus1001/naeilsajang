@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { randomUUID } from 'crypto';
 import {
     canAccessCompanyResource,
     canAccessCompanyScope,
@@ -196,7 +197,7 @@ export async function POST(request: Request) {
             return fail(403, 'FORBIDDEN', 'Forbidden: cross-company create denied');
         }
 
-        const newId = String(Date.now());
+        const newId = randomUUID();
         const timestamp = new Date().toISOString();
 
         const corePayload = {
@@ -238,7 +239,7 @@ export async function POST(request: Request) {
             const { error: scheduleError } = await supabaseAdmin
                 .from('schedules')
                 .insert({
-                    id: String(Date.now() + 1),
+                    id: randomUUID(),
                     title: `[Customer Register] ${newCustomer.name}`,
                     date: newCustomer.createdAt?.split('T')[0] || new Date().toISOString().split('T')[0],
                     scope: 'work',

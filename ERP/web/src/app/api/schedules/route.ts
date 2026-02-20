@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { randomUUID } from 'crypto';
 import {
     canAccessCompanyScope,
     getRequesterProfile,
@@ -180,7 +181,7 @@ export async function POST(request: Request) {
         const { data, error } = await supabaseAdmin
             .from('schedules')
             .insert({
-                id: String(Date.now()),
+                id: randomUUID(),
                 company_id: companyId,
                 user_id: userUuid,
                 customer_id: customerId || null,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { randomUUID } from 'crypto';
 
 // --- Constants & Helpers from Frontend (Mirrored for Backend Processing) ---
 
@@ -184,7 +185,7 @@ const parseAndTransformRevenue = (str: any): any[] => {
         const total = safeParse(row[7]);
 
         return {
-            id: Date.now().toString() + Math.random().toString().substr(2, 5), // Generate unique ID
+            id: randomUUID(),
             date: date,
             cash: cash,
             card: card,
@@ -263,7 +264,7 @@ export async function POST(request: Request) {
 
             const legacyId = String(legacyIdRaw).trim();
             const existing = propMap.get(legacyId);
-            const newId = existing ? existing.id : Date.now().toString() + Math.random().toString().substr(2, 5);
+            const newId = existing ? existing.id : randomUUID();
             const existingCreatedAt = existing ? existing.created_at : null;
 
             const rowCompany = row['업체명'] || userCompanyName;
@@ -565,7 +566,7 @@ export async function POST(request: Request) {
 
             if (!isDuplicate) {
                 history.push({
-                    id: Date.now().toString() + Math.random().toString().substr(2, 5),
+                    id: randomUUID(),
                     date: parsedDate,
                     content,
                     details,
@@ -596,7 +597,7 @@ export async function POST(request: Request) {
             const history = currentData.priceHistory || [];
 
             history.push({
-                id: Date.now().toString() + Math.random().toString().substr(2, 5),
+                id: randomUUID(),
                 date: getVal(row, ['날짜', '변동일']) || new Date().toISOString().split('T')[0],
                 amount: parseInt(String(getVal(row, ['변동후금액', '금액'])).replace(/,/g, '')) || 0,
                 isImportant: getVal(row, ['체크', '중요']) === '체크',
@@ -627,7 +628,7 @@ export async function POST(request: Request) {
             };
 
             history.push({
-                id: Date.now().toString() + Math.random().toString().substr(2, 5),
+                id: randomUUID(),
                 contractDate: getVal(row, ['계약일', '날짜']) || new Date().toISOString().split('T')[0],
                 type: getVal(row, ['종류', '구분']) || '매매',
                 deposit: safeNum(getVal(row, ['보증금'])),
@@ -694,7 +695,7 @@ export async function POST(request: Request) {
             // Fallback: If not found, trust the inferred type.
 
             promotedList.push({
-                id: Date.now().toString() + Math.random().toString().substr(2, 5),
+                id: randomUUID(),
                 date: getVal(row, ['날짜', '접수일']) || new Date().toISOString().split('T')[0],
                 name: name, // Store clean name
                 type: type,
