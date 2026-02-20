@@ -87,8 +87,30 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
         const verifyAuth = async (): Promise<AuthUser | null> => {
             const supabase = getSupabase();
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError || !sessionData.session?.access_token) {
+
+            // Retry logic to handle potential race condition where session is not yet persisted
+            let sessionData = null;
+            let sessionError = null;
+            let retryCount = 0;
+            const MAX_RETRIES = 3;
+
+            while (retryCount < MAX_RETRIES) {
+                const result = await supabase.auth.getSession();
+                sessionData = result.data;
+                sessionError = result.error;
+
+                if (sessionData?.session?.access_token) {
+                    break;
+                }
+
+                // Wait 500ms before retrying if session is missing
+                if (retryCount < MAX_RETRIES - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+                retryCount++;
+            }
+
+            if (sessionError || !sessionData?.session?.access_token) {
                 // Temporary Debug: Show alert on missing session
                 if (!window.location.pathname.includes('/login')) { // Only alert if NOT on login page
                     alert(`[세션 확인 불가] 저장된 로그인 정보(Access Token)가 없습니다.\n원인: sessionError=${sessionError?.message || 'null'}\n로그인 페이지로 이동합니다.`);
