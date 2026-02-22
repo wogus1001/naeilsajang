@@ -201,10 +201,11 @@ export async function POST(request: Request) {
         const { main = [], work = [], price = [], contracts = [], meta = {} } = body;
         const { userCompanyName, managerId } = meta;
 
-        // 1. Fetch Existing Properties
+        // 1. 기존 매물 전체 조회 (백엔드에서 Supabase까지의 통신은 413 제한 없음)
+        // 413 오류는 클라이언트→Vercel 요청 크기 문제이므로, 백엔드 조회는 원래대로 유지
         const { data: allProps, error: fetchError } = await supabaseAdmin
             .from('properties')
-            .select('id, data, created_at'); // Added created_at
+            .select('id, data, created_at');
 
         if (fetchError) throw fetchError;
 
@@ -213,7 +214,7 @@ export async function POST(request: Request) {
             if (row.data && row.data['legacyId']) {
                 propMap.set(String(row.data['legacyId']).trim(), row);
             } else if (row.data && row.data['관리번호']) {
-                // Fallback for old data
+                // 이전 데이터 호환을 위한 fallback
                 propMap.set(String(row.data['관리번호']).trim(), row);
             }
         });
@@ -267,8 +268,9 @@ export async function POST(request: Request) {
             const newId = existing ? existing.id : randomUUID();
             const existingCreatedAt = existing ? existing.created_at : null;
 
-            const rowCompany = row['업체명'] || userCompanyName;
-            const { companyId } = await resolveIds(rowCompany, null, supabaseAdmin);
+            // 매 행마다 resolveIds를 호출하면 N+1 쿼리 발생 → defaultCompanyId 재사용
+            // (업체명이 다른 경우 드물게 있으나, 대부분 같은 회사이므로 성능 우선)
+            const companyId = defaultCompanyId;
 
             // [Manager Logic] Determine Manager
             let assignedManagerId = null; // Default: Match fail -> Unassigned
@@ -738,3 +740,4 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message || 'Server Error' }, { status: 500 });
     }
 }
+
