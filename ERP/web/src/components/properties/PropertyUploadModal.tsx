@@ -3,28 +3,28 @@
 import React, { useState } from 'react';
 import { X, Upload, FileSpreadsheet, AlertCircle, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import styles from './PropertyUploadModal.module.css'; // We'll assume a CSS module or use global/inline for now
+
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-
+
 import { readApiJson } from '@/utils/apiResponse';
+import { getSupabase } from '@/lib/supabase'; // Import Supabase client
+
 interface PropertyUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
     onUploadSuccess: () => void;
 }
 
-import { getSupabase } from '@/lib/supabase'; // Import Supabase client
-
 export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }: PropertyUploadModalProps) {
     const [files, setFiles] = useState<{
         main: File | null;
         work: File | null;
         price: File | null;
-        photos: FileList | null; // Add photos state
-        docFolder: FileList | null; // Add docFolder state
-        contracts: File | null; // Add contracts state
-        targetCustomers: File | null; // Add targetCustomers state
+        photos: FileList | null;
+        docFolder: FileList | null;
+        contracts: File | null;
+        targetCustomers: File | null;
     }>({ main: null, work: null, price: null, photos: null, docFolder: null, contracts: null, targetCustomers: null });
 
     const [loading, setLoading] = useState(false);
@@ -91,7 +91,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                 }
             };
             reader.onerror = (err) => reject(err);
-            reader.readAsBinaryString(file); // Changed to BinaryString for compatibility
+            reader.readAsBinaryString(file);
         });
     };
 
@@ -108,11 +108,11 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
 
         for (let i = 0; i < processed.length; i++) {
             const row = processed[i];
-            // Find address key
+            // 주소 키 탐색
             const addrKey = Object.keys(row).find(k => ['지번주소', '도로명주소', '소재지', '주소', '위치상권'].includes(k));
             const address = addrKey ? row[addrKey] : null;
 
-            if (address && !row['lat'] && !row['lng']) { // Only if not already present
+            if (address && !row['lat'] && !row['lng']) {
                 try {
                     setLogs(prev => {
                         const newLogs = [...prev];
@@ -130,11 +130,11 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                                 row['lng'] = result[0].x;
                                 successCount++;
                             }
-                            resolve(); // Always resolve to continue
+                            resolve();
                         });
                     });
 
-                    // Small delay to prevent rate limiting (approx 50ms)
+                    // 카카오 API 레이트 리밋 방지 (50ms 딜레이)
                     await new Promise(r => setTimeout(r, 50));
                 } catch (e) {
                     console.error('Geocoding error', e);
@@ -157,7 +157,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
 
             try {
                 let mainData = files.main ? await parseExcel(files.main) : [];
-                // Apply Geocoding (Enrich mainData with lat/lng)
+                // 좌표 변환 (Geocoding)
                 if (mainData.length > 0) {
                     mainData = await geocodeData(mainData);
                 }
@@ -167,9 +167,12 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                 const contractData = files.contracts ? await parseExcel(files.contracts) : [];
                 const targetCustomerData = files.targetCustomers ? await parseExcel(files.targetCustomers) : [];
 
-                setLogs(prev => [...prev, `파싱 완료: 메인 ${mainData.length}건, 작업 ${workData.length}건, 가격 ${priceData.length}건, 계약 ${contractData.length}건, 추진고객 ${targetCustomerData.length}건`, '서버 전송 중...']);
+                setLogs(prev => [...prev,
+                `파싱 완료: 메인 ${mainData.length}건, 작업 ${workData.length}건, 가격 ${priceData.length}건, 계약 ${contractData.length}건, 추진고객 ${targetCustomerData.length}건`,
+                    '서버 전송 중...'
+                ]);
 
-                // Get User Info for meta
+                // 사용자 메타 정보
                 const userStr = localStorage.getItem('user');
                 let userCompanyName = 'Unknown';
                 let managerIdVal = '';
@@ -180,255 +183,297 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                     managerIdVal = user.uid || user.id || '';
                 }
 
-                const payload = {
-                    main: mainData,
-                    work: workData,
-                    price: priceData,
-                    contracts: contractData,
-                    targetCustomers: targetCustomerData, // Add targetCustomers payload
-                    meta: {
-                        userCompanyName,
-                        managerId: managerIdVal
+                // Vercel 요청 크기 제한(4.5MB) 방지: 100건씩 분할 전송
+                // 500건도 행당 데이터(월별매출현황 등 JSONB)가 크면 4.5MB 초과 가능
+                const CHUNK_SIZE = 100;
+                let totalMainCount = 0;
+                let totalWorkCount = 0;
+                let totalPriceCount = 0;
+                let totalContractCount = 0;
+                let totalTargetCustomerCount = 0;
+                // 사진/문서 업로드를 위해 모든 청크의 processedProperties를 누적
+                let allProcessedProperties: any[] = [];
+
+                for (let i = 0; i < mainData.length; i += CHUNK_SIZE) {
+                    const mainChunk = mainData.slice(i, i + CHUNK_SIZE);
+
+                    // 해당 청크의 관리번호 기준으로 연관 데이터 필터링 (데이터 누락 없음)
+                    const chunkIds = new Set(mainChunk.map((r: any) => String(r['관리번호'] || r['manageId'] || '')).filter(Boolean));
+                    const workChunk = workData.filter((r: any) => chunkIds.has(String(r['관리번호'] || r['manageId'] || '')));
+                    const priceChunk = priceData.filter((r: any) => chunkIds.has(String(r['관리번호'] || r['manageId'] || '')));
+                    const contractChunk = contractData.filter((r: any) => chunkIds.has(String(r['관리번호'] || r['manageId'] || '')));
+                    const targetChunk = targetCustomerData.filter((r: any) => chunkIds.has(String(r['관리번호'] || r['manageId'] || '')));
+
+                    const chunkNum = Math.floor(i / CHUNK_SIZE) + 1;
+                    const totalChunks = Math.ceil(mainData.length / CHUNK_SIZE);
+                    setLogs(prev => [...prev, `청크 ${chunkNum}/${totalChunks} 전송 중... (${i + 1}~${Math.min(i + CHUNK_SIZE, mainData.length)}번)`]);
+
+                    const payload = {
+                        main: mainChunk,
+                        work: workChunk,
+                        price: priceChunk,
+                        contracts: contractChunk,
+                        targetCustomers: targetChunk,
+                        meta: { userCompanyName, managerId: managerIdVal }
+                    };
+
+                    const res = await fetch('/api/properties/batch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!res.ok) {
+                        // 413 등 plain text 응답도 안전하게 처리
+                        let errMsg = '알 수 없는 오류';
+                        try {
+                            const errJson = await readApiJson(res);
+                            errMsg = errJson.error || errMsg;
+                        } catch {
+                            // JSON 파싱 실패 시 텍스트로 읽음 (예: 413 Request Entity Too Large)
+                            const text = await res.text().catch(() => '');
+                            errMsg = text ? text.substring(0, 80) : `HTTP ${res.status}`;
+                        }
+                        setLogs(prev => [...prev, `오류 발생 (청크 ${chunkNum}): ${errMsg}`]);
+                        showAlert(`업로드 실패 (${i + 1}~${i + mainChunk.length}번째 행): ${errMsg}`, 'error');
+                        return;
+                    }
+
+                    const result = await readApiJson(res);
+                    totalMainCount += result.mainCount || 0;
+                    totalWorkCount += result.workCount || 0;
+                    totalPriceCount += result.priceCount || 0;
+                    totalContractCount += result.contractCount || 0;
+                    totalTargetCustomerCount += result.targetCustomerCount || 0;
+
+                    // 사진/문서 업로드용 processedProperties 누적
+                    if (result.processedProperties && Array.isArray(result.processedProperties)) {
+                        allProcessedProperties = allProcessedProperties.concat(result.processedProperties);
+                    }
+                }
+
+                setLogs(prev => [...prev,
+                    '업로드 성공!',
+                `- 점포 처리: ${totalMainCount}건`,
+                `- 작업내역 추가: ${totalWorkCount}건`,
+                `- 가격내역 추가: ${totalPriceCount}건`,
+                `- 계약내역 추가: ${totalContractCount}건`,
+                `- 추진고객 추가: ${totalTargetCustomerCount}건`
+                ]);
+
+                // 청크 결과 통합본으로 후속 작업 수행
+                const combinedResult = {
+                    mainCount: totalMainCount,
+                    workCount: totalWorkCount,
+                    priceCount: totalPriceCount,
+                    contractCount: totalContractCount,
+                    targetCustomerCount: totalTargetCustomerCount,
+                    processedProperties: allProcessedProperties
+                };
+
+                const handleDocStep = (result: any) => {
+                    // --- 문서 업로드 로직 ---
+                    if (files.docFolder && result.processedProperties && result.processedProperties.length > 0) {
+                        showConfirm('이어서 선택된 폴더의 관련문서를 업로드하시겠습니까?', async () => {
+                            setLogs(prev => [...prev, '--- 문서 업로드 시작 ---']);
+                            const supabase = getSupabase();
+                            let docUploadCount = 0;
+                            const processedMap = new Map(result.processedProperties.map((p: any) => [String(p.manageId).trim(), p]));
+
+                            // 문서 정보 파싱을 위해 main 파일 재파싱
+                            const mainDataForDoc = files.main ? await parseExcel(files.main) : [];
+
+                            // 파일 경로 맵 구성: "관리번호/파일명" → File
+                            const fileMap = new Map<string, File>();
+                            Array.from(files.docFolder as FileList).forEach((file: File) => {
+                                const pathParts = file.webkitRelativePath.split('/');
+                                if (pathParts.length >= 3) {
+                                    const key = `${pathParts[pathParts.length - 2]}/${pathParts[pathParts.length - 1]}`;
+                                    fileMap.set(key, file);
+                                }
+                            });
+
+                            for (const row of mainDataForDoc) {
+                                const rowAny = row as any;
+                                const docRaw = rowAny['관련문서'];
+                                if (!docRaw) continue;
+
+                                let docList: any[] = [];
+                                try {
+                                    if (typeof docRaw === 'string') {
+                                        const cleaned = docRaw.replace(/'/g, '"');
+                                        docList = JSON.parse(cleaned);
+                                    } else if (Array.isArray(docRaw)) {
+                                        docList = docRaw;
+                                    }
+                                } catch (e) {
+                                    console.warn('Failed to parse doc column', docRaw);
+                                    continue;
+                                }
+
+                                const manageId = String(rowAny['관리번호'] || rowAny['manageId'] || '').trim();
+                                if (!processedMap.has(manageId)) continue;
+                                const prop: any = processedMap.get(manageId);
+
+                                if (Array.isArray(docList)) {
+                                    for (const item of docList) {
+                                        if (!Array.isArray(item) || item.length < 6) continue;
+
+                                        const uploader = item[3];
+                                        const fileName = item[5];
+                                        if (!fileName) continue;
+
+                                        const fileKey = `${manageId}/${fileName}`;
+                                        const file = fileMap.get(fileKey);
+
+                                        if (file) {
+                                            setLogs(prev => [...prev, `[${manageId}] 문서 매칭: ${fileName}`]);
+                                            const ext = fileName.split('.').pop() || 'unknown';
+                                            const timestamp = Date.now();
+                                            const randomSuffix = Math.random().toString(36).substring(2, 8);
+                                            const safetyStorageName = `${timestamp}_${randomSuffix}.${ext}`;
+                                            const storagePath = `properties/${prop.id}/${safetyStorageName}`;
+
+                                            const formData = new FormData();
+                                            formData.append('file', file);
+                                            formData.append('path', storagePath);
+                                            formData.append('bucket', 'property-documents');
+
+                                            try {
+                                                const uploadRes = await fetch('/api/upload', {
+                                                    method: 'POST',
+                                                    body: formData
+                                                });
+
+                                                if (uploadRes.ok) {
+                                                    const { publicUrl } = await readApiJson(uploadRes);
+                                                    const newDoc = {
+                                                        id: timestamp.toString() + Math.random().toString().substr(2, 5),
+                                                        date: new Date().toISOString().split('T')[0],
+                                                        uploader: uploader || 'System',
+                                                        type: ext,
+                                                        name: fileName,
+                                                        size: file.size,
+                                                        url: publicUrl,
+                                                        path: storagePath
+                                                    };
+
+                                                    const { data: currentProp } = await supabase.from('properties').select('data').eq('id', prop.id).single();
+                                                    const currentDocs = currentProp?.data?.documents || [];
+                                                    const updatedDocs = [...currentDocs, newDoc];
+
+                                                    await supabase.from('properties').update({
+                                                        data: { ...currentProp?.data, documents: updatedDocs }
+                                                    }).eq('id', prop.id);
+
+                                                    docUploadCount++;
+                                                } else {
+                                                    const errText = await uploadRes.text();
+                                                    console.error(`Doc upload failed: ${fileName}`, errText);
+                                                    setLogs(prev => [...prev, `[문서실패] ${fileName} (${uploadRes.status}): ${errText.substring(0, 50)}`]);
+                                                }
+                                            } catch (err: any) {
+                                                console.error(`Doc upload error: ${fileName}`, err);
+                                                setLogs(prev => [...prev, `[문서오류] ${fileName}: ${err.message}`]);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            showAlert(`문서 업로드 완료: 총 ${docUploadCount}개 성공`, 'success', () => {
+                                onUploadSuccess();
+                                onClose();
+                            });
+                        });
+                    } else {
+                        onUploadSuccess();
+                        onClose();
                     }
                 };
 
-                const res = await fetch('/api/properties/batch', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+                const nextStep = () => {
+                    // --- 사진 업로드 로직 ---
+                    if (files.photos && combinedResult.processedProperties && combinedResult.processedProperties.length > 0) {
+                        showConfirm('엑셀 업로드가 완료되었습니다. 이어서 선택된 폴더의 사진을 업로드하시겠습니까?', async () => {
+                            setLogs(prev => [...prev, '--- 사진 업로드 시작 ---']);
+                            const supabase = getSupabase();
+                            let uploadCount = 0;
+                            const processedMap = new Map(combinedResult.processedProperties.map((p: any) => [String(p.manageId).trim(), p]));
 
-                if (res.ok) {
-                    const result = await readApiJson(res);
-                    setLogs(prev => [...prev, '업로드 성공!', `- 점포 처리: ${result.mainCount}건`, `- 작업내역 추가: ${result.workCount}건`, `- 가격내역 추가: ${result.priceCount}건`, `- 계약내역 추가: ${result.contractCount || 0}건`, `- 추진고객 추가: ${result.targetCustomerCount || 0}건`]);
-
-                    const nextStep = () => {
-                        // --- IMAGE UPLOAD LOGIC ---
-                        if (files.photos && result.processedProperties && result.processedProperties.length > 0) {
-                            showConfirm('엑셀 업로드가 완료되었습니다. 이어서 선택된 폴더의 사진을 업로드하시겠습니까?', async () => {
-                                setLogs(prev => [...prev, '--- 사진 업로드 시작 ---']);
-                                const supabase = getSupabase();
-                                let uploadCount = 0;
-                                const processedMap = new Map(result.processedProperties.map((p: any) => [String(p.manageId).trim(), p]));
-
-                                // Group files by parent folder name which should match manageId
-                                const fileGroups = new Map<string, File[]>();
-                                Array.from(files.photos as FileList).forEach((file: File) => {
-                                    const pathParts = file.webkitRelativePath.split('/');
-                                    // path: root/10006/img.jpg -> length 3, id is parts[1]
-                                    // path: 10006/img.jpg -> length 2, id is parts[0]
-                                    if (pathParts.length >= 2) {
-                                        const folderName = pathParts[pathParts.length - 2];
-                                        if (!fileGroups.has(folderName)) fileGroups.set(folderName, []);
-                                        fileGroups.get(folderName)!.push(file);
-                                    }
-                                });
-
-                                for (const [legacyId, groupFiles] of Array.from(fileGroups.entries())) {
-                                    if (!processedMap.has(legacyId)) continue;
-                                    const prop: any = processedMap.get(legacyId);
-                                    setLogs(prev => [...prev, `[${legacyId}] 매물 매칭됨 (${prop.name}). 사진 ${groupFiles.length}장 업로드 중...`]);
-
-                                    const uploadedUrls: string[] = [];
-
-                                    for (const file of groupFiles) {
-                                        const ext = file.name.split('.').pop();
-                                        const path = `${prop.id}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
-                                        const formData = new FormData();
-                                        formData.append('file', file);
-                                        formData.append('path', path);
-                                        formData.append('bucket', 'property-images');
-
-                                        try {
-                                            const uploadRes = await fetch('/api/upload', {
-                                                method: 'POST',
-                                                body: formData
-                                            });
-
-                                            if (!uploadRes.ok) {
-                                                const errData = await readApiJson(uploadRes);
-                                                throw new Error(errData.error || 'Upload failed');
-                                            }
-
-                                            const { publicUrl } = await readApiJson(uploadRes);
-                                            uploadedUrls.push(publicUrl);
-                                        } catch (err: any) {
-                                            console.error(`Upload failed for ${file.name}`, err);
-                                            setLogs(prev => [...prev, `[업로드 실패] ${file.name}: ${err.message}`]);
-                                        }
-                                    }
-
-                                    if (uploadedUrls.length > 0) {
-                                        // Fetch current photos to merge
-                                        const { data: currentProp } = await supabase.from('properties').select('data').eq('id', prop.id).single();
-                                        const currentPhotos = currentProp?.data?.photos || [];
-                                        const newPhotos = [...currentPhotos, ...uploadedUrls]; // Deduplication?
-
-                                        // Update DB
-                                        const { error: updateError } = await supabase.from('properties').update({
-                                            data: { ...currentProp?.data, photos: newPhotos }
-                                        }).eq('id', prop.id);
-
-                                        if (!updateError) {
-                                            uploadCount += uploadedUrls.length;
-                                            setLogs(prev => [...prev, `[${legacyId}] 사진 ${uploadedUrls.length}장 저장 완료`]);
-                                        } else {
-                                            setLogs(prev => [...prev, `[${legacyId}] DB 업데이트 실패`]);
-                                        }
-                                    }
+                            // 관리번호 폴더별 파일 그룹화
+                            const fileGroups = new Map<string, File[]>();
+                            Array.from(files.photos as FileList).forEach((file: File) => {
+                                const pathParts = file.webkitRelativePath.split('/');
+                                if (pathParts.length >= 2) {
+                                    const folderName = pathParts[pathParts.length - 2];
+                                    if (!fileGroups.has(folderName)) fileGroups.set(folderName, []);
+                                    fileGroups.get(folderName)!.push(file);
                                 }
-                                showAlert(`사진 업로드 완료: 총 ${uploadCount}장`, 'success', () => handleDocStep(result));
                             });
-                        } else {
-                            handleDocStep(result);
-                        }
-                    };
 
-                    const handleDocStep = (result: any) => {
-                        // --- DOCUMENT UPLOAD LOGIC ---
-                        if (files.docFolder && result.processedProperties && result.processedProperties.length > 0) {
-                            showConfirm('이어서 선택된 폴더의 관련문서를 업로드하시겠습니까?', async () => {
-                                setLogs(prev => [...prev, '--- 문서 업로드 시작 ---']);
-                                const supabase = getSupabase();
-                                let docUploadCount = 0;
-                                const processedMap = new Map(result.processedProperties.map((p: any) => [String(p.manageId).trim(), p]));
+                            for (const [legacyId, groupFiles] of Array.from(fileGroups.entries())) {
+                                if (!processedMap.has(legacyId)) continue;
+                                const prop: any = processedMap.get(legacyId);
+                                setLogs(prev => [...prev, `[${legacyId}] 매물 매칭됨 (${prop.name}). 사진 ${groupFiles.length}장 업로드 중...`]);
 
-                                // Use mainData to find document info
-                                const mainData = files.main ? await parseExcel(files.main) : [];
+                                const uploadedUrls: string[] = [];
 
-                                // Group files by parent folder name (which should be ID)
-                                const fileMap = new Map<string, File>(); // Key: "folderName/fileName" -> File
-                                Array.from(files.docFolder as FileList).forEach((file: File) => {
-                                    const pathParts = file.webkitRelativePath.split('/');
-                                    if (pathParts.length >= 3) {
-                                        // path: root/10006/filename -> we want key: "10006/filename"
-                                        const key = `${pathParts[pathParts.length - 2]}/${pathParts[pathParts.length - 1]}`;
-                                        fileMap.set(key, file);
-                                    }
-                                });
+                                for (const file of groupFiles) {
+                                    const ext = file.name.split('.').pop();
+                                    const path = `${prop.id}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    formData.append('path', path);
+                                    formData.append('bucket', 'property-images');
 
-
-                                for (const row of mainData) {
-                                    const rowAny = row as any;
-                                    // Use flexible key access for '관련문서'
-                                    const docRaw = rowAny['관련문서'];
-                                    if (!docRaw) continue;
-
-                                    // Parse relevant documents
-                                    let docList: any[] = [];
                                     try {
-                                        if (typeof docRaw === 'string') {
-                                            // Handle stringified array like "[['', '1', ...]]"
-                                            const cleaned = docRaw.replace(/'/g, '"'); // Replace single quotes if any
-                                            docList = JSON.parse(cleaned);
-                                        } else if (Array.isArray(docRaw)) {
-                                            docList = docRaw;
+                                        const uploadRes = await fetch('/api/upload', {
+                                            method: 'POST',
+                                            body: formData
+                                        });
+
+                                        if (!uploadRes.ok) {
+                                            const errData = await readApiJson(uploadRes);
+                                            throw new Error(errData.error || 'Upload failed');
                                         }
-                                    } catch (e) {
-                                        console.warn('Failed to parse doc column', docRaw);
-                                        continue;
-                                    }
 
-                                    const manageId = String(rowAny['관리번호'] || rowAny['manageId'] || '').trim();
-                                    if (!processedMap.has(manageId)) continue;
-                                    const prop: any = processedMap.get(manageId);
-
-                                    if (Array.isArray(docList)) {
-                                        for (const item of docList) {
-                                            if (!Array.isArray(item) || item.length < 6) continue;
-
-                                            // Structure: ['', '1', '2026-01-15 (목)', '손태호', '종류', 'filename.png', ...]
-                                            const fileDate = item[2];
-                                            const uploader = item[3];
-                                            const type = item[4]; // '종류'?
-                                            const fileName = item[5];
-
-                                            if (!fileName) continue;
-
-                                            // Find file in selected folder: Look for "manageId/fileName"
-                                            const fileKey = `${manageId}/${fileName}`;
-                                            const file = fileMap.get(fileKey);
-
-                                            if (file) {
-                                                setLogs(prev => [...prev, `[${manageId}] 문서 매칭: ${fileName}`]);
-
-                                                // Sanitize filename: remove spaces, special chars
-                                                const ext = fileName.split('.').pop() || 'unknown';
-
-                                                // Use purely ASCII name for storage path to avoid "Invalid key" errors with Supabase
-                                                const timestamp = Date.now();
-                                                const randomSuffix = Math.random().toString(36).substring(2, 8);
-                                                const safetyStorageName = `${timestamp}_${randomSuffix}.${ext}`;
-
-                                                // Path: properties/{propertyId}/{ascii_name}
-                                                const storagePath = `properties/${prop.id}/${safetyStorageName}`;
-
-                                                const formData = new FormData();
-                                                formData.append('file', file);
-                                                formData.append('path', storagePath);
-                                                formData.append('bucket', 'property-documents');
-
-                                                try {
-                                                    const uploadRes = await fetch('/api/upload', {
-                                                        method: 'POST',
-                                                        body: formData
-                                                    });
-
-                                                    if (uploadRes.ok) {
-                                                        const { publicUrl } = await readApiJson(uploadRes);
-
-                                                        // Create metadata
-                                                        const newDoc = {
-                                                            id: timestamp.toString() + Math.random().toString().substr(2, 5),
-                                                            date: new Date().toISOString().split('T')[0],
-                                                            uploader: uploader || 'System',
-                                                            type: ext,
-                                                            name: fileName, // Display original name
-                                                            size: file.size,
-                                                            url: publicUrl,
-                                                            path: storagePath
-                                                        };
-
-                                                        // Update Property
-                                                        const { data: currentProp } = await supabase.from('properties').select('data').eq('id', prop.id).single();
-                                                        const currentDocs = currentProp?.data?.documents || [];
-                                                        const updatedDocs = [...currentDocs, newDoc];
-
-                                                        await supabase.from('properties').update({
-                                                            data: { ...currentProp?.data, documents: updatedDocs }
-                                                        }).eq('id', prop.id);
-
-                                                        docUploadCount++;
-                                                    } else {
-                                                        const errText = await uploadRes.text();
-                                                        console.error(`Doc upload failed: ${fileName}`, errText);
-                                                        setLogs(prev => [...prev, `[문서실패] ${fileName} (${uploadRes.status}): ${errText.substring(0, 50)}`]);
-                                                    }
-                                                } catch (err: any) {
-                                                    console.error(`Doc upload error: ${fileName}`, err);
-                                                    setLogs(prev => [...prev, `[문서오류] ${fileName}: ${err.message}`]);
-                                                }
-                                            }
-                                        }
+                                        const { publicUrl } = await readApiJson(uploadRes);
+                                        uploadedUrls.push(publicUrl);
+                                    } catch (err: any) {
+                                        console.error(`Upload failed for ${file.name}`, err);
+                                        setLogs(prev => [...prev, `[업로드 실패] ${file.name}: ${err.message}`]);
                                     }
                                 }
-                                showAlert(`문서 업로드 완료: 총 ${docUploadCount}개 성공`, 'success', () => {
-                                    onUploadSuccess();
-                                    onClose();
-                                });
-                            });
-                        } else {
-                            onUploadSuccess();
-                            onClose();
-                        }
-                    };
 
-                    showAlert(`업로드 완료\n- 점포: ${result.mainCount}\n- 작업: ${result.workCount}\n- 가격: ${result.priceCount}\n- 계약: ${result.contractCount || 0}\n- 추진고객: ${result.targetCustomerCount || 0}`, 'success', nextStep);
-                } else {
-                    const err = await readApiJson(res);
-                    setLogs(prev => [...prev, `오류 발생: ${err.error}`]);
-                    showAlert(`업로드 실패: ${err.error}`, 'error');
-                }
+                                if (uploadedUrls.length > 0) {
+                                    const { data: currentProp } = await supabase.from('properties').select('data').eq('id', prop.id).single();
+                                    const currentPhotos = currentProp?.data?.photos || [];
+                                    const newPhotos = [...currentPhotos, ...uploadedUrls];
+
+                                    const { error: updateError } = await supabase.from('properties').update({
+                                        data: { ...currentProp?.data, photos: newPhotos }
+                                    }).eq('id', prop.id);
+
+                                    if (!updateError) {
+                                        uploadCount += uploadedUrls.length;
+                                        setLogs(prev => [...prev, `[${legacyId}] 사진 ${uploadedUrls.length}장 저장 완료`]);
+                                    } else {
+                                        setLogs(prev => [...prev, `[${legacyId}] DB 업데이트 실패`]);
+                                    }
+                                }
+                            }
+                            showAlert(`사진 업로드 완료: 총 ${uploadCount}장`, 'success', () => handleDocStep(combinedResult));
+                        });
+                    } else {
+                        handleDocStep(combinedResult);
+                    }
+                };
+
+                showAlert(
+                    `업로드 완료\n- 점포: ${combinedResult.mainCount}\n- 작업: ${combinedResult.workCount}\n- 가격: ${combinedResult.priceCount}\n- 계약: ${combinedResult.contractCount || 0}\n- 추진고객: ${combinedResult.targetCustomerCount || 0}`,
+                    'success',
+                    nextStep
+                );
             } catch (error: any) {
                 console.error(error);
                 setLogs(prev => [...prev, `치명적 오류: ${error.message}`]);
@@ -439,7 +484,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
         });
     };
 
-    // New Function: Standalone Photo Upload
+    // 사진만 별도 업로드 (엑셀 없이 이미 등록된 매물에 사진 추가)
     const handleOnlyPhotoUpload = async () => {
         if (!files.photos || files.photos.length === 0) {
             showAlert('사진 폴더를 선택해주세요.', 'error');
@@ -451,7 +496,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
             setLogs(['매물 정보 불러오는 중...']);
 
             try {
-                // 1. Fetch Min List
+                // 1. 매물 목록 조회
                 const userStr = localStorage.getItem('user');
                 const parsed = userStr ? JSON.parse(userStr) : {};
                 const user = parsed.user || parsed;
@@ -466,13 +511,10 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                 const supabase = getSupabase();
                 const processedMap = new Map();
                 properties.forEach((p: any) => {
-                    // Try multiple keys for legacy ID
                     if (p.manageId) processedMap.set(String(p.manageId).trim(), p);
-                    // Also match by Name if it contains ID like "Name (10006)"
-                    // But manageId is safer.
                 });
 
-                // Group files
+                // 관리번호 폴더별로 파일 그룹화
                 const fileGroups = new Map<string, File[]>();
                 Array.from(files.photos as FileList).forEach((file: File) => {
                     const pathParts = file.webkitRelativePath.split('/');
@@ -488,7 +530,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                 for (const [legacyId, groupFiles] of Array.from(fileGroups.entries())) {
                     let prop: any = processedMap.get(legacyId);
 
-                    // Fuzzy match fallback: Search in Name
+                    // 이름으로 퍼지 매칭 (보조 수단)
                     if (!prop) {
                         prop = properties.find((p: any) => p.name && p.name.includes(`(${legacyId})`));
                     }
@@ -532,7 +574,6 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                     }
 
                     if (uploadedUrls.length > 0) {
-                        // Update DB
                         const { data: currentProp } = await supabase.from('properties').select('data').eq('id', prop.id).single();
                         const currentPhotos = currentProp?.data?.photos || [];
                         const newPhotos = [...currentPhotos, ...uploadedUrls];
@@ -676,7 +717,7 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                     >
                         {loading ? '처리 중...' : '업로드 시작'}
                     </button>
-                    {/* Standalone Photo Upload Button */}
+                    {/* 사진만 별도 업로드 버튼 */}
                     <button
                         onClick={handleOnlyPhotoUpload}
                         disabled={loading || !files.photos}
@@ -703,6 +744,6 @@ export default function PropertyUploadModal({ isOpen, onClose, onUploadSuccess }
                 message={alertConfig.message}
                 type={alertConfig.type}
             />
-        </div >
+        </div>
     );
 }
