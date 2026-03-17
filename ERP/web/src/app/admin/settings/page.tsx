@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Save, Megaphone, Layers, Database, Download, ChevronRight } from 'lucide-react';
+import { Save, Megaphone, Layers, Database, Download, ChevronRight, UploadCloud } from 'lucide-react';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 
@@ -54,7 +54,12 @@ export default function AdminSettingsPage() {
         announcement: { message: '', level: 'info', active: false },
         features: { electronicContracts: true, mapService: true },
         maintenance: { active: false, message: '현재 시스템 정기 점검 중입니다.' },
-        systemInfo: { version: '1.2.0', lastUpdated: '' }
+        systemInfo: { version: '1.2.0', lastUpdated: '' },
+        dataManagement: {
+            properties: { bulkUpload: true, excelUpload: true, dbSync: true },
+            customers: { excelUpload: true, dbSync: true },
+            businessCards: { excelUpload: true, dbSync: true }
+        }
     });
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -82,7 +87,12 @@ export default function AdminSettingsPage() {
                     announcement: { ...settings.announcement, ...(data.announcement || {}) },
                     features: { ...settings.features, ...(data.features || {}) },
                     maintenance: { ...settings.maintenance, ...(data.maintenance || {}) },
-                    systemInfo: { ...settings.systemInfo, ...(data.systemInfo || {}) }
+                    systemInfo: { ...settings.systemInfo, ...(data.systemInfo || {}) },
+                    dataManagement: {
+                        properties: { ...settings.dataManagement.properties, ...(data.dataManagement?.properties || {}) },
+                        customers: { ...settings.dataManagement.customers, ...(data.dataManagement?.customers || {}) },
+                        businessCards: { ...settings.dataManagement.businessCards, ...(data.dataManagement?.businessCards || {}) }
+                    }
                 });
             }
         } catch (e) {
@@ -288,6 +298,112 @@ export default function AdminSettingsPage() {
                                 onChange={(checked) => setSettings({
                                     ...settings,
                                     features: { ...settings.features, mapService: checked }
+                                })}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Data Management Section */}
+                <div style={styles.section}>
+                    <div style={styles.sectionHeader}>
+                        <UploadCloud size={20} style={styles.sectionIcon} />
+                        <h2 style={styles.sectionTitle}>데이터 관리 제어</h2>
+                    </div>
+                    <div style={styles.card}>
+                        <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 12px 0', paddingBottom: '8px', borderBottom: '1px solid #f1f3f5' }}>점포 관리</h3>
+                        <div style={styles.toggleRow}>
+                            <span style={styles.toggleLabel}>일괄 업로드 버튼</span>
+                            <Toggle
+                                checked={settings.dataManagement.properties.bulkUpload}
+                                onChange={(checked) => setSettings({
+                                    ...settings,
+                                    dataManagement: {
+                                        ...settings.dataManagement,
+                                        properties: { ...settings.dataManagement.properties, bulkUpload: checked }
+                                    }
+                                })}
+                            />
+                        </div>
+                        <div style={styles.toggleRow}>
+                            <span style={styles.toggleLabel}>엑셀 업로드 버튼</span>
+                            <Toggle
+                                checked={settings.dataManagement.properties.excelUpload}
+                                onChange={(checked) => setSettings({
+                                    ...settings,
+                                    dataManagement: {
+                                        ...settings.dataManagement,
+                                        properties: { ...settings.dataManagement.properties, excelUpload: checked }
+                                    }
+                                })}
+                            />
+                        </div>
+                        <div style={{ ...styles.toggleRow, borderBottom: 'none', marginBottom: '16px' }}>
+                            <span style={styles.toggleLabel}>DB 동기화 버튼</span>
+                            <Toggle
+                                checked={settings.dataManagement.properties.dbSync}
+                                onChange={(checked) => setSettings({
+                                    ...settings,
+                                    dataManagement: {
+                                        ...settings.dataManagement,
+                                        properties: { ...settings.dataManagement.properties, dbSync: checked }
+                                    }
+                                })}
+                            />
+                        </div>
+
+                        <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 12px 0', paddingBottom: '8px', borderBottom: '1px solid #f1f3f5' }}>고객 관리</h3>
+                        <div style={styles.toggleRow}>
+                            <span style={styles.toggleLabel}>엑셀 업로드 버튼</span>
+                            <Toggle
+                                checked={settings.dataManagement.customers.excelUpload}
+                                onChange={(checked) => setSettings({
+                                    ...settings,
+                                    dataManagement: {
+                                        ...settings.dataManagement,
+                                        customers: { ...settings.dataManagement.customers, excelUpload: checked }
+                                    }
+                                })}
+                            />
+                        </div>
+                        <div style={{ ...styles.toggleRow, borderBottom: 'none', marginBottom: '16px' }}>
+                            <span style={styles.toggleLabel}>DB 동기화 버튼</span>
+                            <Toggle
+                                checked={settings.dataManagement.customers.dbSync}
+                                onChange={(checked) => setSettings({
+                                    ...settings,
+                                    dataManagement: {
+                                        ...settings.dataManagement,
+                                        customers: { ...settings.dataManagement.customers, dbSync: checked }
+                                    }
+                                })}
+                            />
+                        </div>
+
+                        <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 12px 0', paddingBottom: '8px', borderBottom: '1px solid #f1f3f5' }}>명함 관리</h3>
+                        <div style={styles.toggleRow}>
+                            <span style={styles.toggleLabel}>엑셀 업로드 (통합) 버튼</span>
+                            <Toggle
+                                checked={settings.dataManagement.businessCards.excelUpload}
+                                onChange={(checked) => setSettings({
+                                    ...settings,
+                                    dataManagement: {
+                                        ...settings.dataManagement,
+                                        businessCards: { ...settings.dataManagement.businessCards, excelUpload: checked }
+                                    }
+                                })}
+                            />
+                        </div>
+                        <div style={{ ...styles.toggleRow, borderBottom: 'none' }}>
+                            <span style={styles.toggleLabel}>DB 동기화 버튼</span>
+                            <Toggle
+                                checked={settings.dataManagement.businessCards.dbSync}
+                                onChange={(checked) => setSettings({
+                                    ...settings,
+                                    dataManagement: {
+                                        ...settings.dataManagement,
+                                        businessCards: { ...settings.dataManagement.businessCards, dbSync: checked }
+                                    }
                                 })}
                             />
                         </div>

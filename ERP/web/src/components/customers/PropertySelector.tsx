@@ -125,12 +125,14 @@ export default function PropertySelector({ isOpen, onClose, onSelect, onOpenCard
         let result = properties;
 
         if (searchTerm) {
-            const term = searchTerm.toLowerCase();
+            const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
             result = result.filter(p =>
-                (p.name && p.name.toLowerCase().includes(term)) ||
-                (p.address && p.address.toLowerCase().includes(term)) ||
-                (p.industrySector && p.industrySector.toLowerCase().includes(term)) ||
-                (p.type && p.type.toLowerCase().includes(term))
+                terms.some(term =>
+                    (p.name && p.name.toLowerCase().includes(term)) ||
+                    (p.address && p.address.toLowerCase().includes(term)) ||
+                    (p.industrySector && p.industrySector.toLowerCase().includes(term)) ||
+                    (p.type && p.type.toLowerCase().includes(term))
+                )
             );
         }
 

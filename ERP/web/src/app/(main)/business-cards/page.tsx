@@ -134,6 +134,19 @@ function BusinessCardListContent() {
         }
     }, [searchParams]);
 
+    const [dataManagement, setDataManagement] = useState<any>(null);
+
+    useEffect(() => {
+        fetch('/api/system/settings')
+            .then(res => res.json())
+            .then(data => {
+                if (data?.dataManagement?.businessCards) {
+                    setDataManagement(data.dataManagement.businessCards);
+                }
+            })
+            .catch(err => console.error('Failed to load system settings', err));
+    }, []);
+
     useEffect(() => {
         // Assuming 'user' is implicitly handled within fetchCards or is not a direct dependency here.
         // If 'user' were a state variable, it would be added here.
@@ -538,15 +551,17 @@ function BusinessCardListContent() {
         if (selectedCategories.length > 0 && c.category && !selectedCategories.includes(c.category)) return false;
 
         if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            return (
-                (c.name || '').toLowerCase().includes(term) ||
-                (c.companyName || '').toLowerCase().includes(term) ||
-                (c.mobile || '').includes(term) ||
-                (c.companyPhone1 || '').includes(term) ||
-                (c.email || '').toLowerCase().includes(term) ||
-                (c.category || '').toLowerCase().includes(term)
-            );
+            const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+            return terms.some(term => {
+                return (
+                    (c.name || '').toLowerCase().includes(term) ||
+                    (c.companyName || '').toLowerCase().includes(term) ||
+                    (c.mobile || '').includes(term) ||
+                    (c.companyPhone1 || '').includes(term) ||
+                    (c.email || '').toLowerCase().includes(term) ||
+                    (c.category || '').toLowerCase().includes(term)
+                );
+            });
         }
         return true;
     }).sort((a, b) => {
@@ -680,14 +695,16 @@ function BusinessCardListContent() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <button
-                        className={`${styles.footerBtn} ${styles.mobileHidden}`}
-                        onClick={handleSync}
-                        style={{ backgroundColor: '#1098AD', color: 'white', borderColor: '#1098AD', display: 'flex', alignItems: 'center', gap: 6, marginLeft: '8px' }}
-                    >
-                        <RefreshCw size={14} />
-                        DB 동기화
-                    </button>
+                    {dataManagement?.dbSync !== false && (
+                        <button
+                            className={`${styles.footerBtn} ${styles.mobileHidden}`}
+                            onClick={handleSync}
+                            style={{ backgroundColor: '#1098AD', color: 'white', borderColor: '#1098AD', display: 'flex', alignItems: 'center', gap: 6, marginLeft: '8px' }}
+                        >
+                            <RefreshCw size={14} />
+                            DB 동기화
+                        </button>
+                    )}
                     <ViewModeSwitcher currentMode={viewMode} onModeChange={setViewMode} />
                 </div>
             </div>
@@ -838,14 +855,16 @@ function BusinessCardListContent() {
                     </button>
 
                     {/* Multi-file Upload Modal Trigger */}
-                    <button
-                        className={`${styles.footerBtn} ${styles.mobileHidden}`}
-                        onClick={() => setIsUploadModalOpen(true)}
-                        style={{ cursor: 'pointer', background: '#228be6', color: 'white', borderColor: '#228be6', display: 'flex', alignItems: 'center', gap: 6 }}
-                    >
-                        <FileSpreadsheet size={14} />
-                        엑셀업로드 (통합)
-                    </button>
+                    {dataManagement?.excelUpload !== false && (
+                        <button
+                            className={`${styles.footerBtn} ${styles.mobileHidden}`}
+                            onClick={() => setIsUploadModalOpen(true)}
+                            style={{ cursor: 'pointer', background: '#228be6', color: 'white', borderColor: '#228be6', display: 'flex', alignItems: 'center', gap: 6 }}
+                        >
+                            <FileSpreadsheet size={14} />
+                            엑셀업로드 (통합)
+                        </button>
+                    )}
                 </div>
             </div>
 

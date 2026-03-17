@@ -3,7 +3,7 @@
 import { readApiJson } from '@/utils/apiResponse';
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Star, UserPlus, X, Trash2, RefreshCw, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Star, UserPlus, X, Trash2, RefreshCw, FileSpreadsheet, ChevronDown, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import styles from './page.module.css';
 import CustomerCard from '@/components/customers/CustomerCard';
@@ -134,6 +134,19 @@ function CustomerListPageContent() {
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const categoryDropdownRef = useRef<HTMLDivElement>(null);
     const fetchControllerRef = useRef<AbortController | null>(null);
+
+    const [dataManagement, setDataManagement] = useState<any>(null);
+
+    useEffect(() => {
+        fetch('/api/system/settings')
+            .then(res => res.json())
+            .then(data => {
+                if (data?.dataManagement?.customers) {
+                    setDataManagement(data.dataManagement.customers);
+                }
+            })
+            .catch(err => console.error('Failed to load system settings', err));
+    }, []);
 
     // Derived Categories
     const categories = React.useMemo(() => {
@@ -603,7 +616,7 @@ function CustomerListPageContent() {
 
             // 4. Search Term
             if (searchTerm) {
-                const term = searchTerm.replace(/-/g, '').toLowerCase();
+                const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
                 const mobile = (c.mobile || '').replace(/-/g, '');
                 const companyPhone = (c.companyPhone || '').replace(/-/g, '');
                 const feature = (c.feature || '').toLowerCase();
@@ -613,14 +626,17 @@ function CustomerListPageContent() {
                 const wantedIndustry = (c.wantedIndustry || '').toLowerCase();
                 const wantedArea = (c.wantedArea || '').toLowerCase();
 
-                return name.includes(term) ||
-                    mobile.includes(term) ||
-                    companyPhone.includes(term) ||
-                    feature.includes(term) ||
-                    address.includes(term) ||
-                    wantedItem.includes(term) ||
-                    wantedIndustry.includes(term) ||
-                    wantedArea.includes(term);
+                return terms.some(term => {
+                    const cleanTerm = term.replace(/-/g, ''); // For phone number matching
+                    return name.includes(cleanTerm) ||
+                        mobile.includes(cleanTerm) ||
+                        companyPhone.includes(cleanTerm) ||
+                        feature.includes(term) ||
+                        address.includes(term) ||
+                        wantedItem.includes(term) ||
+                        wantedIndustry.includes(term) ||
+                        wantedArea.includes(term);
+                });
             }
             return true;
         });
@@ -709,6 +725,29 @@ function CustomerListPageContent() {
                 setLoading(false);
             }
         });
+    };
+
+    const handlePhoneExcelExport = () => {
+        const dataToExport = selectedIds.length > 0 
+            ? filteredCustomers.filter(c => selectedIds.includes(c.id))
+            : filteredCustomers;
+
+        if (dataToExport.length === 0) {
+            showAlert('다운로드할 고객 데이터가 없습니다.');
+            return;
+        }
+
+        const excelData = dataToExport.map((c, index) => ({
+            'No': index + 1,
+            '고객명': c.name || '',
+            '연락처': c.mobile || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(excelData);
+        ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 20 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'PhoneNumberList');
+        XLSX.writeFile(wb, `고객연락처_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`);
     };
 
     return (
@@ -1013,19 +1052,30 @@ function CustomerListPageContent() {
                             삭제 ({selectedIds.length})
                         </button>
                     )}
+                    {dataManagement?.excelUpload !== false && (
+                        <button
+                            className={`${styles.footerBtn} ${styles.mobileHidden}`}
+                            onClick={() => setIsUploadModalOpen(true)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#228be6', color: 'white', borderColor: '#228be6' }}
+                        >
+                            <FileSpreadsheet size={14} /> 엑셀업로드
+                        </button>
+                    )}
+                    {dataManagement?.dbSync !== false && (
+                        <button
+                            className={`${styles.footerBtn} ${styles.mobileHidden}`}
+                            onClick={handleSync}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#1098AD', color: 'white', borderColor: '#1098AD' }}
+                        >
+                            <RefreshCw size={14} /> DB동기화
+                        </button>
+                    )}
                     <button
                         className={`${styles.footerBtn} ${styles.mobileHidden}`}
-                        onClick={() => setIsUploadModalOpen(true)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#228be6', color: 'white', borderColor: '#228be6' }}
+                        onClick={handlePhoneExcelExport}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#217346', color: 'white', borderColor: '#217346' }}
                     >
-                        <FileSpreadsheet size={14} /> 엑셀업로드
-                    </button>
-                    <button
-                        className={`${styles.footerBtn} ${styles.mobileHidden}`}
-                        onClick={handleSync}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#1098AD', color: 'white', borderColor: '#1098AD' }}
-                    >
-                        <RefreshCw size={14} /> DB동기화
+                        <Download size={14} /> 연락처 다운로드
                     </button>
                     <button
                         className={`${styles.footerBtn} ${styles.primaryBtn}`}

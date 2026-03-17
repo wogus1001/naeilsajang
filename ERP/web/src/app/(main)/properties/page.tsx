@@ -119,6 +119,19 @@ function PropertiesPageContent() {
     const fetchControllerRef = useRef<AbortController | null>(null);
     const [isCustomLimit, setIsCustomLimit] = useState(false);
 
+    const [dataManagement, setDataManagement] = useState<any>(null);
+
+    useEffect(() => {
+        fetch('/api/system/settings')
+            .then(res => res.json())
+            .then(data => {
+                if (data?.dataManagement?.properties) {
+                    setDataManagement(data.dataManagement.properties);
+                }
+            })
+            .catch(err => console.error('Failed to load system settings', err));
+    }, []);
+
 
     const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info'; onClose?: () => void }>({
         isOpen: false,
@@ -766,12 +779,13 @@ function PropertiesPageContent() {
         // 1. Search Term
         // 1. Search Term
         if (searchTerm) {
-            const term = searchTerm.toLowerCase();
+            const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
             result = result.filter(p => {
                 // Search ALL fields in the property object (Deep Search)
                 // This converts the entire object to a string and checks if the term exists.
                 // It covers top-level fields, arrays (like operationCustomFields), and nested objects.
-                return JSON.stringify(p).toLowerCase().includes(term);
+                const pStr = JSON.stringify(p).toLowerCase();
+                return terms.some(term => pStr.includes(term));
             });
         }
 
@@ -1609,10 +1623,12 @@ function PropertiesPageContent() {
 
                     <div className="hidden md:block">
                         {/* Excel Upload (New Modal) */}
-                        <button className={styles.actionBtn} onClick={() => setIsUploadModalOpen(true)}>
-                            <FileSpreadsheet size={16} />
-                            <span>엑셀 업로드</span>
-                        </button>
+                        {dataManagement?.excelUpload !== false && (
+                            <button className={styles.actionBtn} onClick={() => setIsUploadModalOpen(true)}>
+                                <FileSpreadsheet size={16} />
+                                <span>엑셀 업로드</span>
+                            </button>
+                        )}
                     </div>
                     <div className="hidden md:block">
                         <Link href="/properties/register" className={`${styles.actionBtn} ${styles.primaryBtn}`}>
@@ -2253,14 +2269,26 @@ function PropertiesPageContent() {
                 <div className={styles.footerActions}>
                     {/* Excel Actions - HIDDEN on Mobile */}
                     <div className="hidden md:flex gap-2">
-                        <button
-                            className={styles.footerBtn}
-                            onClick={() => setIsUploadModalOpen(true)}
-                            style={{ color: '#217346', borderColor: '#217346' }}
-                        >
-                            <Layout size={16} />
-                            <span>일괄 업로드</span>
-                        </button>
+                        {dataManagement?.bulkUpload !== false && (
+                            <button
+                                className={styles.footerBtn}
+                                onClick={() => setIsUploadModalOpen(true)}
+                                style={{ color: '#217346', borderColor: '#217346' }}
+                            >
+                                <Layout size={16} />
+                                <span>일괄 업로드</span>
+                            </button>
+                        )}
+                        {dataManagement?.dbSync !== false && (
+                            <button
+                                className={styles.footerBtn}
+                                onClick={() => {}}
+                                style={{ color: '#1098AD', borderColor: '#1098AD' }}
+                            >
+                                <Layout size={16} />
+                                <span>DB 동기화</span>
+                            </button>
+                        )}
                         <button className={styles.footerBtn} onClick={handleExcelExport}>
                             <Download size={16} />
                             <span>엑셀 저장</span>

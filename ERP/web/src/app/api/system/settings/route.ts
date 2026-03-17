@@ -9,7 +9,12 @@ const getSettings = () => {
     if (!fs.existsSync(SETTINGS_FILE)) {
         return {
             announcement: { message: '', level: 'info', active: false },
-            features: { electronicContracts: true, mapService: true }
+            features: { electronicContracts: true, mapService: true },
+            dataManagement: {
+                properties: { bulkUpload: true, excelUpload: true, dbSync: true },
+                customers: { excelUpload: true, dbSync: true },
+                businessCards: { excelUpload: true, dbSync: true }
+            }
         };
     }
     const fileContent = fs.readFileSync(SETTINGS_FILE, 'utf8');

@@ -42,9 +42,9 @@ const MOCK_PROJECT: ContractProject = {
         totalPrice: 150000000, // 1.5억
     },
     documents: [
-        { id: 'd-1', projectId: 'p-001', templateId: 't-transfer-001', name: '점포 양도양수 계약서', formData: {}, createdAt: '', updatedAt: '' },
-        { id: 'd-2', projectId: 'p-001', templateId: 't-receipt-001', name: '계약금 영수증', formData: { purpose: '계약금' }, createdAt: '', updatedAt: '' },
-        { id: 'd-3', projectId: 'p-001', templateId: 't-facility-check', name: '시설 확인서', formData: {}, createdAt: '', updatedAt: '' },
+        { id: 'd-1', projectId: 'p-001', templateId: 't-transfer-agreement', name: '사업체 양도양수 계약서', formData: {}, createdAt: '', updatedAt: '' },
+        { id: 'd-2', projectId: 'p-001', templateId: 't-receipt-agreement', name: '계약금 영수증', formData: { purpose: '계약금' }, createdAt: '', updatedAt: '' },
+        { id: 'd-3', projectId: 'p-001', templateId: 't-object-confirm', name: '대상물 확인서', formData: {}, createdAt: '', updatedAt: '' },
     ]
 };
 

@@ -496,9 +496,14 @@ function ContractsPageContent() {
     };
 
     // Filter helpers
-    const filteredDrafts = savedProjects.filter(p =>
-        p.title.includes(searchTerm) || p.participants.includes(searchTerm)
-    );
+    const filteredDrafts = savedProjects.filter(p => {
+        if (!searchTerm) return true;
+        const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+        return terms.some(term => 
+            (p.title && p.title.toLowerCase().includes(term)) || 
+            (p.participants && p.participants.toLowerCase().includes(term))
+        );
+    });
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'active': return { bg: '#e7f5ff', color: '#1c7ed6', label: '진행중' };
@@ -514,9 +519,13 @@ function ContractsPageContent() {
         }
     };
 
-    const filteredSignatures = contracts.filter(c =>
-        !signatureSearchTerm || (c.documentName && c.documentName.toLowerCase().includes(signatureSearchTerm.toLowerCase()))
-    );
+    const filteredSignatures = contracts.filter(c => {
+        if (!signatureSearchTerm) return true;
+        const terms = signatureSearchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+        return terms.some(term => 
+            c.documentName && c.documentName.toLowerCase().includes(term)
+        );
+    });
 
     return (
         <div className={styles.container}>
