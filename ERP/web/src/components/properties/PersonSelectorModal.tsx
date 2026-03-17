@@ -90,16 +90,16 @@ export default function PersonSelectorModal({ isOpen, onClose, onSelect, company
     };
 
     const filteredList = (activeTab === 'customer' ? customers : businessCards).filter(item => {
-        const query = searchQuery.toLowerCase();
+        const queries = searchQuery.toLowerCase().split(/\s+/).filter(Boolean);
         if (activeTab === 'customer') {
-            return (
+            return queries.some(query => 
                 (item.name && item.name.toLowerCase().includes(query)) ||
                 (item.phone && item.phone.includes(query)) ||
                 (item.feature && item.feature.toLowerCase().includes(query)) ||
                 (item.memoSituation && item.memoSituation.toLowerCase().includes(query))
             );
         } else {
-            return (
+            return queries.some(query => 
                 (item.name && item.name.toLowerCase().includes(query)) ||
                 (item.companyName && item.companyName.toLowerCase().includes(query)) ||
                 (item.category && item.category.toLowerCase().includes(query)) ||

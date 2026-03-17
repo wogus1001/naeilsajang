@@ -15,5 +15,20 @@
   "systemInfo": {
     "version": "1.2.0",
     "lastUpdated": "2024-12-31"
+  },
+  "dataManagement": {
+    "properties": {
+      "bulkUpload": false,
+      "excelUpload": false,
+      "dbSync": false
+    },
+    "customers": {
+      "excelUpload": false,
+      "dbSync": false
+    },
+    "businessCards": {
+      "excelUpload": false,
+      "dbSync": false
+    }
   }
 }

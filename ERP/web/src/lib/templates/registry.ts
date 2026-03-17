@@ -228,27 +228,15 @@ export const fetchCombinedTemplates = async (): Promise<ContractTemplate[]> => {
     const stored = localStorage.getItem('custom_templates');
     const localTemplates = stored ? JSON.parse(stored) : [];
 
-    // 3. Merge (DB takes precedence)
-    const uniqueLocal = localTemplates.filter((l: ContractTemplate) => !dbTemplates.find(d => d.id === l.id));
+    // 3. Merge (Static + DB + Local)
+    const staticTemplates = CONTRACT_TEMPLATES;
+    
+    // Add static templates that are not in DB
+    const missingStatic = staticTemplates.filter(st => !dbTemplates.find(dt => dt.id === st.id));
+    const mergedDbAndStatic = [...missingStatic, ...dbTemplates];
 
-    // If DB fetch failed completely (network error), fallback to static system templates?
-    // We already have dbTemplates empty if failed.
-    // We should probably inject CONTRACT_TEMPLATES (static) if DB fetch yielded nothing AND we suspect failure?
-    // But maybe DB is empty initially?
-    // The seed script ensures it's not empty. 
-    // If fetch failed, dbTemplates is []. 
-    // We should allow fallback to CONTRACT_TEMPLATES for robustness, but prioritize DB.
+    // Filter local against merged
+    const uniqueLocal = localTemplates.filter((l: ContractTemplate) => !mergedDbAndStatic.find(d => d.id === l.id));
 
-    if (dbTemplates.length === 0) {
-        // Fallback to static if DB is empty/unreachable (optional safety)
-        const staticTemplates = CONTRACT_TEMPLATES;
-        // Filter local against static
-        const uniqueLocalStatic = localTemplates.filter((l: ContractTemplate) => !staticTemplates.find(d => d.id === l.id));
-
-        // However, if DB worked but is empty (unlikely), we shouldn't overwrite.
-        // Let's assume if fetch throws, we use static.
-        // We'll leave it simple: DB + Local. Static is legacy.
-    }
-
-    return [...dbTemplates, ...uniqueLocal];
+    return [...mergedDbAndStatic, ...uniqueLocal];
 };

@@ -128,6 +128,31 @@ interface PropertyDocument {
 
 
 
+
+export const EditableLabel = ({ name, defaultVal, value, onChange }: { name: string, defaultVal: string, value: string, onChange: any }) => {
+    return (
+        <input
+            name={name}
+            value={value || ''}
+            onChange={onChange}
+            placeholder={defaultVal}
+            style={{
+                width: '100%',
+                border: '1px dashed transparent',
+                background: 'transparent',
+                textAlign: 'center',
+                color: 'inherit',
+                fontSize: 'inherit',
+                outline: 'none',
+                cursor: 'text',
+                fontWeight: 'inherit',
+                padding: 0
+            }}
+            onFocus={(e) => e.target.style.border = '1px dashed #ccc'}
+            onBlur={(e) => e.target.style.border = '1px dashed transparent'}
+        />
+    );
+};
 export default function PropertyCard({ property, onClose, onRefresh, onNavigate, canNavigate }: PropertyCardProps) {
     useKakaoLoader({
         appkey: "26c1197bae99e17f8c1f3e688e22914d",
@@ -2891,7 +2916,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>메모</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="memoLabel" defaultVal="메모" value={formData.memoLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <textarea name="overviewMemo" className={styles.textarea} value={formData.overviewMemo ?? ''} onChange={handleChange} placeholder="기타 메모를 입력하세요" />
                                         </div>
@@ -2961,12 +2986,12 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                 <div className={styles.fieldGrid}>
                                     {/* Left: Capital */}
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>보증금</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="depositLabel" defaultVal="보증금" value={formData.depositLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="deposit" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.deposit) ?? ''} onChange={handlePriceChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
-                                        <div className={styles.fieldLabel}>월임대료</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="monthlyRentLabel" defaultVal="월임대료" value={formData.monthlyRentLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="monthlyRent" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.monthlyRent) ?? ''} onChange={handlePriceChange} placeholder="0" />
                                             <button
@@ -2981,24 +3006,24 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>권리금</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="premiumLabel" defaultVal="권리금" value={formData.premiumLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="premium" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.premium) ?? ''} onChange={handlePriceChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
-                                        <div className={styles.fieldLabel}>관리비</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="maintenanceLabel" defaultVal="관리비" value={formData.maintenanceLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="maintenance" type="text" className={`${styles.input} ${styles.priceInput}`} value={formData.maintenance ?? ''} onChange={handlePriceChange} placeholder="0 (텍스트 가능)" />
                                             {/* <span style={{ fontSize: 12, marginLeft: 4 }}>만</span> - Removed fixed unit for free text */}
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>브리핑가</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="briefingPriceLabel" defaultVal="브리핑가" value={formData.briefingPriceLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="briefingPrice" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.briefingPrice) ?? ''} onChange={handlePriceChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
-                                        <div className={styles.fieldLabel}>부가세</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="vatLabel" defaultVal="부가세" value={formData.vatLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input
                                                 name="vat"
@@ -3012,12 +3037,12 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel} style={{ backgroundColor: '#ffe3e3', color: '#c92a2a', fontWeight: 'bold' }}>합계금</div>
+                                        <div className={styles.fieldLabel} style={{ backgroundColor: '#ffe3e3', color: '#c92a2a', fontWeight: 'bold', padding: 0 }}><EditableLabel name="totalAmountLabel" defaultVal="합계금" value={formData.totalAmountLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ backgroundColor: '#ffe3e3' }}>
                                             <span className={styles.totalPrice}>{formatCurrency(formData.totalPrice)}</span>
                                             <span style={{ fontSize: 12, marginLeft: 4, color: '#c92a2a', fontWeight: 'bold' }}>만</span>
                                         </div>
-                                        <div className={styles.fieldLabel}>메모</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="memoLabel" defaultVal="메모" value={formData.memoLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="priceMemo" className={styles.input} value={formData.priceMemo ?? ''} onChange={handleChange} placeholder="금액 관련 메모" />
                                         </div>
@@ -3038,7 +3063,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                             <div className={styles.contentArea}>
                                 <div className={styles.fieldGrid}>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>본사보증금</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="hqDepositLabel" defaultVal="본사보증금" value={formData.hqDepositLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <input
                                                 type="text"
@@ -3051,7 +3076,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>가맹비</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="franchiseFeeLabel" defaultVal="가맹비" value={formData.franchiseFeeLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <input
                                                 type="text"
@@ -3064,7 +3089,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>교육비</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="educationFeeLabel" defaultVal="교육비" value={formData.educationFeeLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <input
                                                 type="text"
@@ -3077,7 +3102,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>리뉴얼</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="renewalLabel" defaultVal="리뉴얼" value={formData.renewalLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <input
                                                 type="text"
@@ -3090,7 +3115,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>로열티</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="royaltyLabel" defaultVal="로열티" value={formData.royaltyLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <input
                                                 type="text"
@@ -3111,7 +3136,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel} style={{ fontWeight: 'bold', color: '#15aabf' }}>합계금</div>
+                                        <div className={styles.fieldLabel} style={{ fontWeight: 'bold', color: '#15aabf', padding: 0 }}><EditableLabel name="totalAmountLabel" defaultVal="합계금" value={formData.totalAmountLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <input
                                                 type="text"
@@ -3124,7 +3149,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>메모</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="memoLabel" defaultVal="메모" value={formData.memoLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <textarea name="franchiseMemo" className={styles.textarea} value={formData.franchiseMemo ?? ''} onChange={handleChange} placeholder="가맹 관련 메모를 입력하세요" />
                                         </div>
@@ -3145,19 +3170,19 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                             <div className={styles.contentArea}>
                                 <div className={styles.fieldGrid}>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>월총매출</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="monthlyRevenueLabel" defaultVal="월총매출" value={formData.monthlyRevenueLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="monthlyRevenue" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.monthlyRevenue) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
-                                        <div className={styles.fieldLabel}>인건비</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="laborCostLabel" defaultVal="인건비" value={formData.laborCostLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="laborCost" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.laborCost) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>재료비</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="materialCostLabel" defaultVal="재료비" value={formData.materialCostLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input
                                                 name="materialCostPercent" // Keep name for handler logic
@@ -3179,42 +3204,42 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                                 <span style={{ fontSize: 12, marginLeft: 4, color: '#868e96' }}>({formatCurrency(formData.materialCost)})</span>
                                             )}
                                         </div>
-                                        <div className={styles.fieldLabel}>임대관리비</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="rentMaintenanceLabel" defaultVal="임대관리비" value={formData.rentMaintenanceLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="rentMaintenance" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.rentMaintenance) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>제세공과금</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="taxUtilitiesLabel" defaultVal="제세공과금" value={formData.taxUtilitiesLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="taxUtilities" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.taxUtilities) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
-                                        <div className={styles.fieldLabel}>유지보수</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="maintenanceDepreciationLabel" defaultVal="유지보수" value={formData.maintenanceDepreciationLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="maintenanceDepreciation" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.maintenanceDepreciation) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>기타경비</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="promoMiscLabel" defaultVal="기타경비" value={formData.promoMiscLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="promoMisc" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.promoMisc) ?? ''} onChange={handleFinancialChange} placeholder="0" />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
-                                        <div className={styles.fieldLabel} style={{ fontWeight: 'bold' }}>월 총경비</div>
+                                        <div className={styles.fieldLabel} style={{ fontWeight: 'bold', padding: 0 }}><EditableLabel name="totalExpenseLabel" defaultVal="월 총경비" value={formData.totalExpenseLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input name="totalExpense" type="text" className={`${styles.input} ${styles.priceInput}`} value={formatInput(formData.totalExpense) ?? ''} onChange={handleTotalExpenseChange} placeholder="0" style={{ fontWeight: 'bold' }} />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만</span>
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel} style={{ fontWeight: 'bold' }}>월순수익</div>
+                                        <div className={styles.fieldLabel} style={{ fontWeight: 'bold', padding: 0 }}><EditableLabel name="monthlyProfitLabel" defaultVal="월순수익" value={formData.monthlyProfitLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <span style={{ fontWeight: 'bold', color: '#f08c00' }}>{formatCurrency(formData.monthlyProfit)} 만</span>
                                         </div>
-                                        <div className={styles.fieldLabel}>수익률</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="yieldPercentLabel" defaultVal="수익률" value={formData.yieldPercentLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <span style={{ fontWeight: 'bold', color: '#fa5252' }}>
                                                 {formData.yieldPercent ? Number(formData.yieldPercent).toFixed(2) : '0.00'}%
@@ -3290,7 +3315,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     ))}
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>메모</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="memoLabel" defaultVal="메모" value={formData.memoLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <textarea name="operationMemo" className={styles.textarea} value={formData.operationMemo ?? ''} onChange={handleChange} placeholder="영업 관련 메모를 입력하세요" />
                                         </div>
@@ -3383,7 +3408,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     ))}
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>메모</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="memoLabel" defaultVal="메모" value={formData.memoLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <textarea name="leaseMemo" className={styles.textarea} value={formData.leaseMemo ?? ''} onChange={handleChange} placeholder="임대차 관련 메모를 입력하세요" />
                                         </div>
@@ -4535,7 +4560,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>보증금</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="depositLabel" defaultVal="보증금" value={formData.depositLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue}>
                                             <input className={styles.input} style={{ textAlign: 'right' }} value={formatInput(contractForm.deposit)} onChange={(e) => setContractForm(prev => ({ ...prev, deposit: Number(e.target.value.replace(/,/g, '')) }))} />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만원</span>
@@ -4547,7 +4572,7 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     <div className={styles.fieldRow}>
-                                        <div className={styles.fieldLabel}>권리금</div>
+                                        <div className={styles.fieldLabel} style={{ padding: 0 }}><EditableLabel name="premiumLabel" defaultVal="권리금" value={formData.premiumLabel} onChange={handleChange} /></div>
                                         <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                             <input className={styles.input} style={{ width: '150px', textAlign: 'right' }} value={formatInput(contractForm.premium)} onChange={(e) => setContractForm(prev => ({ ...prev, premium: Number(e.target.value.replace(/,/g, '')) }))} />
                                             <span style={{ fontSize: 12, marginLeft: 4 }}>만원</span>
