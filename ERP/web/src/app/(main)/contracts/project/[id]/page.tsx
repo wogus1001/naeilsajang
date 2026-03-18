@@ -334,6 +334,7 @@ function ProjectEditor() {
 
     // 카테고리 내 템플릿 순서를 위/아래로 이동하고 DB에 저장하는 함수
     const handleMoveTemplate = async (templateId: string, direction: 'up' | 'down') => {
+        // 1. 현재 카테고리의 템플릿만 추출
         const filtered = allTemplates.filter(t => t.category === modalCategory);
         const idx = filtered.findIndex(t => t.id === templateId);
         if (idx < 0) return;
@@ -341,31 +342,30 @@ function ProjectEditor() {
         const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
         if (swapIdx < 0 || swapIdx >= filtered.length) return;
 
-        // 새 순서 배열 구성
+        // 2. 배열 요소를 직접 교체 (핵심 수정: 순서 값만 바꾸는 게 아니라 위치 자체를 바꿈)
         const newFiltered = [...filtered];
         [newFiltered[idx], newFiltered[swapIdx]] = [newFiltered[swapIdx], newFiltered[idx]];
 
-        // sort_order를 인덱스 기반으로 갱신
-        const updatedMap = new Map<string, number>();
-        newFiltered.forEach((t, i) => updatedMap.set(t.id, i + 1));
+        // 3. 다른 카테고리 템플릿은 유지하고, 현재 카테고리만 새 순서로 교체
+        const others = allTemplates.filter(t => t.category !== modalCategory);
+        setAllTemplates([...others, ...newFiltered]);
 
-        // allTemplates 상태 즉시 반영
-        setAllTemplates(prev =>
-            prev.map(t => updatedMap.has(t.id) ? { ...t, sort_order: updatedMap.get(t.id) } : t)
-        );
-
-        // DB에 순서 저장 (각 항목별 PUT 요청)
-        const storedUser = localStorage.getItem('user');
-        const uid = storedUser ? JSON.parse(storedUser).id : null;
-        await Promise.all(
-            Array.from(updatedMap.entries()).map(([id, sort_order]) =>
-                fetch(`/api/templates/${id}?userId=${uid}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sort_order })
-                })
-            )
-        );
+        // 4. DB에 sort_order 저장 (재접속 후에도 순서 유지)
+        try {
+            const storedUser = localStorage.getItem('user');
+            const uid = storedUser ? JSON.parse(storedUser).id : null;
+            await Promise.all(
+                newFiltered.map((t, i) =>
+                    fetch(`/api/templates/${t.id}?userId=${uid}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sort_order: i + 1 })
+                    })
+                )
+            );
+        } catch (err) {
+            console.error('순서 DB 저장 실패:', err);
+        }
     };
 
     const handleAddDocument = (template: ContractTemplate) => {
