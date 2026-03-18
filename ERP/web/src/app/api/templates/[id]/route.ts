@@ -70,6 +70,7 @@ export async function PUT(
     if (body.formSchema) updateData.form_schema = body.formSchema;
     if (body.htmlTemplate) updateData.html_content = body.htmlTemplate;
     if (body.is_system !== undefined) updateData.is_system = body.is_system;
+    if (body.sort_order !== undefined) updateData.sort_order = body.sort_order; // 순서 업데이트 지원
 
     const { error } = await supabase
         .from('contract_templates')
