@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
     Download, Printer, Save, FileText, CheckCircle,
@@ -64,6 +64,8 @@ function ProjectEditor() {
     const [currentPage, setCurrentPage] = useState(0);
     const [mobileTab, setMobileTab] = useState<'docs' | 'form' | 'preview'>('docs');
     const [isReordering, setIsReordering] = useState(false); // 순서 변경 모드 상태
+    const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle'); // 자동저장 상태 표시
+    const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // 자동저장 타이머 ref
 
     // Alert & Confirm State
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
@@ -223,18 +225,54 @@ function ProjectEditor() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                console.log('Auto-saved project');
+                setAutoSaveStatus('saved'); // 저장 완료 표시
+                // 2초 후 표시 숨기기
+                setTimeout(() => setAutoSaveStatus('idle'), 2000);
             } catch (err) {
                 console.error('Auto-save failed', err);
+                setAutoSaveStatus('idle');
             }
-        }, 2000); // 2 second debounce
+        }, 2000); // 2초 디바운스
 
+        setAutoSaveStatus('saving'); // 저장 중 표시
         return () => clearTimeout(timer);
     }, [project, isLoaded]);
 
     // DERIVED STATE
     const activeDoc = useMemo(() => project.documents.find(d => d.id === activeDocId), [project, activeDocId]);
     const activeTemplate = useMemo(() => activeDoc ? allTemplates.find(t => t.id === activeDoc.templateId) : null, [activeDoc, allTemplates]);
+
+    // 숫자를 한글 금액으로 변환하는 함수
+    // 예: 321000000 → '금 삼억이천일백만원'
+    const numberToKorean = useCallback((num: number): string => {
+        if (!num || isNaN(num) || num === 0) return '';
+        const units = ['', '만', '억', '조', '경'];
+        const digits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
+        const tens = ['', '십', '백', '천'];
+
+        let result = '';
+        let remaining = Math.abs(Math.floor(num));
+        let unitIdx = 0;
+
+        while (remaining > 0) {
+            const chunk = remaining % 10000;
+            if (chunk > 0) {
+                let chunkStr = '';
+                const d = [Math.floor(chunk / 1000), Math.floor((chunk % 1000) / 100), Math.floor((chunk % 100) / 10), chunk % 10];
+                d.forEach((v, i) => {
+                    if (v > 0) {
+                        // '일십', '일백', '일천'은 '십', '백', '천'으로 (일억, 일만은 포함)
+                        chunkStr += (v === 1 && i > 0 ? '' : digits[v]) + tens[3 - i];
+                    }
+                });
+                result = chunkStr + units[unitIdx] + result;
+            }
+            remaining = Math.floor(remaining / 10000);
+            unitIdx++;
+        }
+
+        return `금 ${result}원`;
+    }, []);
 
     const effectiveData = useMemo(() => {
         if (!activeDoc) return {};
@@ -243,10 +281,28 @@ function ProjectEditor() {
         Object.keys(merged).forEach(key => {
             if (typeof merged[key] === 'number') {
                 formatted[`${key}_fmt`] = new Intl.NumberFormat('ko-KR').format(merged[key] as number);
+                formatted[`${key}_한글`] = numberToKorean(merged[key] as number);
             }
         });
+
+        // currency/number 타입 문자열 필드도 한글 변환 지원
+        activeTemplate?.formSchema?.forEach(field => {
+            if (field.type === 'currency' || field.type === 'number') {
+                const rawVal = merged[field.key];
+                if (rawVal !== undefined && rawVal !== '') {
+                    const num = Number(String(rawVal).replace(/,/g, ''));
+                    if (!isNaN(num) && num > 0) {
+                        // {{필드명_한글}} 패턴 지원
+                        formatted[`${field.key}_한글`] = numberToKorean(num);
+                        // label 기반도 지원
+                        formatted[`${field.label}_한글`] = numberToKorean(num);
+                    }
+                }
+            }
+        });
+
         return formatted;
-    }, [project.commonData, activeDoc]);
+    }, [project.commonData, activeDoc, activeTemplate, numberToKorean]);
 
     // PAGINATION LOGIC (Split HTML & Filter Schema)
     const { pagesRaw, currentSchema } = useMemo(() => {
@@ -277,10 +333,26 @@ function ProjectEditor() {
             cleanVars.add(m[1].trim());
         }
 
-        const filtered = activeTemplate.formSchema.filter(f => cleanVars.has(f.key) || cleanVars.has(f.label)); // label fallback just in case
+        // _한글 파생 키는 스키마에서 제외 (입력 불필요 - 자동 생성)
+        const filtered = activeTemplate.formSchema.filter(f =>
+            (cleanVars.has(f.key) || cleanVars.has(f.label)) &&
+            !f.key.endsWith('_한글') && !f.label.endsWith('_한글')
+        );
 
         return { pagesRaw: rawPages, currentSchema: filtered };
     }, [activeTemplate, currentPage]);
+
+    // 현재 페이지 완성도 계산 (currentSchema 선언 후에 위치)
+    const completionRate = useMemo(() => {
+        if (!activeTemplate?.formSchema || currentSchema.length === 0) return null;
+        const inputFields = currentSchema.filter(f => f.type !== 'section');
+        if (inputFields.length === 0) return null;
+        const filled = inputFields.filter(f => {
+            const val = effectiveData[f.key] ?? effectiveData[f.label] ?? '';
+            return String(val).trim() !== '';
+        });
+        return { filled: filled.length, total: inputFields.length };
+    }, [currentSchema, effectiveData, activeTemplate]);
 
 
     // Handlers
@@ -726,6 +798,10 @@ function ProjectEditor() {
     return (
         <div className={`layout-container ${styles.container}`}>
             <style jsx global>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to   { transform: rotate(360deg); }
+                }
                 @media print {
                     /* Hide UI elements */
                     .layout-sidebar,
@@ -1181,6 +1257,35 @@ function ProjectEditor() {
                 <div className={`layout-workspace ${styles.workspace}`}>
                     {/* LEFT: Dynamic Form Engine (Task 3) */}
                     <div className={`layout-form-panel ${styles.formPanel} ${mobileTab !== 'form' ? styles.hiddenOnMobile : ''}`}>
+                        {/* 필드 완성도 진행바 */}
+                        {completionRate && (
+                            <div style={{
+                                padding: '10px 16px 0',
+                                marginBottom: '4px'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                    <span style={{ fontSize: '12px', color: '#868e96', fontWeight: 500 }}>
+                                        작성 완성도
+                                    </span>
+                                    <span style={{
+                                        fontSize: '12px', fontWeight: 700,
+                                        color: completionRate.filled === completionRate.total ? '#2f9e44' : '#1c7ed6'
+                                    }}>
+                                        {completionRate.filled} / {completionRate.total}
+                                        {completionRate.filled === completionRate.total && ' ✓'}
+                                    </span>
+                                </div>
+                                <div style={{ height: '6px', backgroundColor: '#e9ecef', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div style={{
+                                        height: '100%',
+                                        width: `${Math.round((completionRate.filled / completionRate.total) * 100)}%`,
+                                        backgroundColor: completionRate.filled === completionRate.total ? '#2f9e44' : '#228be6',
+                                        borderRadius: '3px',
+                                        transition: 'width 0.3s ease'
+                                    }} />
+                                </div>
+                            </div>
+                        )}
                         {renderPagination()}
                         {activeTemplate ? (
                             (currentSchema || []).map(renderFormInput)
@@ -1222,7 +1327,34 @@ function ProjectEditor() {
                 onConfirm={confirmModal.onConfirm}
                 isDanger={confirmModal.isDanger}
             />
-        </div >
+
+            {/* 자동저장 토스트 (우하단 고정) */}
+            {autoSaveStatus !== 'idle' && (
+                <div style={{
+                    position: 'fixed', bottom: '24px', right: '24px',
+                    backgroundColor: autoSaveStatus === 'saved' ? '#2f9e44' : '#228be6',
+                    color: 'white', padding: '8px 16px', borderRadius: '8px',
+                    fontSize: '13px', fontWeight: 500, zIndex: 9999,
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                }}>
+                    {autoSaveStatus === 'saving' ? (
+                        <>
+                            <div style={{
+                                width: '12px', height: '12px',
+                                border: '2px solid rgba(255,255,255,0.4)',
+                                borderTopColor: 'white', borderRadius: '50%',
+                                display: 'inline-block',
+                                animation: 'spin 0.7s linear infinite'
+                            }} />
+                            저장 중...
+                        </>
+                    ) : (
+                        <>✓ 자동저장 완료</>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }
 

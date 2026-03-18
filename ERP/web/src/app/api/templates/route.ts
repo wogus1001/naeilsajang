@@ -39,9 +39,7 @@ export async function GET(request: NextRequest) {
         .from('contract_templates')
         .select('*')
         .or(`is_system.eq.true,company_id.eq.${profile?.company_id},created_by.eq.${user.id}`)
-        .order('sort_order', { ascending: true, nullsFirst: false }) // 사용자 지정 순서 우선
-        .order('is_system', { ascending: false })
-        .order('name', { ascending: true });
+        .order('name', { ascending: true }); // 기본 이름 정렬 (sort_order는 JS에서 처리)
 
     const { data: templates, error } = await query;
 
@@ -53,8 +51,12 @@ export async function GET(request: NextRequest) {
     const mappedTemplates = templates.map(t => ({
         ...t,
         formSchema: t.form_schema,
-        htmlTemplate: t.html_content, // Corrected from html_template
+        htmlTemplate: t.html_content,
+        sort_order: t.sort_order ?? 9999, // null이면 맨 뒤로
     }));
+
+    // sort_order 기준 JS 정렬 (null-safe, 컬럼 없어도 안전)
+    mappedTemplates.sort((a, b) => (a.sort_order ?? 9999) - (b.sort_order ?? 9999));
 
     return NextResponse.json(mappedTemplates);
 }
