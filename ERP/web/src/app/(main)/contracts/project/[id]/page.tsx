@@ -1010,14 +1010,15 @@ function ProjectEditor() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {allTemplates.filter(t => t.category === modalCategory).length > 0 ? (
                                     allTemplates.filter(t => t.category === modalCategory).map(t => (
-                                        <button
+                                        <div
                                             key={t.id}
-                                            onClick={() => handleAddDocument(t)}
+                                            onClick={() => { if (!isReordering) handleAddDocument(t); }}
                                             style={{
                                                 padding: '12px', border: '1px solid #dee2e6', borderRadius: '6px',
-                                                textAlign: 'left', backgroundColor: 'white', cursor: 'pointer',
+                                                textAlign: 'left', backgroundColor: isReordering ? '#f8f9fa' : 'white',
+                                                cursor: isReordering ? 'default' : 'pointer',
                                                 display: 'flex', alignItems: 'center', gap: '10px',
-                                                position: 'relative' // for delete btn positioning
+                                                position: 'relative'
                                             }}
                                         >
                                             <FileText size={18} color={isReordering ? '#868e96' : '#228be6'} />
@@ -1075,7 +1076,7 @@ function ProjectEditor() {
                                                 </div>
                                             )}</>
                                             )}
-                                        </button>
+                                        </div>
                                     ))
                                 ) : (
                                     <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '13px' }}>
