@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
         .from('contract_templates')
         .select('*')
         .or(`is_system.eq.true,company_id.eq.${profile?.company_id},created_by.eq.${user.id}`)
-        .order('is_system', { ascending: false }) // System first
+        .order('sort_order', { ascending: true, nullsFirst: false }) // 사용자 지정 순서 우선
+        .order('is_system', { ascending: false })
         .order('name', { ascending: true });
 
     const { data: templates, error } = await query;
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
         form_schema: body.formSchema || [],
         html_content: body.htmlTemplate || '',
         is_system: body.is_system || false,
+        sort_order: body.sort_order, // 순서 업데이트
         company_id: profile?.company_id, // Company Association
         created_by: userId
     };

@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
     Download, Printer, Save, FileText, CheckCircle,
     ChevronRight, ChevronDown, Plus, Layout, Trash2, RotateCcw,
-    Settings, PenTool, ChevronLeft, ArrowLeft
+    Settings, PenTool, ChevronLeft, ArrowLeft, ChevronUp, ArrowUp, ArrowDown, GripVertical
 } from 'lucide-react';
 import { ContractProject, ContractDocument, ContractTemplate, FormField } from '@/types/contract-core';
 import { getTemplateById, getAllTemplates } from '@/lib/templates/registry';
@@ -63,6 +63,7 @@ function ProjectEditor() {
     const [modalCategory, setModalCategory] = useState<string>('사업체 양도양수');
     const [currentPage, setCurrentPage] = useState(0);
     const [mobileTab, setMobileTab] = useState<'docs' | 'form' | 'preview'>('docs');
+    const [isReordering, setIsReordering] = useState(false); // 순서 변경 모드 상태
 
     // Alert & Confirm State
     const [alertConfig, setAlertConfig] = useState({ isOpen: false, message: '', title: '' });
@@ -329,6 +330,42 @@ function ProjectEditor() {
             // 3. 상태 업데이트
             setAllTemplates(prev => prev.filter(t => t.id !== templateId));
         }, true);
+    };
+
+    // 카테고리 내 템플릿 순서를 위/아래로 이동하고 DB에 저장하는 함수
+    const handleMoveTemplate = async (templateId: string, direction: 'up' | 'down') => {
+        const filtered = allTemplates.filter(t => t.category === modalCategory);
+        const idx = filtered.findIndex(t => t.id === templateId);
+        if (idx < 0) return;
+
+        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= filtered.length) return;
+
+        // 새 순서 배열 구성
+        const newFiltered = [...filtered];
+        [newFiltered[idx], newFiltered[swapIdx]] = [newFiltered[swapIdx], newFiltered[idx]];
+
+        // sort_order를 인덱스 기반으로 갱신
+        const updatedMap = new Map<string, number>();
+        newFiltered.forEach((t, i) => updatedMap.set(t.id, i + 1));
+
+        // allTemplates 상태 즉시 반영
+        setAllTemplates(prev =>
+            prev.map(t => updatedMap.has(t.id) ? { ...t, sort_order: updatedMap.get(t.id) } : t)
+        );
+
+        // DB에 순서 저장 (각 항목별 PUT 요청)
+        const storedUser = localStorage.getItem('user');
+        const uid = storedUser ? JSON.parse(storedUser).id : null;
+        await Promise.all(
+            Array.from(updatedMap.entries()).map(([id, sort_order]) =>
+                fetch(`/api/templates/${id}?userId=${uid}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sort_order })
+                })
+            )
+        );
     };
 
     const handleAddDocument = (template: ContractTemplate) => {
@@ -925,7 +962,25 @@ function ProjectEditor() {
                     }}>
                         <div style={{ padding: '20px', borderBottom: '1px solid #dee2e6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ margin: 0, fontSize: '18px' }}>새 문서 추가</h3>
-                            <button onClick={() => setShowAddDocModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><ChevronDown size={20} /></button>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                {/* 순서 변경 모드 토글 버튼 */}
+                                <button
+                                    onClick={() => setIsReordering(prev => !prev)}
+                                    style={{
+                                        padding: '4px 10px', borderRadius: '6px', fontSize: '12px',
+                                        border: '1px solid', cursor: 'pointer',
+                                        backgroundColor: isReordering ? '#e7f5ff' : 'white',
+                                        borderColor: isReordering ? '#228be6' : '#dee2e6',
+                                        color: isReordering ? '#1c7ed6' : '#868e96',
+                                        display: 'flex', alignItems: 'center', gap: '4px'
+                                    }}
+                                    title="순서 변경 모드"
+                                >
+                                    <GripVertical size={14} />
+                                    {isReordering ? '완료' : '순서변경'}
+                                </button>
+                                <button onClick={() => setShowAddDocModal(false)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><ChevronDown size={20} /></button>
+                            </div>
                         </div>
                         <div style={{ padding: '20px', maxHeight: '400px', overflowY: 'auto' }}>
                             {/* Category Filter in Modal */}
@@ -965,13 +1020,29 @@ function ProjectEditor() {
                                                 position: 'relative' // for delete btn positioning
                                             }}
                                         >
-                                            <FileText size={18} color="#228be6" />
+                                            <FileText size={18} color={isReordering ? '#868e96' : '#228be6'} />
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '2px' }}>{t.name}</div>
                                                 <div style={{ fontSize: '12px', color: '#868e96' }}>{t.description}</div>
                                             </div>
-                                            {/* Show edit/delete controls for custom templates (not system) */}
-                                            {!t.is_system ? (
+                                            {/* 순서 변경 모드 vs 일반 모드 */}
+                                            {isReordering ? (
+                                                // 순서 변경 모드: 위/아래 버튼 표시
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleMoveTemplate(t.id, 'up'); }}
+                                                        style={{ border: '1px solid #dee2e6', borderRadius: '4px', background: 'white', cursor: 'pointer', padding: '2px 6px', color: '#495057' }}
+                                                        title="위로"
+                                                    ><ArrowUp size={14} /></button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleMoveTemplate(t.id, 'down'); }}
+                                                        style={{ border: '1px solid #dee2e6', borderRadius: '4px', background: 'white', cursor: 'pointer', padding: '2px 6px', color: '#495057' }}
+                                                        title="아래로"
+                                                    ><ArrowDown size={14} /></button>
+                                                </div>
+                                            ) : (
+                                                // 일반 모드: 편집/삭제 버튼
+                                                <>{!t.is_system ? (
                                                 <div style={{ display: 'flex', gap: '2px' }}>
                                                     <div
                                                         onClick={(e) => {
@@ -1002,6 +1073,7 @@ function ProjectEditor() {
                                                 >
                                                     <PenTool size={16} />
                                                 </div>
+                                            )}</>
                                             )}
                                         </button>
                                     ))
