@@ -8,7 +8,7 @@ import {
     Settings, PenTool, ChevronLeft, ArrowLeft
 } from 'lucide-react';
 import { ContractProject, ContractDocument, ContractTemplate, FormField } from '@/types/contract-core';
-import { CONTRACT_TEMPLATES, getTemplateById, getAllTemplates } from '@/lib/templates/registry';
+import { getTemplateById, getAllTemplates } from '@/lib/templates/registry';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import EditProjectModal from '../../_components/EditProjectModal';
@@ -87,7 +87,7 @@ function ProjectEditor() {
     }, [activeDocId]);
 
     // LOAD TEMPLATES DYNAMICALLY
-    const [allTemplates, setAllTemplates] = useState<ContractTemplate[]>(CONTRACT_TEMPLATES);
+    const [allTemplates, setAllTemplates] = useState<ContractTemplate[]>([]);
     const [categories, setCategories] = useState<string[]>(['사업체 양도양수', '부동산 계약']);
     const [isLoaded, setIsLoaded] = useState(false);
 
@@ -301,14 +301,24 @@ function ProjectEditor() {
     const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
         e.stopPropagation();
 
-        // Guard: Prevent deleting system templates
-        if (CONTRACT_TEMPLATES.find(t => t.id === templateId)) {
+        // is_system=true인 경우 삭제 방지 (DB 기준)
+        const targetTemplate = allTemplates.find(t => t.id === templateId);
+        if (targetTemplate?.is_system) {
             showAlert('기본 제공 템플릿은 삭제할 수 없습니다.');
             return;
         }
 
-        showConfirm('정말 삭제하시겠습니까?\n삭제된 템플릿은 복구할 수 없으며, 저장된 양식 목록에서도 완전히 사라집니다.', () => {
-            // 1. Remove from LocalStorage
+        showConfirm('정말 삭제하시겠습니까?\n삭제된 템플릿은 복구할 수 없으며, 저장된 양식 목록에서도 완전히 사라집니다.', async () => {
+            try {
+                // 1. DB에서 삭제
+                const storedUser = localStorage.getItem('user');
+                const uid = storedUser ? JSON.parse(storedUser).id : null;
+                await fetch(`/api/templates/${templateId}?userId=${uid}`, { method: 'DELETE' });
+            } catch (err) {
+                console.error('템플릿 DB 삭제 실패:', err);
+            }
+
+            // 2. 로컬스토리지에서도 제거
             const stored = localStorage.getItem('custom_templates');
             if (stored) {
                 const parsed = JSON.parse(stored) as ContractTemplate[];
@@ -316,7 +326,7 @@ function ProjectEditor() {
                 localStorage.setItem('custom_templates', JSON.stringify(filtered));
             }
 
-            // 2. Update State
+            // 3. 상태 업데이트
             setAllTemplates(prev => prev.filter(t => t.id !== templateId));
         }, true);
     };
