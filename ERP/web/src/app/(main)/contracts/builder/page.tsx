@@ -1340,6 +1340,7 @@ const BuilderContent = () => {
                             onChange={(e) => setCategory(e.target.value)}
                         >
                             <option value="기타">카테고리 선택</option>
+                            <option value="사업체 양도양수">사업체 양도양수</option>
                             <option value="부동산">부동산</option>
                             <option value="고용/인사">고용/인사</option>
                             <option value="비즈니스">비즈니스</option>
