@@ -596,7 +596,12 @@ function ProjectEditor() {
     );
 
     const renderFormInput = (field: FormField) => {
-        const val = effectiveData[field.key] || '';
+        // currency 필드의 표시값: 저장된 raw 값을 쉼표 포맷으로 표시
+        const rawVal = effectiveData[field.key] ?? '';
+        const displayVal = (field.type === 'currency' || field.type === 'number') && rawVal !== ''
+            ? Number(String(rawVal).replace(/,/g, '')).toLocaleString('ko-KR')
+            : rawVal;
+        const val = (field.type === 'currency' || field.type === 'number') ? displayVal : rawVal;
 
         if (field.type === 'section') {
             return <div key={field.key} className={styles.sectionHeader}>{field.label}</div>;
@@ -609,7 +614,7 @@ function ProjectEditor() {
                     <textarea
                         className={styles.input}
                         style={{ minHeight: '80px', resize: 'vertical' }}
-                        value={val}
+                        value={rawVal}
                         onChange={(e) => handleFieldChange(field.key, e.target.value)}
                         placeholder={field.placeholder}
                     />
@@ -619,11 +624,16 @@ function ProjectEditor() {
                         className={styles.input}
                         value={val}
                         onChange={(e) => {
-                            // If it's a 'money' field, we might want to strip non-digits for number storage
-                            // For simplicity here, storing as string or direct value
-                            handleFieldChange(field.key, e.target.value);
+                            if (field.type === 'currency' || field.type === 'number') {
+                                // 쉼표 제거 후 raw 숫자만 저장
+                                const raw = e.target.value.replace(/,/g, '');
+                                handleFieldChange(field.key, raw);
+                            } else {
+                                handleFieldChange(field.key, e.target.value);
+                            }
                         }}
                         placeholder={field.placeholder}
+                        inputMode={(field.type === 'currency' || field.type === 'number') ? 'numeric' : undefined}
                     />
                 )}
                 {field.helpText && <div style={{ fontSize: '11px', color: '#868e96', marginTop: '4px' }}>{field.helpText}</div>}
@@ -637,9 +647,35 @@ function ProjectEditor() {
 
         let html = activeTemplate.htmlTemplate;
 
-        // Simple Template Engine (Regex Replace)
+        // 정규식 특수문자 이스케이프 헬퍼
+        const escRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // 1. formSchema 기반 치환 (label 기준 + key 기준 모두 시도)
+        //    Builder에서 HTML에는 {{label}}(공백 포함)으로 저장되지만
+        //    formData 키는 label을 '_'로 변환한 key이므로 둘 다 매칭해야 함
+        activeTemplate.formSchema?.forEach(field => {
+            const rawVal = effectiveData[field.key] ?? '';
+
+            // currency/number 타입은 쉼표 포맷 적용
+            let displayVal: string;
+            if ((field.type === 'currency' || field.type === 'number') && rawVal !== '') {
+                const num = Number(String(rawVal).replace(/,/g, ''));
+                displayVal = isNaN(num) ? String(rawVal) : num.toLocaleString('ko-KR');
+            } else {
+                displayVal = String(rawVal);
+            }
+
+            // {{label}} 패턴 치환 (공백 포함 원문 레이블)
+            html = html.replace(new RegExp(`{{${escRe(field.label)}}}`, 'g'), displayVal);
+            // {{key}} 패턴도 치환 (언더스코어 키)
+            if (field.key !== field.label) {
+                html = html.replace(new RegExp(`{{${escRe(field.key)}}}`, 'g'), displayVal);
+            }
+        });
+
+        // 2. effectiveData 직접 키 치환 (폴백)
         Object.keys(effectiveData).forEach(key => {
-            const regex = new RegExp(`{{${key}}}`, 'g');
+            const regex = new RegExp(`{{${escRe(key)}}}`, 'g');
             let val = effectiveData[key];
             if (val === undefined || val === null) val = '';
             html = html.replace(regex, String(val));
