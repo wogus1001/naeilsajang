@@ -930,7 +930,7 @@ function BusinessCardListContent() {
 
             {/* Modals */}
             {isCardOpen && viewMode === 'center' && (
-                <div className={styles.modalOverlay} onClick={handleCloseCard}>
+                <div className={styles.modalOverlay}>
                     <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
                         <BusinessCard
                             id={selectedCardId}
@@ -963,7 +963,7 @@ function BusinessCardListContent() {
             )}
 
             {isCardOpen && viewMode === 'side' && (
-                <div className={styles.drawerOverlay} onClick={handleCloseCard}>
+                <div className={styles.drawerOverlay}>
                     <div
                         className={styles.drawerContent}
                         style={{ width: drawerWidth }}

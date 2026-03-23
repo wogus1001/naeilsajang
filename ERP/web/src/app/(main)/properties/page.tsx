@@ -2311,7 +2311,7 @@ function PropertiesPageContent() {
             {/* Detail View Overlay */}
             {
                 selectedPropertyId && selectedProperty && (
-                    <div className={viewMode === 'center' ? styles.modalOverlay : styles.drawerOverlay} onClick={() => setSelectedPropertyId(null)}>
+                    <div className={viewMode === 'center' ? styles.modalOverlay : styles.drawerOverlay}>
                         <div
                             className={viewMode === 'center' ? styles.modalContent : styles.drawerContent}
                             style={viewMode === 'center' ? {} : { width: drawerWidth }}

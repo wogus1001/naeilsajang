@@ -1090,7 +1090,7 @@ function CustomerListPageContent() {
             {/* Center Modal Overlay */}
             {
                 isCardOpen && viewMode === 'center' && (
-                    <div className={styles.modalOverlay} onClick={handleCloseCard}>
+                    <div className={styles.modalOverlay}>
                         <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
                             <CustomerCard
                                 id={selectedCustomerId}
@@ -1126,7 +1126,7 @@ function CustomerListPageContent() {
             {/* Side Drawer Overlay */}
             {
                 isCardOpen && viewMode === 'side' && (
-                    <div className={styles.drawerOverlay} onClick={handleCloseCard}>
+                    <div className={styles.drawerOverlay}>
                         <div
                             className={styles.drawerContent}
                             style={{ width: drawerWidth }}
