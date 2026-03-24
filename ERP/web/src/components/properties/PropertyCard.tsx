@@ -1940,8 +1940,8 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
             // Ensure materialCost is set in newData if not set above (for cases where neither changed)
             if (!newData.materialCost) newData.materialCost = materialCost;
 
-            // Recalculate Rent Maintenance IF using percentage
-            if (prev.rentUnit === 'percent') {
+            // Only revenue changes should recompute the percentage-based rent bucket.
+            if (prev.rentUnit === 'percent' && name === 'monthlyRevenue') {
                 const rentPercent = Number(prev.monthlyRent) || 0;
                 const calculatedRent = Math.round(numValue * (rentPercent / 100)); // numValue is new monthlyRevenue
 
