@@ -695,6 +695,11 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
         return num.toLocaleString();
     };
 
+    const formatValueWithUnit = (value: number | string, unit: '%' | '만원') => {
+        const formattedValue = formatCurrency(value);
+        return unit === '%' ? `${formattedValue}%` : `${formattedValue} 만원`;
+    };
+
     const formatDate = (dateString: string) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -706,6 +711,68 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
         const value = data?.[key];
         return typeof value === 'string' && value.trim() ? value.trim() : REPORT_LABEL_DEFAULTS[key];
     };
+
+    const getRawFieldValue = (...keys: string[]) => {
+        const sources: Array<Record<string, unknown>> = [];
+
+        if (data && typeof data === 'object') {
+            sources.push(data as Record<string, unknown>);
+            const nestedData = (data as Record<string, unknown>).data;
+            if (nestedData && typeof nestedData === 'object') {
+                sources.push(nestedData as Record<string, unknown>);
+            }
+        }
+
+        for (const source of sources) {
+            for (const key of keys) {
+                const value = source[key];
+                if (value === null || value === undefined) continue;
+                if (typeof value === 'string' && value.trim() === '') continue;
+                return value;
+            }
+        }
+
+        return undefined;
+    };
+
+    const getNumericFieldValue = (...keys: string[]) => {
+        const rawValue = getRawFieldValue(...keys);
+        if (rawValue === undefined) return 0;
+
+        if (typeof rawValue === 'number') {
+            return Number.isNaN(rawValue) ? 0 : rawValue;
+        }
+
+        if (typeof rawValue === 'string') {
+            const normalized = Number(rawValue.replace(/,/g, '').trim());
+            return Number.isNaN(normalized) ? 0 : normalized;
+        }
+
+        const normalized = Number(rawValue);
+        if (!Number.isNaN(normalized)) {
+            return normalized;
+        }
+
+        return 0;
+    };
+
+    const franchiseCosts = {
+        hqDeposit: getNumericFieldValue('hqDeposit', 'franchiseDeposit'),
+        franchiseFee: getNumericFieldValue('franchiseFee'),
+        educationFee: getNumericFieldValue('educationFee', 'franchiseEducation'),
+        renewal: getNumericFieldValue('renewal', 'renewalFee', 'franchiseRenewal'),
+        royalty: getNumericFieldValue('royalty', 'franchiseRoyalty'),
+    };
+
+    const franchiseTotal = franchiseCosts.hqDeposit
+        + franchiseCosts.franchiseFee
+        + franchiseCosts.educationFee
+        + franchiseCosts.renewal;
+    const franchiseRoyaltyUnit = getRawFieldValue('royaltyUnit') === 'percent' ? '%' : '만원';
+    const priceValues = {
+        monthlyRent: getNumericFieldValue('monthlyRent', 'rent'),
+    };
+    const monthlyRentUnit = getRawFieldValue('rentUnit') === 'percent' ? '%' : '만원';
 
     const reportLabels = {
         deposit: getReportLabel('depositLabel'),
@@ -1191,7 +1258,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <th style={thStyle}>{reportLabels.premium}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.premium)} 만원</td>
                             </tr>
                             <tr>
-                                <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.rent)} 만원 <span style={{ fontSize: '10px', color: '#666' }}>({reportLabels.vat} {data.vat || '별도'})</span></td>
+                                <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '10px', color: '#666' }}>({reportLabels.vat} {data.vat || '별도'})</span></td>
                                 <th style={thStyle}>{reportLabels.maintenance}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.maintenance)}</td>
                             </tr>
                             <tr>
@@ -1214,16 +1281,16 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         </colgroup>
                         <tbody>
                             <tr>
-                                <th style={{ ...thStyle, letterSpacing: '-1.5px', whiteSpace: 'nowrap' }}>{reportLabels.hqDeposit}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.franchiseDeposit)} 만원</td>
-                                <th style={thStyle}>{reportLabels.franchiseFee}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.franchiseFee)} 만원</td>
+                                <th style={{ ...thStyle, letterSpacing: '-1.5px', whiteSpace: 'nowrap' }}>{reportLabels.hqDeposit}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(franchiseCosts.hqDeposit)} 만원</td>
+                                <th style={thStyle}>{reportLabels.franchiseFee}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(franchiseCosts.franchiseFee)} 만원</td>
                             </tr>
                             <tr>
-                                <th style={thStyle}>{reportLabels.educationFee}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.franchiseEducation)} 만원</td>
-                                <th style={thStyle}>{reportLabels.renewal}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.franchiseRenewal)} 만원</td>
+                                <th style={thStyle}>{reportLabels.educationFee}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(franchiseCosts.educationFee)} 만원</td>
+                                <th style={thStyle}>{reportLabels.renewal}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(franchiseCosts.renewal)} 만원</td>
                             </tr>
                             <tr>
-                                <th style={thStyle}>{reportLabels.royalty}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.franchiseRoyalty)} 만원</td>
-                                <th style={{ ...thStyle, backgroundColor: '#fff5f5' }}>{reportLabels.totalAmount}</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f76707', backgroundColor: '#fff5f5', whiteSpace: 'nowrap' }}>{formatCurrency(data.franchiseTotal)} 만원</td>
+                                <th style={thStyle}>{reportLabels.royalty}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatValueWithUnit(franchiseCosts.royalty, franchiseRoyaltyUnit)}</td>
+                                <th style={{ ...thStyle, backgroundColor: '#fff5f5' }}>{reportLabels.totalAmount}</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f76707', backgroundColor: '#fff5f5', whiteSpace: 'nowrap' }}>{formatCurrency(franchiseTotal)} 만원</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1487,7 +1554,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             <th style={{ ...thStyle, backgroundColor: '#fff9db' }}>{reportLabels.totalAmount}</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f03e3e', backgroundColor: '#fff9db' }}>{formatCurrency((data.deposit || 0) + (data.premium || 0))} 만원</td>
                         </tr>
                         <tr>
-                            <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.monthlyRent)} 만원</td>
+                            <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)}</td>
                             <th style={thStyle}>{reportLabels.maintenance}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
                             <th style={thStyle}>{reportLabels.vat}</th><td style={tdStyle}>{data.vat || '-'}</td>
                         </tr>
@@ -1651,7 +1718,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             <th style={thStyle}>{reportLabels.premium}</th><td colSpan={3} style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
                         </tr>
                         <tr>
-                            <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.monthlyRent)} 만원 <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? `${reportLabels.vat} 포함` : `${reportLabels.vat} 별도`})</span></td>
+                            <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? `${reportLabels.vat} 포함` : `${reportLabels.vat} 별도`})</span></td>
                             <th style={thStyle}>{reportLabels.maintenance}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
                             <th style={{ ...thStyle, backgroundColor: '#fff9db' }}>{reportLabels.totalAmount}</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f03e3e', backgroundColor: '#fff9db' }}>{formatCurrency((data.deposit || 0) + (data.premium || 0))} 만원</td>
                         </tr>
@@ -1937,7 +2004,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             <tbody>
                                 <tr>
                                     <th style={thStyle}>{reportLabels.deposit}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.deposit)} 만원</td>
-                                    <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.monthlyRent)} 만원 <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? `${reportLabels.vat} 포함` : `${reportLabels.vat} 별도`})</span></td>
+                                    <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? `${reportLabels.vat} 포함` : `${reportLabels.vat} 별도`})</span></td>
                                 </tr>
                                 <tr>
                                     <th style={thStyle}>{reportLabels.premium}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
@@ -2140,7 +2207,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             </tr>
                             <tr>
                                 <th style={thStyle}>{reportLabels.deposit}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.deposit)} 만원</td>
-                                <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.monthlyRent)} 만원</td>
+                                <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)}</td>
                                 <th style={thStyle}>합계(보+권)</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency((data.deposit || 0) + (data.premium || 0))} 만원</td>
                             </tr>
                         </tbody>
@@ -2528,7 +2595,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             </tr>
                             <tr>
                                 <th style={thStyle}>{reportLabels.deposit}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.deposit)} 만원</td>
-                                <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.monthlyRent)} 만원</td>
+                                <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)}</td>
                                 <th style={thStyle}>합계(보+권)</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency((data.deposit || 0) + (data.premium || 0))} 만원</td>
                             </tr>
                         </tbody>
