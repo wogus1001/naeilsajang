@@ -22,6 +22,13 @@ import { createClient } from '@/utils/supabase/client';
 
 const PAGE_DELIMITER = '<!-- GENUINE_PAGE_BREAK -->';
 
+type TableCellMatrixEntry = {
+    cell: HTMLTableCellElement;
+    anchorRowIndex: number;
+    anchorColIndex: number;
+    isAnchor: boolean;
+};
+
 const inlineStyles = {
     container: {
         display: 'flex',
@@ -771,6 +778,138 @@ const BuilderContent = () => {
         return data;
     };
 
+    const buildTableMatrix = (table: HTMLTableElement): TableCellMatrixEntry[][] => {
+        const matrix: TableCellMatrixEntry[][] = [];
+
+        Array.from(table.rows).forEach((row, rowIndex) => {
+            if (!matrix[rowIndex]) {
+                matrix[rowIndex] = [];
+            }
+
+            let colIndex = 0;
+            Array.from(row.cells).forEach(cell => {
+                while (matrix[rowIndex][colIndex]) {
+                    colIndex += 1;
+                }
+
+                const rowSpan = cell.rowSpan || 1;
+                const colSpan = cell.colSpan || 1;
+
+                for (let rowOffset = 0; rowOffset < rowSpan; rowOffset += 1) {
+                    const targetRowIndex = rowIndex + rowOffset;
+                    if (!matrix[targetRowIndex]) {
+                        matrix[targetRowIndex] = [];
+                    }
+
+                    for (let colOffset = 0; colOffset < colSpan; colOffset += 1) {
+                        matrix[targetRowIndex][colIndex + colOffset] = {
+                            cell,
+                            anchorRowIndex: rowIndex,
+                            anchorColIndex: colIndex,
+                            isAnchor: rowOffset === 0 && colOffset === 0
+                        };
+                    }
+                }
+
+                colIndex += colSpan;
+            });
+        });
+
+        return matrix;
+    };
+
+    const getTableCellAnchor = (
+        matrix: TableCellMatrixEntry[][],
+        targetCell: HTMLTableCellElement
+    ): TableCellMatrixEntry | null => {
+        for (const row of matrix) {
+            for (const entry of row) {
+                if (entry && entry.cell === targetCell && entry.isAnchor) {
+                    return entry;
+                }
+            }
+        }
+        return null;
+    };
+
+    const getRowAnchorEntries = (
+        matrix: TableCellMatrixEntry[][],
+        rowIndex: number
+    ): TableCellMatrixEntry[] => {
+        const row = matrix[rowIndex] || [];
+        const seen = new Set<HTMLTableCellElement>();
+
+        return row.filter((entry): entry is TableCellMatrixEntry => {
+            if (!entry || !entry.isAnchor || entry.anchorRowIndex !== rowIndex || seen.has(entry.cell)) {
+                return false;
+            }
+            seen.add(entry.cell);
+            return true;
+        });
+    };
+
+    const getTableColumnCount = (table: HTMLTableElement) => {
+        return Math.max(
+            1,
+            ...Array.from(table.rows).map(row =>
+                Array.from(row.cells).reduce((total, cell) => total + (cell.colSpan || 1), 0)
+            )
+        );
+    };
+
+    const focusTableCell = (cell: HTMLTableCellElement) => {
+        const selection = window.getSelection();
+        if (!selection) return;
+
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    };
+
+    const getSelectedTableCells = (table: HTMLTableElement) => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return [];
+
+        const range = selection.getRangeAt(0);
+        const cells = Array.from(table.querySelectorAll<HTMLTableCellElement>('td, th'));
+        const selectedCells = cells.filter(cell => {
+            try {
+                return range.intersectsNode(cell);
+            } catch {
+                return false;
+            }
+        });
+
+        return selectedCells;
+    };
+
+    const isMeaningfulCellHtml = (html: string) => {
+        return html.replace(/&nbsp;|<br\s*\/?>|\s+/gi, '').length > 0;
+    };
+
+    const applyEqualTableWidths = (table: HTMLTableElement) => {
+        const totalColumns = getTableColumnCount(table);
+        table.style.width = '100%';
+        table.style.tableLayout = 'fixed';
+
+        Array.from(table.rows).forEach(row => {
+            Array.from(row.cells).forEach(cell => {
+                const widthRatio = (cell.colSpan || 1) / totalColumns;
+                cell.style.width = `${(widthRatio * 100).toFixed(2)}%`;
+            });
+        });
+    };
+
+    const resetTableToFullWidth = (table: HTMLTableElement) => {
+        table.style.width = '100%';
+        table.style.tableLayout = 'fixed';
+        Array.from(table.querySelectorAll<HTMLTableCellElement>('td, th')).forEach(cell => {
+            cell.style.removeProperty('width');
+        });
+    };
+
     const insertTable = () => {
         const html = `
             <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
@@ -804,6 +943,189 @@ const BuilderContent = () => {
             newCell.innerHTML = '&nbsp;';
             r.cells[cellIndex].after(newCell);
         });
+        commitEditorMutation();
+    };
+
+    const mergeTableCells = () => {
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
+
+        const rowCells = Array.from(data.row.cells) as HTMLTableCellElement[];
+        const selectedCells = getSelectedTableCells(data.table);
+        const selectedCellsInRow = rowCells.filter(cell => selectedCells.includes(cell));
+
+        let cellsToMerge = selectedCellsInRow;
+        if (cellsToMerge.length < 2) {
+            const currentIndex = rowCells.indexOf(data.cell as HTMLTableCellElement);
+            const nextCell = rowCells[currentIndex + 1];
+            cellsToMerge = nextCell ? [data.cell as HTMLTableCellElement, nextCell] : [];
+        }
+
+        if (cellsToMerge.length < 2) {
+            showAlert('같은 행에서 병합할 인접 셀을 2개 이상 선택해주세요.');
+            return;
+        }
+
+        const firstIndex = rowCells.indexOf(cellsToMerge[0]);
+        const lastIndex = rowCells.indexOf(cellsToMerge[cellsToMerge.length - 1]);
+        const contiguousCells = rowCells.slice(firstIndex, lastIndex + 1);
+
+        if (!contiguousCells.every(cell => cellsToMerge.includes(cell))) {
+            showAlert('셀 병합은 같은 행의 인접한 셀만 지원합니다.');
+            return;
+        }
+
+        const firstCell = contiguousCells[0];
+        const mergedContents = contiguousCells
+            .map(cell => cell.innerHTML)
+            .filter(isMeaningfulCellHtml);
+
+        firstCell.colSpan = contiguousCells.reduce((total, cell) => total + (cell.colSpan || 1), 0);
+        firstCell.innerHTML = mergedContents.length > 0 ? mergedContents.join('<br />') : '&nbsp;';
+
+        contiguousCells.slice(1).forEach(cell => cell.remove());
+        applyEqualTableWidths(data.table);
+        focusTableCell(firstCell);
+        commitEditorMutation();
+    };
+
+    const mergeTableCellsVertically = () => {
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
+
+        const matrix = buildTableMatrix(data.table);
+        const currentAnchor = getTableCellAnchor(matrix, data.cell as HTMLTableCellElement);
+        if (!currentAnchor) {
+            showAlert('세로 병합할 셀을 찾지 못했습니다.');
+            return;
+        }
+
+        const selectedCells = getSelectedTableCells(data.table);
+        const selectedAnchors = Array.from(
+            new Map(
+                selectedCells
+                    .map(cell => {
+                        const anchor = getTableCellAnchor(matrix, cell);
+                        return anchor ? [anchor.cell, anchor] as const : null;
+                    })
+                    .filter((entry): entry is readonly [HTMLTableCellElement, TableCellMatrixEntry] => entry !== null)
+            ).values()
+        );
+
+        let cellsToMerge = selectedAnchors
+            .filter(anchor =>
+                anchor.anchorColIndex === currentAnchor.anchorColIndex &&
+                (anchor.cell.colSpan || 1) === (currentAnchor.cell.colSpan || 1)
+            )
+            .sort((left, right) => left.anchorRowIndex - right.anchorRowIndex);
+
+        if (cellsToMerge.length < 2) {
+            const nextRowIndex = currentAnchor.anchorRowIndex + (currentAnchor.cell.rowSpan || 1);
+            const nextEntry = matrix[nextRowIndex]?.[currentAnchor.anchorColIndex] ?? null;
+
+            if (
+                nextEntry &&
+                nextEntry.isAnchor &&
+                nextEntry.anchorColIndex === currentAnchor.anchorColIndex &&
+                (nextEntry.cell.colSpan || 1) === (currentAnchor.cell.colSpan || 1)
+            ) {
+                cellsToMerge = [currentAnchor, nextEntry];
+            }
+        }
+
+        if (cellsToMerge.length < 2) {
+            showAlert('같은 열에서 위아래 인접 셀을 2개 이상 선택해주세요.');
+            return;
+        }
+
+        for (let index = 1; index < cellsToMerge.length; index += 1) {
+            const previous = cellsToMerge[index - 1];
+            const current = cellsToMerge[index];
+            const expectedRowIndex = previous.anchorRowIndex + (previous.cell.rowSpan || 1);
+
+            if (current.anchorRowIndex !== expectedRowIndex) {
+                showAlert('세로 병합은 같은 열의 인접한 셀만 지원합니다.');
+                return;
+            }
+        }
+
+        const firstCell = cellsToMerge[0].cell;
+        const mergedContents = cellsToMerge
+            .map(anchor => anchor.cell.innerHTML)
+            .filter(isMeaningfulCellHtml);
+
+        firstCell.rowSpan = cellsToMerge.reduce((total, anchor) => total + (anchor.cell.rowSpan || 1), 0);
+        firstCell.innerHTML = mergedContents.length > 0 ? mergedContents.join('<br />') : '&nbsp;';
+
+        cellsToMerge.slice(1).forEach(anchor => anchor.cell.remove());
+        applyEqualTableWidths(data.table);
+        focusTableCell(firstCell);
+        commitEditorMutation();
+    };
+
+    const splitTableCell = () => {
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
+
+        const cell = data.cell as HTMLTableCellElement;
+        const matrix = buildTableMatrix(data.table);
+        const anchor = getTableCellAnchor(matrix, cell);
+        const currentColSpan = cell.colSpan || 1;
+        const currentRowSpan = cell.rowSpan || 1;
+
+        if (!anchor || (currentColSpan <= 1 && currentRowSpan <= 1)) {
+            showAlert('병합된 셀을 선택해주세요.');
+            return;
+        }
+
+        const tagName = cell.tagName.toLowerCase();
+        const styleText = cell.getAttribute('style');
+
+        cell.colSpan = 1;
+        cell.rowSpan = 1;
+
+        const spanEndColIndex = anchor.anchorColIndex + currentColSpan;
+
+        for (let rowOffset = 0; rowOffset < currentRowSpan; rowOffset += 1) {
+            const targetRowIndex = anchor.anchorRowIndex + rowOffset;
+            const targetRow = data.table.rows[targetRowIndex];
+            if (!targetRow) continue;
+
+            const referenceEntry = getRowAnchorEntries(matrix, targetRowIndex)
+                .find(entry => entry.anchorColIndex >= spanEndColIndex) ?? null;
+            const referenceCell = referenceEntry?.cell ?? null;
+
+            const cellsToInsert = rowOffset === 0 ? currentColSpan - 1 : currentColSpan;
+            for (let insertIndex = 0; insertIndex < cellsToInsert; insertIndex += 1) {
+                const newCell = document.createElement(tagName) as HTMLTableCellElement;
+                if (styleText) {
+                    newCell.setAttribute('style', styleText);
+                }
+                newCell.innerHTML = '&nbsp;';
+                targetRow.insertBefore(newCell, referenceCell);
+            }
+        }
+
+        applyEqualTableWidths(data.table);
+        focusTableCell(cell);
+        commitEditorMutation();
+    };
+
+    const distributeTableColumns = () => {
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
+
+        applyEqualTableWidths(data.table);
+        focusTableCell(data.cell as HTMLTableCellElement);
+        commitEditorMutation();
+    };
+
+    const fitTableToWidth = () => {
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
+
+        resetTableToFullWidth(data.table);
+        focusTableCell(data.cell as HTMLTableCellElement);
         commitEditorMutation();
     };
 
@@ -1441,8 +1763,8 @@ const BuilderContent = () => {
                 {isToolbarExpanded && (
                     <>
                         <div style={{ ...inlineStyles.toolbarRow, padding: '8px 20px' }}>
-                            <button onClick={() => execCmd('undo')} title="실행 취소" style={inlineStyles.toolBtn}><Undo size={18} /></button>
-                            <button onClick={() => execCmd('redo')} title="다시 실행" style={inlineStyles.toolBtn}><Redo size={18} /></button>
+                            <button onClick={undo} title="실행 취소" style={inlineStyles.toolBtn}><Undo size={18} /></button>
+                            <button onClick={redo} title="다시 실행" style={inlineStyles.toolBtn}><Redo size={18} /></button>
 
                             <div style={inlineStyles.separator} />
 
@@ -1552,6 +1874,11 @@ const BuilderContent = () => {
                             <button onClick={insertTable} title="표 삽입" style={inlineStyles.toolBtn}><TableIcon size={18} /></button>
                             <button onClick={addTableRow} title="행 추가" style={inlineStyles.toolBtn}><PlusSquare size={18} /></button>
                             <button onClick={addTableCol} title="열 추가" style={inlineStyles.toolBtn}><Columns size={18} /></button>
+                            <button onClick={mergeTableCells} title="셀 병합" style={{ ...inlineStyles.toolBtn, minWidth: '44px', fontSize: '11px', fontWeight: 700, color: '#1971c2' }}>병합</button>
+                            <button onClick={mergeTableCellsVertically} title="세로 셀 병합" style={{ ...inlineStyles.toolBtn, minWidth: '52px', fontSize: '11px', fontWeight: 700, color: '#1971c2' }}>세로병합</button>
+                            <button onClick={splitTableCell} title="병합 해제" style={{ ...inlineStyles.toolBtn, minWidth: '44px', fontSize: '11px', fontWeight: 700, color: '#1971c2' }}>해제</button>
+                            <button onClick={distributeTableColumns} title="열 너비 균등" style={{ ...inlineStyles.toolBtn, minWidth: '44px', fontSize: '11px', fontWeight: 700 }}>균등</button>
+                            <button onClick={fitTableToWidth} title="표 폭 맞춤" style={{ ...inlineStyles.toolBtn, minWidth: '52px', fontSize: '11px', fontWeight: 700 }}>폭맞춤</button>
                             <button onClick={deleteTableRow} title="행 삭제" style={{ ...inlineStyles.toolBtn, color: '#fa5252', minWidth: '40px', fontSize: '11px', fontWeight: 700 }}>행-</button>
                             <button onClick={deleteTableCol} title="열 삭제" style={{ ...inlineStyles.toolBtn, color: '#fa5252', minWidth: '40px', fontSize: '11px', fontWeight: 700 }}>열-</button>
                             <button onClick={deleteTable} title="표 삭제" style={{ ...inlineStyles.toolBtn, color: '#fa5252' }}><Trash size={18} /></button>
