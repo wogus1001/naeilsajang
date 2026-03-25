@@ -749,6 +749,28 @@ const BuilderContent = () => {
         return null;
     };
 
+    const commitEditorMutation = () => {
+        if (!editorRef.current) return;
+
+        const content = editorRef.current.innerHTML;
+        setPages(prev => {
+            const newPages = [...prev];
+            newPages[currentPageIndex] = content;
+            return newPages;
+        });
+        addToHistory(content);
+        editorRef.current.focus();
+    };
+
+    const getSelectedTableOrAlert = () => {
+        const data = getSelectedTable();
+        if (!data) {
+            showAlert('표 내부를 클릭해주세요.');
+            return null;
+        }
+        return data;
+    };
+
     const insertTable = () => {
         const html = `
             <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
@@ -759,26 +781,22 @@ const BuilderContent = () => {
             </table>
         `;
         execCmd('insertHTML', html);
+        commitEditorMutation();
     };
 
     const addTableRow = () => {
-        const data = getSelectedTable();
-        if (!data) {
-            showAlert('표 내부를 클릭해주세요.');
-            return;
-        }
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
         const { row } = data;
         const newRow = row.cloneNode(true) as HTMLTableRowElement;
         Array.from(newRow.cells).forEach(cell => cell.innerHTML = '&nbsp;');
         row.after(newRow);
+        commitEditorMutation();
     };
 
     const addTableCol = () => {
-        const data = getSelectedTable();
-        if (!data) {
-            showAlert('표 내부를 클릭해주세요.');
-            return;
-        }
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
         const { cell, table } = data;
         const cellIndex = (cell as HTMLTableCellElement).cellIndex;
         Array.from(table.rows).forEach(r => {
@@ -786,16 +804,54 @@ const BuilderContent = () => {
             newCell.innerHTML = '&nbsp;';
             r.cells[cellIndex].after(newCell);
         });
+        commitEditorMutation();
+    };
+
+    const deleteTableRow = () => {
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
+
+        const { row, table } = data;
+        if (table.rows.length <= 1) {
+            showConfirm('마지막 행을 삭제하면 표 전체가 삭제됩니다. 계속할까요?', () => {
+                table.remove();
+                commitEditorMutation();
+            }, true);
+            return;
+        }
+
+        row.remove();
+        commitEditorMutation();
+    };
+
+    const deleteTableCol = () => {
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
+
+        const { cell, row, table } = data;
+        if (row.cells.length <= 1) {
+            showConfirm('마지막 열을 삭제하면 표 전체가 삭제됩니다. 계속할까요?', () => {
+                table.remove();
+                commitEditorMutation();
+            }, true);
+            return;
+        }
+
+        const cellIndex = (cell as HTMLTableCellElement).cellIndex;
+        Array.from(table.rows).forEach(tableRow => {
+            if (tableRow.cells[cellIndex]) {
+                tableRow.deleteCell(cellIndex);
+            }
+        });
+        commitEditorMutation();
     };
 
     const deleteTable = () => {
-        const data = getSelectedTable();
-        if (!data) {
-            showAlert('표 내부를 클릭해주세요.');
-            return;
-        }
+        const data = getSelectedTableOrAlert();
+        if (!data) return;
         showConfirm('현재 표를 삭제하시겠습니까?', () => {
             data.table.remove();
+            commitEditorMutation();
         }, true);
     };
 
@@ -1496,6 +1552,8 @@ const BuilderContent = () => {
                             <button onClick={insertTable} title="표 삽입" style={inlineStyles.toolBtn}><TableIcon size={18} /></button>
                             <button onClick={addTableRow} title="행 추가" style={inlineStyles.toolBtn}><PlusSquare size={18} /></button>
                             <button onClick={addTableCol} title="열 추가" style={inlineStyles.toolBtn}><Columns size={18} /></button>
+                            <button onClick={deleteTableRow} title="행 삭제" style={{ ...inlineStyles.toolBtn, color: '#fa5252', minWidth: '40px', fontSize: '11px', fontWeight: 700 }}>행-</button>
+                            <button onClick={deleteTableCol} title="열 삭제" style={{ ...inlineStyles.toolBtn, color: '#fa5252', minWidth: '40px', fontSize: '11px', fontWeight: 700 }}>열-</button>
                             <button onClick={deleteTable} title="표 삭제" style={{ ...inlineStyles.toolBtn, color: '#fa5252' }}><Trash size={18} /></button>
 
                             <div style={inlineStyles.separator} />
