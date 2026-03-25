@@ -21,6 +21,8 @@ import { getTemplateById, getAllTemplates, fetchCombinedTemplates } from '@/lib/
 import { createClient } from '@/utils/supabase/client';
 
 const PAGE_DELIMITER = '<!-- GENUINE_PAGE_BREAK -->';
+const MIN_TABLE_COLUMN_WIDTH = 40;
+const TABLE_RESIZE_EDGE_THRESHOLD = 10;
 
 type TableCellMatrixEntry = {
     cell: HTMLTableCellElement;
@@ -245,13 +247,15 @@ const BuilderContent = () => {
     const resizingState = useRef<{
         isResizing: boolean;
         startX: number;
-        startWidth: number;
-        targetCell: HTMLTableCellElement | null;
+        columnWidths: number[];
+        resizeColumnIndex: number;
+        targetTable: HTMLTableElement | null;
     }>({
         isResizing: false,
         startX: 0,
-        startWidth: 0,
-        targetCell: null
+        columnWidths: [],
+        resizeColumnIndex: -1,
+        targetTable: null
     });
 
     // Image Resizing State
@@ -910,6 +914,81 @@ const BuilderContent = () => {
         });
     };
 
+    const getTableColumnWidths = (table: HTMLTableElement) => {
+        const matrix = buildTableMatrix(table);
+        const totalColumns = getTableColumnCount(table);
+        const tableRect = table.getBoundingClientRect();
+
+        return Array.from({ length: totalColumns }, (_, columnIndex) => {
+            for (const row of matrix) {
+                const entry = row[columnIndex];
+                if (entry) {
+                    return entry.cell.getBoundingClientRect().width / (entry.cell.colSpan || 1);
+                }
+            }
+
+            return tableRect.width / totalColumns;
+        });
+    };
+
+    const applyTableColumnWidths = (table: HTMLTableElement, columnWidths: number[]) => {
+        const totalWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+        const matrix = buildTableMatrix(table);
+        const appliedCells = new Set<HTMLTableCellElement>();
+
+        table.style.width = '100%';
+        table.style.tableLayout = 'fixed';
+
+        matrix.forEach(row => {
+            row.forEach(entry => {
+                if (!entry || !entry.isAnchor || appliedCells.has(entry.cell)) {
+                    return;
+                }
+
+                const cellWidth = columnWidths
+                    .slice(entry.anchorColIndex, entry.anchorColIndex + (entry.cell.colSpan || 1))
+                    .reduce((sum, width) => sum + width, 0);
+
+                entry.cell.style.width = `${(cellWidth / totalWidth) * 100}%`;
+                appliedCells.add(entry.cell);
+            });
+        });
+    };
+
+    const getResizeTargetForCell = (cell: HTMLTableCellElement, clientX: number) => {
+        const table = cell.closest('table');
+        if (!(table instanceof HTMLTableElement)) {
+            return null;
+        }
+
+        const rect = cell.getBoundingClientRect();
+        const isOnRightEdge =
+            clientX >= rect.right - TABLE_RESIZE_EDGE_THRESHOLD &&
+            clientX <= rect.right + TABLE_RESIZE_EDGE_THRESHOLD;
+
+        if (!isOnRightEdge) {
+            return null;
+        }
+
+        const matrix = buildTableMatrix(table);
+        const anchor = getTableCellAnchor(matrix, cell);
+        if (!anchor) {
+            return null;
+        }
+
+        const resizeColumnIndex = anchor.anchorColIndex + (cell.colSpan || 1) - 1;
+        const columnWidths = getTableColumnWidths(table);
+        if (resizeColumnIndex >= columnWidths.length - 1) {
+            return null;
+        }
+
+        return {
+            table,
+            resizeColumnIndex,
+            columnWidths
+        };
+    };
+
     const insertTable = () => {
         const html = `
             <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
@@ -1186,10 +1265,21 @@ const BuilderContent = () => {
             const state = resizingState.current;
 
             // 1. Resizing in progress
-            if (state.isResizing && state.targetCell) {
+            if (state.isResizing && state.targetTable && state.resizeColumnIndex >= 0) {
                 const diff = e.clientX - state.startX;
-                const newWidth = Math.max(20, state.startWidth + diff); // Minimum width 20px
-                state.targetCell.style.width = `${newWidth}px`;
+                const leftColumnIndex = state.resizeColumnIndex;
+                const rightColumnIndex = leftColumnIndex + 1;
+                const startingLeftWidth = state.columnWidths[leftColumnIndex];
+                const startingRightWidth = state.columnWidths[rightColumnIndex];
+                const minDelta = MIN_TABLE_COLUMN_WIDTH - startingLeftWidth;
+                const maxDelta = startingRightWidth - MIN_TABLE_COLUMN_WIDTH;
+                const safeDelta = Math.min(Math.max(diff, minDelta), maxDelta);
+
+                const nextColumnWidths = [...state.columnWidths];
+                nextColumnWidths[leftColumnIndex] = startingLeftWidth + safeDelta;
+                nextColumnWidths[rightColumnIndex] = startingRightWidth - safeDelta;
+
+                applyTableColumnWidths(state.targetTable, nextColumnWidths);
                 e.preventDefault();
                 return;
             }
@@ -1197,10 +1287,8 @@ const BuilderContent = () => {
             // 2. Detect hover on cell border (Right edge)
             const target = e.target as HTMLElement;
             if (target.tagName === 'TD' || target.tagName === 'TH') {
-                const rect = target.getBoundingClientRect();
-                const isOnRightEdge = e.clientX > rect.right - 5 && e.clientX < rect.right + 5;
-
-                if (isOnRightEdge) {
+                const resizeTarget = getResizeTargetForCell(target as HTMLTableCellElement, e.clientX);
+                if (resizeTarget) {
                     target.style.cursor = 'col-resize';
                 } else {
                     target.style.cursor = 'text';
@@ -1210,30 +1298,38 @@ const BuilderContent = () => {
 
         const handleMouseDown = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
-            if ((target.tagName === 'TD' || target.tagName === 'TH') && target.style.cursor === 'col-resize') {
+            if (target.tagName === 'TD' || target.tagName === 'TH') {
+                const resizeTarget = getResizeTargetForCell(target as HTMLTableCellElement, e.clientX);
+                if (!resizeTarget) {
+                    return;
+                }
+
                 e.preventDefault();
-                const rect = target.getBoundingClientRect();
                 resizingState.current = {
                     isResizing: true,
                     startX: e.clientX,
-                    startWidth: rect.width,
-                    targetCell: target as HTMLTableCellElement
+                    columnWidths: resizeTarget.columnWidths,
+                    resizeColumnIndex: resizeTarget.resizeColumnIndex,
+                    targetTable: resizeTarget.table
                 };
 
-                // Add resizing overlay or styles if needed
                 document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
             }
         };
 
         const handleMouseUp = () => {
             if (resizingState.current.isResizing) {
+                commitEditorMutation();
                 resizingState.current = {
                     isResizing: false,
                     startX: 0,
-                    startWidth: 0,
-                    targetCell: null
+                    columnWidths: [],
+                    resizeColumnIndex: -1,
+                    targetTable: null
                 };
                 document.body.style.cursor = 'default';
+                document.body.style.userSelect = '';
             }
         };
 
