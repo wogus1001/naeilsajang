@@ -242,6 +242,7 @@ const BuilderContent = () => {
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
+    const skipNextEditorSyncRef = useRef(false);
 
     // Table Resizing State
     const resizingState = useRef<{
@@ -317,6 +318,11 @@ const BuilderContent = () => {
     // Update editor content when page index changes (OR when pages are loaded/initialised)
     useEffect(() => {
         if (editorRef.current) {
+            if (skipNextEditorSyncRef.current) {
+                skipNextEditorSyncRef.current = false;
+                return;
+            }
+
             // Only update if the content is different to avoid cursor jumps during typing 
             // (though normally pages is only updated on blur/navigation)
             const currentContent = editorRef.current.innerHTML;
@@ -760,17 +766,21 @@ const BuilderContent = () => {
         return null;
     };
 
-    const commitEditorMutation = () => {
+    const commitEditorMutation = (options?: { focusEditor?: boolean }) => {
         if (!editorRef.current) return;
 
+        const focusEditor = options?.focusEditor ?? true;
         const content = editorRef.current.innerHTML;
+        skipNextEditorSyncRef.current = true;
         setPages(prev => {
             const newPages = [...prev];
             newPages[currentPageIndex] = content;
             return newPages;
         });
         addToHistory(content);
-        editorRef.current.focus();
+        if (focusEditor) {
+            editorRef.current.focus();
+        }
     };
 
     const getSelectedTableOrAlert = () => {
@@ -1330,7 +1340,7 @@ const BuilderContent = () => {
 
         const handleMouseUp = () => {
             if (resizingState.current.isResizing) {
-                commitEditorMutation();
+                commitEditorMutation({ focusEditor: false });
                 resizingState.current = {
                     isResizing: false,
                     startX: 0,
