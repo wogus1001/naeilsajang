@@ -21,8 +21,8 @@ import { getTemplateById, getAllTemplates, fetchCombinedTemplates } from '@/lib/
 import { createClient } from '@/utils/supabase/client';
 
 const PAGE_DELIMITER = '<!-- GENUINE_PAGE_BREAK -->';
-const MIN_TABLE_COLUMN_WIDTH = 40;
-const TABLE_RESIZE_EDGE_THRESHOLD = 10;
+const MIN_TABLE_COLUMN_WIDTH = 24;
+const TABLE_RESIZE_EDGE_THRESHOLD = 12;
 
 type TableCellMatrixEntry = {
     cell: HTMLTableCellElement;
@@ -248,13 +248,13 @@ const BuilderContent = () => {
         isResizing: boolean;
         startX: number;
         columnWidths: number[];
-        resizeColumnIndex: number;
+        resizeBoundaryIndex: number;
         targetTable: HTMLTableElement | null;
     }>({
         isResizing: false,
         startX: 0,
         columnWidths: [],
-        resizeColumnIndex: -1,
+        resizeBoundaryIndex: -1,
         targetTable: null
     });
 
@@ -962,11 +962,14 @@ const BuilderContent = () => {
         }
 
         const rect = cell.getBoundingClientRect();
+        const isOnLeftEdge =
+            clientX >= rect.left - TABLE_RESIZE_EDGE_THRESHOLD &&
+            clientX <= rect.left + TABLE_RESIZE_EDGE_THRESHOLD;
         const isOnRightEdge =
             clientX >= rect.right - TABLE_RESIZE_EDGE_THRESHOLD &&
             clientX <= rect.right + TABLE_RESIZE_EDGE_THRESHOLD;
 
-        if (!isOnRightEdge) {
+        if (!isOnLeftEdge && !isOnRightEdge) {
             return null;
         }
 
@@ -976,15 +979,22 @@ const BuilderContent = () => {
             return null;
         }
 
-        const resizeColumnIndex = anchor.anchorColIndex + (cell.colSpan || 1) - 1;
+        const distanceToLeftEdge = Math.abs(clientX - rect.left);
+        const distanceToRightEdge = Math.abs(clientX - rect.right);
+        const shouldUseLeftEdge =
+            isOnLeftEdge &&
+            (!isOnRightEdge || distanceToLeftEdge <= distanceToRightEdge);
+        const resizeBoundaryIndex = shouldUseLeftEdge
+            ? anchor.anchorColIndex - 1
+            : anchor.anchorColIndex + (cell.colSpan || 1) - 1;
         const columnWidths = getTableColumnWidths(table);
-        if (resizeColumnIndex >= columnWidths.length - 1) {
+        if (resizeBoundaryIndex < 0 || resizeBoundaryIndex >= columnWidths.length - 1) {
             return null;
         }
 
         return {
             table,
-            resizeColumnIndex,
+            resizeBoundaryIndex,
             columnWidths
         };
     };
@@ -1265,9 +1275,9 @@ const BuilderContent = () => {
             const state = resizingState.current;
 
             // 1. Resizing in progress
-            if (state.isResizing && state.targetTable && state.resizeColumnIndex >= 0) {
+            if (state.isResizing && state.targetTable && state.resizeBoundaryIndex >= 0) {
                 const diff = e.clientX - state.startX;
-                const leftColumnIndex = state.resizeColumnIndex;
+                const leftColumnIndex = state.resizeBoundaryIndex;
                 const rightColumnIndex = leftColumnIndex + 1;
                 const startingLeftWidth = state.columnWidths[leftColumnIndex];
                 const startingRightWidth = state.columnWidths[rightColumnIndex];
@@ -1284,7 +1294,7 @@ const BuilderContent = () => {
                 return;
             }
 
-            // 2. Detect hover on cell border (Right edge)
+            // 2. Detect hover on cell border
             const target = e.target as HTMLElement;
             if (target.tagName === 'TD' || target.tagName === 'TH') {
                 const resizeTarget = getResizeTargetForCell(target as HTMLTableCellElement, e.clientX);
@@ -1309,7 +1319,7 @@ const BuilderContent = () => {
                     isResizing: true,
                     startX: e.clientX,
                     columnWidths: resizeTarget.columnWidths,
-                    resizeColumnIndex: resizeTarget.resizeColumnIndex,
+                    resizeBoundaryIndex: resizeTarget.resizeBoundaryIndex,
                     targetTable: resizeTarget.table
                 };
 
@@ -1325,7 +1335,7 @@ const BuilderContent = () => {
                     isResizing: false,
                     startX: 0,
                     columnWidths: [],
-                    resizeColumnIndex: -1,
+                    resizeBoundaryIndex: -1,
                     targetTable: null
                 };
                 document.body.style.cursor = 'default';
