@@ -1848,13 +1848,11 @@ export default function RegisterPropertyPage() {
                                 <h3>주소 검색</h3>
                                 <button type="button" onClick={() => setIsSearchOpen(false)}><X size={20} /></button>
                             </div>
-                            <div className={styles.postcodeWrapper}>
-                                <DaumPostcodeEmbed
-                                    onComplete={handleComplete}
-                                    autoClose={false}
-                                    style={{ height: '100%', width: '100%' }}
-                                />
-                            </div>
+                            <DaumPostcodeEmbed
+                                onComplete={handleComplete}
+                                autoClose={false}
+                                style={{ width: '100%', height: 460 }}
+                            />
                         </div>
                     </div>
                 )
