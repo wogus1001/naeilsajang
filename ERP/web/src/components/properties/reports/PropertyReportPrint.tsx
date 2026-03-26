@@ -968,6 +968,55 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     border-left-style: solid !important;
                     margin-bottom: 10px !important; 
                 }
+                .f1-lease-grid {
+                    display: grid !important;
+                    grid-template-columns: 2fr 1fr !important;
+                    gap: 10px !important;
+                    align-items: stretch !important;
+                }
+                .f1-lease-header {
+                    display: grid !important;
+                    grid-template-columns: 2fr 1fr !important;
+                    align-items: flex-end !important;
+                    gap: 10px !important;
+                    margin-bottom: 10px !important;
+                }
+                .f1-lease-header .f1-h2 {
+                    margin-bottom: 0 !important;
+                }
+                .f1-lease-inline-title {
+                    white-space: nowrap !important;
+                    flex-shrink: 0 !important;
+                    justify-self: start !important;
+                }
+                .f1-lease-side {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    height: 100% !important;
+                }
+                .f1-lease-side-box {
+                    flex: 1 1 auto !important;
+                    min-height: 0 !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    border: 1px solid #d0ebff !important;
+                    background-color: #e7f5ff !important;
+                    border-radius: 4px !important;
+                    padding: 10px 12px !important;
+                    box-sizing: border-box !important;
+                }
+                .f1-lease-side-content {
+                    flex: 1 1 auto !important;
+                    min-height: 0 !important;
+                    font-size: 13px !important;
+                    line-height: 1.35 !important;
+                    overflow: hidden !important;
+                    display: -webkit-box !important;
+                    -webkit-box-orient: vertical !important;
+                    -webkit-line-clamp: 8 !important;
+                    word-break: break-all !important;
+                    white-space: pre-wrap !important;
+                }
                 
                 /* Layout Helpers */
                 .flex-col-stretch {
@@ -1363,19 +1412,19 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                 <div>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#82c91e' }}>영업 메모</h2>
-                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('72px', 4), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>
+                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>
                         {data.operationMemo || '-'}
                     </div>
                 </div>
                 <div>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#12b886' }}>매출/경비 메모</h2>
-                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('72px', 4), backgroundColor: '#e6fcf5', borderColor: '#c3fae8' }}>
+                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#e6fcf5', borderColor: '#c3fae8' }}>
                         {data.revenueMemo || '-'}
                     </div>
                 </div>
                 <div>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#fd7e14' }}>가맹 메모</h2>
-                    <div className="memo-box memo-box-large" style={{ ...getBoxStyle('72px', 4), backgroundColor: '#fff4e6', borderColor: '#ffe8cc' }}>
+                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#fff4e6', borderColor: '#ffe8cc' }}>
                         {data.franchiseMemo || '-'}
                     </div>
                 </div>
@@ -1383,33 +1432,41 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
             {/* 4. Lease Rights (Full Width - Request 3) */}
             <div className="print-section f1-section">
-                <h2 className="f1-h2" style={{ borderLeftColor: '#228be6' }}>임대차 권리 분석</h2>
-                <table className="report-table f1-table" style={{ width: '100%', tableLayout: 'fixed' }}>
-                    <tbody>
-                        <tr>
-                            <th style={{ ...thStyle, width: '120px' }}>임대기간</th><td style={tdStyle}>{data.leasePeriod || '-'}</td>
-                            <th style={{ ...thStyle, width: '120px' }}>임대료변동</th><td style={tdStyle}>{data.rentFluctuation || '-'}</td>
-                        </tr>
-                        <tr>
-                            <th style={thStyle}>공부서류하자</th><td style={tdStyle}>{data.docDefects || '-'}</td>
-                            <th style={thStyle}>양수도통보</th><td style={tdStyle}>{data.transferNotice || '-'}</td>
-                        </tr>
-                        <tr>
-                            <th style={thStyle}>화해조서/공증</th><td style={tdStyle}>{data.settlementDefects || '-'}</td>
-                            <th style={thStyle}>동업권리관계</th><td style={tdStyle}>{data.partnershipRights || '-'}</td>
-                        </tr>
-                        <tr>
-                            <th style={thStyle}>임대인 정보</th><td colSpan={3} style={tdStyle}>{data.lessorInfo || '-'}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Lease Memo (Request 4 - Make sure it is visible) */}
-            <div className="print-section f1-section">
-                <h2 className="f1-h2" style={{ borderLeftColor: '#228be6' }}>임대차 메모</h2>
-                <div className="memo-box memo-box-large" style={{ ...getBoxStyle('72px', 4), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>
-                    {data.leaseMemo || '-'}
+                <div className="f1-lease-header" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'flex-end', gap: '10px', marginBottom: '10px' }}>
+                    <h2 className="f1-h2" style={{ borderLeftColor: '#228be6', marginBottom: 0 }}>임대차 권리 분석</h2>
+                    <h2 className="f1-h2 f1-lease-inline-title" style={{ borderLeftColor: '#228be6', marginBottom: 0 }}>
+                        임대차 메모
+                    </h2>
+                </div>
+                <div className="f1-lease-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px', alignItems: 'stretch' }}>
+                    <div>
+                        <table className="report-table f1-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+                            <tbody>
+                                <tr>
+                                    <th style={{ ...thStyle, width: '120px' }}>임대기간</th><td style={tdStyle}>{data.leasePeriod || '-'}</td>
+                                    <th style={{ ...thStyle, width: '120px' }}>임대료변동</th><td style={tdStyle}>{data.rentFluctuation || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th style={thStyle}>공부서류하자</th><td style={tdStyle}>{data.docDefects || '-'}</td>
+                                    <th style={thStyle}>양수도통보</th><td style={tdStyle}>{data.transferNotice || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th style={thStyle}>화해조서/공증</th><td style={tdStyle}>{data.settlementDefects || '-'}</td>
+                                    <th style={thStyle}>동업권리관계</th><td style={tdStyle}>{data.partnershipRights || '-'}</td>
+                                </tr>
+                                <tr>
+                                    <th style={thStyle}>임대인 정보</th><td colSpan={3} style={tdStyle}>{data.lessorInfo || '-'}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="f1-lease-side" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div className="f1-lease-side-box" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #d0ebff', backgroundColor: '#e7f5ff', borderRadius: '4px', padding: '10px 12px', boxSizing: 'border-box' }}>
+                            <div className="f1-lease-side-content" style={{ flex: '1 1 auto', minHeight: 0, fontSize: '13px', lineHeight: '1.35', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 8, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                                {data.leaseMemo || '-'}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1429,7 +1486,8 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             display: '-webkit-box',
                             WebkitLineClamp: 3,
                             WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden'
+                            overflow: 'hidden',
+                            wordBreak: 'break-all'
                         }}>
                             {data.memo}
                             {data.memo && data.details && '\n\n'}
