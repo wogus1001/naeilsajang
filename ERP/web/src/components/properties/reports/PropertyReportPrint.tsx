@@ -1304,6 +1304,10 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     padding: 10px 12px !important;
                     box-sizing: border-box !important;
                 }
+                .f1-lease-side-box-franchise {
+                    border: 1px solid #ffe8cc !important;
+                    background-color: #fff4e6 !important;
+                }
                 .f1-lease-side-content {
                     flex: 1 1 auto !important;
                     min-height: 0 !important;
@@ -1432,8 +1436,8 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     min-height: 250px !important;
                 }
                 .memo-box-details {
-                    height: 88px !important;    /* 5 lines (90px - 2px adjustment) */
-                    max-height: 88px !important;
+                    height: 104px !important;
+                    max-height: 104px !important;
                     -webkit-line-clamp: unset !important;
                     text-overflow: clip !important;
                 }
@@ -1528,15 +1532,17 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
     const renderFormat1 = () => (
         <div className="f1-wrapper">
             {/* Header */}
-            <div style={{ borderBottom: '2px solid #333', paddingBottom: '13px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
+            <div style={{ borderBottom: '2px solid #333', paddingBottom: '9px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                 <div>
-                    <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                    <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                    <h1 style={{ fontSize: '27px', fontWeight: 'bold', margin: '0 0 6px 0', lineHeight: 1.1 }}>매물 상세 리포트</h1>
+                    <div className="print-header-info" style={{ fontSize: '11px', color: '#666', marginBottom: '2px', lineHeight: 1.2, display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                        <span>발행일: {new Date().toLocaleDateString('ko-KR')}</span>
+                        <span style={{ color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</span>
+                    </div>
+                    <div className="print-header-info" style={{ fontSize: '11px', color: '#333', lineHeight: 1.2 }}>주소: {data.address || '-'}</div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                    <div style={{ fontSize: '17px', fontWeight: 'bold' }}>{data.address || ''}</div>
+                <div style={{ textAlign: 'right', lineHeight: 1.15 }}>
+                    <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#1c7ed6', marginBottom: '2px' }}>{data.name || '제목 없음'}</div>
                 </div>
             </div>
 
@@ -1729,9 +1735,9 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     </div>
                 </div>
                 <div className="f1-top-memo-column">
-                    <h2 className="f1-h2" style={{ borderLeftColor: '#fd7e14' }}>가맹 메모</h2>
-                    <div className="memo-box f1-top-memo-box" style={{ ...getFlexibleMemoBoxStyle('126px'), backgroundColor: '#fff4e6', borderColor: '#ffe8cc' }}>
-                        {data.franchiseMemo || '-'}
+                    <h2 className="f1-h2" style={{ borderLeftColor: '#228be6' }}>임대차 메모</h2>
+                    <div className="memo-box f1-top-memo-box" style={{ ...getFlexibleMemoBoxStyle('126px'), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>
+                        {data.leaseMemo || '-'}
                     </div>
                 </div>
                 </div>
@@ -1741,8 +1747,8 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             <div className="print-section f1-section">
                 <div className="f1-lease-header" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'flex-end', gap: '8px', marginBottom: '8px' }}>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#228be6', marginBottom: 0 }}>임대차 권리 분석</h2>
-                    <h2 className="f1-h2 f1-lease-inline-title" style={{ borderLeftColor: '#228be6', marginBottom: 0 }}>
-                        임대차 메모
+                    <h2 className="f1-h2 f1-lease-inline-title" style={{ borderLeftColor: '#fd7e14', marginBottom: 0 }}>
+                        가맹 메모
                     </h2>
                 </div>
                 <div className="f1-lease-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', alignItems: 'stretch' }}>
@@ -1768,9 +1774,9 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         </table>
                     </div>
                     <div className="f1-lease-side" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                        <div className="f1-lease-side-box" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #d0ebff', backgroundColor: '#e7f5ff', borderRadius: '4px', padding: '10px 12px', boxSizing: 'border-box' }}>
+                        <div className="f1-lease-side-box f1-lease-side-box-franchise" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #ffe8cc', backgroundColor: '#fff4e6', borderRadius: '4px', padding: '10px 12px', boxSizing: 'border-box' }}>
                             <div className="f1-lease-side-content" style={{ flex: '1 1 auto', minHeight: 0, fontSize: '11px', lineHeight: '1.35', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 8, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
-                                {data.leaseMemo || '-'}
+                                {data.franchiseMemo || '-'}
                             </div>
                         </div>
                     </div>
@@ -1783,7 +1789,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             <div className="print-section f1-section">
                         <h2 className="f1-h2" style={{ borderLeftColor: '#868e96' }}>상세 내용</h2>
                         <div className="memo-box memo-box-details" style={{
-                            ...getBoxStyle('88px', 5),
+                            ...getBoxStyle('104px', 6),
                             backgroundColor: '#f8f9fa',
                             whiteSpace: 'pre-wrap',
                             lineHeight: '1.6',
@@ -1808,12 +1814,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             <div style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                 <div>
                     <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                    <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                        <span>발행일: {new Date().toLocaleDateString('ko-KR')}</span>
+                        <span style={{ color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#333' }}>주소: {data.address || '-'}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                    <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                 </div>
             </div>
 
@@ -1970,12 +1978,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             <div style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                 <div>
                     <h1 style={{ fontSize: '26px', fontWeight: 'bold', margin: '0 0 5px 0' }}>매물 상세 리포트</h1>
-                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                    <div style={{ fontSize: '11px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                        <span>발행일: {new Date().toLocaleDateString('ko-KR')}</span>
+                        <span style={{ color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#333' }}>주소: {data.address || '-'}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                    <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{data.address || ''}</div>
                 </div>
             </div>
 
@@ -2322,12 +2332,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             <div style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                 <div>
                     <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                    <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                        <span>발행일: {new Date().toLocaleDateString('ko-KR')}</span>
+                        <span style={{ color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#333' }}>주소: {data.address || '-'}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                    <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                 </div>
             </div>
 
@@ -2522,12 +2534,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 <div className="format5-header" style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', marginTop: '-15px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                     <div>
                         <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                        <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                            <span>발행일: {new Date().toLocaleDateString('ko-KR')}</span>
+                            <span style={{ color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#333' }}>주소: {data.address || '-'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                        <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                     </div>
                 </div>
 
@@ -2910,12 +2924,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 <div className="format5-header" style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                     <div>
                         <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                        <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                            <span>발행일: {new Date().toLocaleDateString('ko-KR')}</span>
+                            <span style={{ color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#333' }}>주소: {data.address || '-'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                        <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                     </div>
                 </div>
 
@@ -3450,12 +3466,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 <div className="format5-header" style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                     <div>
                         <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                        <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                            <span>발행일: {new Date().toLocaleDateString('ko-KR')}</span>
+                            <span style={{ color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#333' }}>주소: {data.address || '-'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                        <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                     </div>
                 </div>
 
