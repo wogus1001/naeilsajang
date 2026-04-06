@@ -700,6 +700,13 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
         return unit === '%' ? `${formattedValue}%` : `${formattedValue} 만원`;
     };
 
+    const PYEONG_TO_M2 = 3.305785;
+
+    const formatAreaNumber = (value: number) => value.toLocaleString('ko-KR', {
+        minimumFractionDigits: Number.isInteger(value) ? 0 : 1,
+        maximumFractionDigits: 1,
+    });
+
     const formatDate = (dateString: string) => {
         if (!dateString) return '-';
         const date = new Date(dateString);
@@ -773,6 +780,23 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
         monthlyRent: getNumericFieldValue('monthlyRent', 'rent'),
     };
     const monthlyRentUnit = getRawFieldValue('rentUnit') === 'percent' ? '%' : '만원';
+
+    const areaPyeong = getNumericFieldValue('area');
+    const hasAreaValue = getRawFieldValue('area') !== undefined;
+
+    const formatAreaDisplay = () => {
+        if (!hasAreaValue) return '-';
+
+        const areaM2 = areaPyeong * PYEONG_TO_M2;
+        return `${formatAreaNumber(areaM2)} m² (${formatAreaNumber(areaPyeong)}평)`;
+    };
+
+    const formatAreaMetricOnly = () => {
+        if (!hasAreaValue) return '-';
+
+        const areaM2 = areaPyeong * PYEONG_TO_M2;
+        return `${formatAreaNumber(areaM2)} m²`;
+    };
 
     const reportLabels = {
         deposit: getReportLabel('depositLabel'),
@@ -1557,7 +1581,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             </tr>
                             <tr>
                                 <th style={thStyle}>실면적</th>
-                                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{data.area ? `${Number(data.area).toLocaleString()} m² (${(Number(data.area) / 3.3).toFixed(1)}평)` : '-'}</td>
+                                <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{formatAreaDisplay()}</td>
                                 <th style={thStyle}>주차</th>
                                 <td style={tdStyle}>{data.parking}</td>
                             </tr>
@@ -1838,7 +1862,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                     <th style={{ ...thStyle, borderRight: `1px solid ${reportBorderColor}` }}>층수</th>
                                     <td style={{ ...tdStyle, borderRight: `1px solid ${reportBorderColor}` }}>{data.currentFloor}층 / {data.totalFloor}층</td>
                                     <th style={{ ...thStyle, borderRight: `1px solid ${reportBorderColor}` }}>실면적</th>
-                                    <td style={{ ...tdStyle }}>{data.area ? `${Number(data.area).toLocaleString()} m² (${(Number(data.area) / 3.3).toFixed(1)}평)` : '-'}</td>
+                                    <td style={{ ...tdStyle }}>{formatAreaDisplay()}</td>
                                 </tr>
                                 <tr>
                                     <th style={{ ...thStyle, borderRight: `1px solid ${reportBorderColor}` }}>주차</th>
@@ -2003,7 +2027,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                     <th style={{ ...thStyle, borderRight: `1px solid ${reportBorderColor}` }}>층수</th>
                                     <td style={{ ...tdStyle, borderRight: `1px solid ${reportBorderColor}` }}>{data.currentFloor}층 / {data.totalFloor}층</td>
                                     <th style={{ ...thStyle, borderRight: `1px solid ${reportBorderColor}` }}>실면적</th>
-                                    <td style={{ ...tdStyle }}>{data.area ? `${Number(data.area).toLocaleString()} m² (${(Number(data.area) / 3.3).toFixed(1)}평)` : '-'}</td>
+                                    <td style={{ ...tdStyle }}>{formatAreaDisplay()}</td>
                                 </tr>
                                 <tr>
                                     <th style={{ ...thStyle, borderRight: `1px solid ${reportBorderColor}` }}>주차</th>
@@ -2321,7 +2345,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 </tr>
                                 <tr>
                                     <th style={thStyle}>층수</th><td style={tdStyle}>{data.currentFloor}층 / {data.totalFloor}층</td>
-                                    <th style={thStyle}>실면적</th><td style={tdStyle}>{data.area ? `${Number(data.area).toLocaleString()} m² (${(Number(data.area) / 3.3).toFixed(1)}평)` : '-'}</td>
+                                    <th style={thStyle}>실면적</th><td style={tdStyle}>{formatAreaDisplay()}</td>
                                 </tr>
                                 <tr>
                                     <th style={thStyle}>주차</th><td style={tdStyle}>{data.parking}</td>
@@ -2523,7 +2547,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             <tr>
                                 <th style={thStyle}>업종</th><td style={tdStyle}>{[data.industryCategory, data.industrySector, data.industryDetail].filter(Boolean).join(' > ')}</td>
                                 <th style={thStyle}>층수</th><td style={tdStyle}>{data.currentFloor}층 / {data.totalFloor}층</td>
-                                <th style={thStyle}>면적</th><td style={tdStyle}>{data.area} m²</td>
+                                <th style={thStyle}>면적</th><td style={tdStyle}>{formatAreaMetricOnly()}</td>
                             </tr>
                             <tr>
                                 <th style={thStyle}>특징</th>
@@ -2911,7 +2935,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             <tr>
                                 <th style={thStyle}>업종</th><td style={tdStyle}>{[data.industryCategory, data.industrySector, data.industryDetail].filter(Boolean).join(' > ')}</td>
                                 <th style={thStyle}>층수</th><td style={tdStyle}>{data.currentFloor}층 / {data.totalFloor}층</td>
-                                <th style={thStyle}>면적</th><td style={tdStyle}>{data.area} m²</td>
+                                <th style={thStyle}>면적</th><td style={tdStyle}>{formatAreaMetricOnly()}</td>
                             </tr>
                             <tr>
                                 <th style={thStyle}>특징</th>
@@ -3451,7 +3475,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             <tr>
                                 <th style={thStyle}>업종</th><td style={tdStyle}>{[data.industryCategory, data.industrySector, data.industryDetail].filter(Boolean).join(' > ')}</td>
                                 <th style={thStyle}>층수</th><td style={tdStyle}>{data.currentFloor}층 / {data.totalFloor}층</td>
-                                <th style={thStyle}>면적</th><td style={tdStyle}>{data.area} m²</td>
+                                <th style={thStyle}>면적</th><td style={tdStyle}>{formatAreaMetricOnly()}</td>
                             </tr>
                             <tr>
                                 <th style={thStyle}>특징</th>
