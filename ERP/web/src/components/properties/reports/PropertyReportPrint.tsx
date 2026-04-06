@@ -810,7 +810,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
     // Style helper for fixed boxes with truncation
     const getBoxStyle = (height: string, lineClamp: number) => ({
-        fontSize: '13px',
+        fontSize: '11px',
         backgroundColor: '#f8f9fa',
         padding: '10px',
         borderRadius: '4px',
@@ -825,6 +825,22 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
         whiteSpace: 'pre-wrap' as const
     });
 
+    const getFlexibleMemoBoxStyle = (minHeight: string) => ({
+        fontSize: '11px',
+        backgroundColor: '#f8f9fa',
+        padding: '10px',
+        borderRadius: '4px',
+        border: `1px solid ${reportBorderColor}`,
+        minHeight: minHeight,
+        height: '100%',
+        overflow: 'hidden',
+        boxSizing: 'border-box' as const,
+        wordBreak: 'break-all' as const,
+        whiteSpace: 'pre-wrap' as const,
+        lineHeight: '1.45',
+        flex: '1 1 auto',
+    });
+
     // Style for print only
     // Style for print only
     // Style for print only
@@ -837,42 +853,270 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
         }
 
         /* Format 1 (Large/Original) - High Density, Large Font */
+        .f1-wrapper {
+            min-height: 285mm;
+            display: flex;
+            flex-direction: column;
+        }
         .f1-table th, .f1-table td {
             padding: 5px 10px !important;
-            font-size: 13px !important;
+            font-size: 11px !important;
             line-height: 1.2 !important;
         }
-        .f1-section { margin-bottom: 10px !important; }
-        .f1-grid { gap: 10px !important; }
+        .f1-section { margin-bottom: 8px !important; }
+        .f1-grid { gap: 8px !important; }
         .f1-h2 { 
-            font-size: 19px !important;
+            font-size: 17px !important;
             border-left-width: 4px !important;
             border-left-style: solid !important;
             padding-left: 10px !important;
             color: #333 !important;
-            margin-bottom: 10px !important; 
-            margin-top: 15px !important;
+            margin-bottom: 8px !important; 
+            margin-top: 13px !important;
+        }
+        .f1-top-memo-section {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .f1-top-memo-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            align-items: stretch;
+            flex: 1 1 auto;
+        }
+        .f1-top-memo-column {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .f1-top-memo-box {
+            min-height: 126px;
+            height: 100%;
+            flex: 1 1 auto;
+            overflow: hidden;
+            box-sizing: border-box;
+            white-space: pre-wrap;
+            word-break: break-all;
+            line-height: 1.45;
         }
 
         /* Format 2 (Standard/Isolated) - Same as F1 for now but independent */
+        .f2-wrapper {
+            min-height: 285mm;
+            display: flex;
+            flex-direction: column;
+        }
         .f2-table th, .f2-table td {
             padding: 7px 10px !important;
-            font-size: 14px !important;
+            font-size: 12px !important;
             line-height: 1.2 !important;
         }
         .f2-section { margin-bottom: 25px !important; }
         .f2-grid { gap: 25px !important; }
         .f2-h2 { margin-bottom: 15px !important; margin-top: 15px !important; }
+        .f2-overview-memo-section {
+            display: flex;
+            flex-direction: column;
+        }
+        .f2-overview-memo-box {
+            min-height: 74px;
+            display: block;
+            -webkit-line-clamp: unset;
+            line-height: 1.45;
+        }
+        .f2-bottom-memo-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 5px;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+        .f2-bottom-memo-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+        .f2-bottom-memo-box {
+            min-height: 112px;
+            height: 100%;
+            max-height: none;
+            flex: 1 1 auto;
+            display: block;
+            -webkit-line-clamp: unset;
+            overflow: hidden;
+            line-height: 1.45;
+        }
 
         /* Format 3 (Compact/Isolated) - Dense for high info volume */
         .f3-table th, .f3-table td {
             padding: 4px 6px !important;
-            font-size: 13px !important;
+            font-size: 11px !important;
             line-height: 1.2 !important;
         }
         .f3-section { margin-bottom: 15px !important; }
         .f3-grid { gap: 15px !important; }
         .f3-h2 { margin-bottom: 15px !important; }
+        .f3-overview-memo-section {
+            display: flex;
+            flex-direction: column;
+        }
+        .f3-overview-memo-box {
+            min-height: 82px;
+            display: block;
+            -webkit-line-clamp: unset;
+            line-height: 1.45;
+        }
+        .f3-bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            height: calc(100% - 625px);
+            min-height: 400px;
+            margin-bottom: 10px;
+            margin-top: 15px;
+            align-items: stretch;
+        }
+        .f3-bottom-memo-column {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            height: 100%;
+            min-height: 0;
+        }
+        .f3-bottom-memo-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+        .f3-bottom-memo-box {
+            min-height: 136px;
+            height: 100%;
+            max-height: none;
+            flex: 1 1 auto;
+            display: block;
+            -webkit-line-clamp: unset;
+            overflow: hidden;
+            line-height: 1.45;
+        }
+        .f3-bottom-map-section {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
+        }
+        .f3-bottom-map-box {
+            flex: 1 1 auto;
+            width: 100%;
+            height: 100%;
+            min-height: 300px;
+        }
+
+        /* Format 4 (Memo-Focused / Isolated) */
+        .f4-wrapper {
+            min-height: 285mm;
+            display: flex;
+            flex-direction: column;
+        }
+        .f4-main-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+            gap: 8mm;
+            margin-bottom: 20px;
+            align-items: stretch;
+        }
+        .f4-left-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 0;
+        }
+        .f4-right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 0;
+            height: 100%;
+        }
+        .f4-right-memo-section {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+        .f4-right-memo-box {
+            min-height: 146px;
+            height: 100%;
+            max-height: none;
+            flex: 1 1 auto;
+            display: block;
+            -webkit-line-clamp: unset;
+            overflow: hidden;
+            line-height: 1.45;
+        }
+        .f4-bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+        .f4-bottom-section {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        .f4-bottom-memo-box {
+            min-height: 164px;
+            height: 100%;
+            max-height: none;
+            flex: 1 1 auto;
+            display: block;
+            -webkit-line-clamp: unset;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+        .f4-lease-table {
+            width: 100%;
+            table-layout: fixed !important;
+            font-size: 11px;
+        }
+        .f4-lease-table th {
+            width: auto !important;
+            white-space: nowrap !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+        }
+        .f4-lease-table td {
+            white-space: normal !important;
+            overflow: hidden !important;
+            text-overflow: clip !important;
+            word-break: break-all !important;
+            line-height: 1.35 !important;
+            max-width: none !important;
+        }
+        .f4-lease-table tbody tr > th:nth-child(odd) {
+            width: 11% !important;
+            padding: 9px 4px !important;
+        }
+        .f4-lease-table tbody tr > td:nth-child(even) {
+            padding: 9px 6px !important;
+        }
+        .f4-lease-label {
+            width: 11% !important;
+            padding: 9px 4px !important;
+        }
+        .f4-lease-value {
+            padding: 9px 6px !important;
+            white-space: normal !important;
+            overflow: hidden !important;
+            text-overflow: clip !important;
+            word-break: break-all !important;
+            line-height: 1.35 !important;
+        }
 
         /* 1. Global Print Reset & Isolation */
         @media print {
@@ -961,25 +1205,56 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 }
                 
                 /* Format 1 Specific Print Overrides */
-                .f1-section { margin-bottom: 10px !important; }
-                .f1-grid { gap: 10px !important; }
+                .f1-section { margin-bottom: 8px !important; }
+                .f1-grid { gap: 8px !important; }
                 .f1-h2 { 
                     border-left-width: 4px !important;
                     border-left-style: solid !important;
-                    margin-bottom: 10px !important; 
+                    margin-bottom: 8px !important; 
+                }
+                .f1-top-memo-section {
+                    flex: 1 1 auto !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                }
+                .f1-top-memo-row {
+                    display: grid !important;
+                    grid-template-columns: 1fr 1fr 1fr !important;
+                    gap: 8px !important;
+                    align-items: stretch !important;
+                    flex: 1 1 auto !important;
+                }
+                .f1-top-memo-column {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    min-height: 0 !important;
+                }
+                .f1-top-memo-box.memo-box {
+                    min-height: 126px !important;
+                    height: 100% !important;
+                    max-height: none !important;
+                    flex: 1 1 auto !important;
+                    display: block !important;
+                    -webkit-line-clamp: unset !important;
+                    overflow: hidden !important;
+                    padding: 10px !important;
+                    box-sizing: border-box !important;
+                    white-space: pre-wrap !important;
+                    word-break: break-all !important;
+                    line-height: 1.45 !important;
                 }
                 .f1-lease-grid {
                     display: grid !important;
                     grid-template-columns: 2fr 1fr !important;
-                    gap: 10px !important;
+                    gap: 8px !important;
                     align-items: stretch !important;
                 }
                 .f1-lease-header {
                     display: grid !important;
                     grid-template-columns: 2fr 1fr !important;
                     align-items: flex-end !important;
-                    gap: 10px !important;
-                    margin-bottom: 10px !important;
+                    gap: 8px !important;
+                    margin-bottom: 8px !important;
                 }
                 .f1-lease-header .f1-h2 {
                     margin-bottom: 0 !important;
@@ -1008,7 +1283,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 .f1-lease-side-content {
                     flex: 1 1 auto !important;
                     min-height: 0 !important;
-                    font-size: 13px !important;
+                    font-size: 11px !important;
                     line-height: 1.35 !important;
                     overflow: hidden !important;
                     display: -webkit-box !important;
@@ -1029,12 +1304,12 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 }
 
                 /* Ultra-compact fonts and spacing for print */
-                h1 { font-size: 24px !important; margin-bottom: 5px !important; }
-                .print-header-info { margin-bottom: 2px !important; font-size: 13px !important; }
+                h1 { font-size: 22px !important; margin-bottom: 5px !important; }
+                .print-header-info { margin-bottom: 2px !important; font-size: 11px !important; }
 
                 /* Reduce heading sizes in sections */
                 .print-section h2, .print-grid h2 {
-                    font-size: 15px !important;
+                    font-size: 13px !important;
                     margin-bottom: 8px !important; /* 0px -> 8px (Restored for readability) */
                     padding-left: 6px !important;
                     border-left-width: 3px !important;
@@ -1064,7 +1339,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                 .mini-report-table {
                     width: 100%;
-                    font-size: 13px;
+                    font-size: 11px;
                     border-collapse: collapse;
                     border: 1px solid ${reportBorderColor};
                     background: #fff;
@@ -1091,7 +1366,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                 /* Enforce strict line clamping for print with border-box */
                 .memo-box {
-                    font-size: 13px !important;
+                    font-size: 11px !important;
                     line-height: 1.2 !important;
                     display: -webkit-box !important;
                     -webkit-box-orient: vertical !important;
@@ -1124,13 +1399,19 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     max-height: 118px !important;
                     -webkit-line-clamp: 7 !important;
                 }
+                .memo-box-8lines {
+                    height: 133px !important;
+                    max-height: 133px !important;
+                    -webkit-line-clamp: 8 !important;
+                }
                 .memo-box-xl {
                     min-height: 250px !important;
                 }
                 .memo-box-details {
                     height: 88px !important;    /* 5 lines (90px - 2px adjustment) */
                     max-height: 88px !important;
-                    -webkit-line-clamp: 5 !important;
+                    -webkit-line-clamp: unset !important;
+                    text-overflow: clip !important;
                 }
             }
         }
@@ -1141,7 +1422,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             min-height: 297mm;
             background: white;
             /* Safe area padding (User Request C: 8~10mm) */
-            padding: 10mm 10mm 2mm 10mm; 
+            padding: 8mm 8mm 2mm 8mm; 
             box-sizing: border-box;
             
             /* Center on screen */
@@ -1223,20 +1504,20 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
     const renderFormat1 = () => (
         <div className="f1-wrapper">
             {/* Header */}
-            <div style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
+            <div style={{ borderBottom: '2px solid #333', paddingBottom: '13px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                 <div>
-                    <h1 style={{ fontSize: '33px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                    <div style={{ fontSize: '15px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                    <div style={{ fontSize: '15px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                    <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
+                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
+                    <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                    <div style={{ fontSize: '19px', fontWeight: 'bold' }}>{data.address || ''}</div>
+                    <div style={{ fontSize: '26px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
+                    <div style={{ fontSize: '17px', fontWeight: 'bold' }}>{data.address || ''}</div>
                 </div>
             </div>
 
             {/* 1. Overview & Scale (2 Columns) */}
-            <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '10px' }}>
+            <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '8px' }}>
                 <div>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#333' }}>물건 개요</h2>
                     <table className="report-table f1-table" style={{ width: '100%', tableLayout: 'fixed' }}>
@@ -1290,9 +1571,9 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
 
             {/* 2. Price & Franchise Info (2 Columns: Price | Franchise) */}
-            <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 {/* Price Info */}
-                <div>
+                <div className="f1-top-memo-column">
                     <h2 className="f1-h2" style={{ borderLeftColor: '#fcc419' }}>금액 정보</h2>
                     <table className="report-table f1-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <colgroup>
@@ -1307,7 +1588,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <th style={thStyle}>{reportLabels.premium}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.premium)} 만원</td>
                             </tr>
                             <tr>
-                                <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '10px', color: '#666' }}>({reportLabels.vat} {data.vat || '별도'})</span></td>
+                                <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '8px', color: '#666' }}>({reportLabels.vat} {data.vat || '별도'})</span></td>
                                 <th style={thStyle}>{reportLabels.maintenance}</th><td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(data.maintenance)}</td>
                             </tr>
                             <tr>
@@ -1319,7 +1600,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 </div>
 
                 {/* Franchise Cost */}
-                <div>
+                <div className="f1-top-memo-column">
                     <h2 className="f1-h2" style={{ borderLeftColor: '#f76707' }}>프랜차이즈 비용</h2>
                     <table className="report-table f1-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <colgroup>
@@ -1347,7 +1628,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             </div>
 
             {/* 3. Operations & Revenue */}
-            <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <div>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#82c91e' }}>영업 현황</h2>
                     <table className="report-table f1-table" style={{ width: '100%', tableLayout: 'fixed' }}>
@@ -1398,7 +1679,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 <th style={{ ...thStyle, backgroundColor: '#e6fcf5', whiteSpace: 'nowrap' }}>{reportLabels.monthlyProfit}</th>
                                 <td colSpan={3} style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#0ca678', backgroundColor: '#e6fcf5', whiteSpace: 'nowrap', padding: '10px 10px' }}>
                                     {formatCurrency(data.monthlyProfit)} 만원
-                                    <span style={{ fontSize: '11px', color: '#495057', marginLeft: '6px', fontWeight: 'normal' }}>
+                                    <span style={{ fontSize: '9px', color: '#495057', marginLeft: '6px', fontWeight: 'normal' }}>
                                         ({data.yieldPercent ? Number(data.yieldPercent).toFixed(1) : '0'}%)
                                     </span>
                                 </td>
@@ -1409,36 +1690,38 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             </div>
 
             {/* Operations, Revenue & Franchise Memos (3 Columns) */}
-            <div className="print-grid print-section f1-grid f1-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                <div>
+            <div className="print-section f1-grid f1-section f1-top-memo-section">
+                <div className="print-grid f1-top-memo-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', alignItems: 'stretch', flex: '1 1 auto' }}>
+                    <div className="f1-top-memo-column">
                     <h2 className="f1-h2" style={{ borderLeftColor: '#82c91e' }}>영업 메모</h2>
-                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>
+                    <div className="memo-box f1-top-memo-box" style={{ ...getFlexibleMemoBoxStyle('126px'), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>
                         {data.operationMemo || '-'}
                     </div>
                 </div>
-                <div>
+                    <div className="f1-top-memo-column">
                     <h2 className="f1-h2" style={{ borderLeftColor: '#12b886' }}>매출/경비 메모</h2>
-                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#e6fcf5', borderColor: '#c3fae8' }}>
+                    <div className="memo-box f1-top-memo-box" style={{ ...getFlexibleMemoBoxStyle('126px'), backgroundColor: '#e6fcf5', borderColor: '#c3fae8' }}>
                         {data.revenueMemo || '-'}
                     </div>
                 </div>
-                <div>
+                <div className="f1-top-memo-column">
                     <h2 className="f1-h2" style={{ borderLeftColor: '#fd7e14' }}>가맹 메모</h2>
-                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#fff4e6', borderColor: '#ffe8cc' }}>
+                    <div className="memo-box f1-top-memo-box" style={{ ...getFlexibleMemoBoxStyle('126px'), backgroundColor: '#fff4e6', borderColor: '#ffe8cc' }}>
                         {data.franchiseMemo || '-'}
                     </div>
+                </div>
                 </div>
             </div>
 
             {/* 4. Lease Rights (Full Width - Request 3) */}
             <div className="print-section f1-section">
-                <div className="f1-lease-header" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'flex-end', gap: '10px', marginBottom: '10px' }}>
+                <div className="f1-lease-header" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', alignItems: 'flex-end', gap: '8px', marginBottom: '8px' }}>
                     <h2 className="f1-h2" style={{ borderLeftColor: '#228be6', marginBottom: 0 }}>임대차 권리 분석</h2>
                     <h2 className="f1-h2 f1-lease-inline-title" style={{ borderLeftColor: '#228be6', marginBottom: 0 }}>
                         임대차 메모
                     </h2>
                 </div>
-                <div className="f1-lease-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px', alignItems: 'stretch' }}>
+                <div className="f1-lease-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px', alignItems: 'stretch' }}>
                     <div>
                         <table className="report-table f1-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                             <tbody>
@@ -1462,7 +1745,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     </div>
                     <div className="f1-lease-side" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                         <div className="f1-lease-side-box" style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', border: '1px solid #d0ebff', backgroundColor: '#e7f5ff', borderRadius: '4px', padding: '10px 12px', boxSizing: 'border-box' }}>
-                            <div className="f1-lease-side-content" style={{ flex: '1 1 auto', minHeight: 0, fontSize: '13px', lineHeight: '1.35', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 8, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                            <div className="f1-lease-side-content" style={{ flex: '1 1 auto', minHeight: 0, fontSize: '11px', lineHeight: '1.35', overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 8, wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                                 {data.leaseMemo || '-'}
                             </div>
                         </div>
@@ -1482,12 +1765,13 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             backgroundColor: '#f8f9fa',
                             whiteSpace: 'pre-wrap',
                             lineHeight: '1.6',
-                            fontSize: '13px',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: 'vertical',
+                            fontSize: '11px',
+                            display: 'block',
+                            WebkitLineClamp: 'unset',
+                            WebkitBoxOrient: 'unset',
                             overflow: 'hidden',
-                            wordBreak: 'break-all'
+                            wordBreak: 'break-all',
+                            textOverflow: 'clip'
                         }}>
                             {data.memo}
                             {data.memo && data.details && '\n\n'}
@@ -1505,13 +1789,13 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             {/* Header */}
             <div style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                 <div>
-                    <h1 style={{ fontSize: '33px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                    <div style={{ fontSize: '15px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                    <div style={{ fontSize: '15px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                    <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
+                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
+                    <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '25px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                    <div style={{ fontSize: '17px', fontWeight: 'bold' }}>{data.address || ''}</div>
+                    <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                 </div>
             </div>
 
@@ -1525,7 +1809,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             {/* 1. Overview & Status (2 Columns) */}
             <div className="print-section print-grid f2-section f2-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginBottom: '25px', marginTop: '15px', alignItems: 'stretch' }}>
                 <div>
-                    <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 개요</h2>
+                    <h2 className="f2-h2" style={{ fontSize: '17px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 개요</h2>
                     <table className="report-table f2-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <colgroup>
                             <col style={{ width: '85px' }} />
@@ -1546,7 +1830,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     </table>
                 </div>
                 <div>
-                    <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #495057', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 현황</h2>
+                    <h2 className="f2-h2" style={{ fontSize: '17px', borderLeft: '4px solid #495057', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 현황</h2>
                     <div>
                         <table className="report-table f2-table" style={{ width: '100%', tableLayout: 'fixed', marginBottom: '0' }}>
                             <colgroup>
@@ -1591,14 +1875,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             </div>
 
             {/* Store Characteristics (Full Width) */}
-            <div className="print-section f2-section" style={{ marginBottom: '25px' }}>
-                <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '20px', color: '#333' }}>매장특성</h2>
-                <div className="memo-box memo-box-medium-3" style={{ ...getBoxStyle('57px', 3), backgroundColor: '#f8f9fa' }}>{data.overviewMemo || '-'}</div>
+            <div className="print-section f2-section f2-overview-memo-section" style={{ marginBottom: '25px' }}>
+                <h2 className="f2-h2" style={{ fontSize: '17px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '20px', color: '#333' }}>매장특성</h2>
+                <div className="memo-box f2-overview-memo-box" style={{ ...getFlexibleMemoBoxStyle('74px'), backgroundColor: '#f8f9fa' }}>{data.overviewMemo || '-'}</div>
             </div>
 
             {/* 2. Price (Full Width Table) */}
             <div className="print-section f2-section" style={{ marginBottom: '25px' }}>
-                <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #fab005', paddingLeft: '10px', marginBottom: '20px', color: '#333' }}>금액 정보</h2>
+                <h2 className="f2-h2" style={{ fontSize: '17px', borderLeft: '4px solid #fab005', paddingLeft: '10px', marginBottom: '20px', color: '#333' }}>금액 정보</h2>
                 <table className="report-table f2-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                     <colgroup>
                         <col style={{ width: '12%' }} /><col style={{ width: '21%' }} />
@@ -1623,7 +1907,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             {/* 3. Operations & Lease (2 Columns) */}
             <div className="print-section print-grid f2-section f2-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginBottom: '25px' }}>
                 <div>
-                    <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업/임대 현황</h2>
+                    <h2 className="f2-h2" style={{ fontSize: '17px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업/임대 현황</h2>
                     <table className="report-table f2-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <tbody>
                             <tr><th style={thStyle} title="골든피크타임">피크타임</th><td style={tdStyle}>{data.peakTime || '-'}</td></tr>
@@ -1635,7 +1919,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     </table>
                 </div>
                 <div>
-                    <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 관리</h2>
+                    <h2 className="f2-h2" style={{ fontSize: '17px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 관리</h2>
                     <table className="report-table f2-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <tbody>
                             <tr><th style={thStyle}>공부서류하자</th><td style={tdStyle}>{data.docDefects || '-'}</td></tr>
@@ -1649,14 +1933,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             </div>
 
             {/* 4. Memos (2 Sections Remaining) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '5px' }}>
-                <div className="print-section no-print-margin f2-section">
-                    <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업현황 메모</h2>
-                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>{data.operationMemo || '-'}</div>
+            <div className="f2-bottom-memo-stack" style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '5px', flex: '1 1 auto', minHeight: 0 }}>
+                <div className="print-section no-print-margin f2-section f2-bottom-memo-section">
+                    <h2 className="f2-h2" style={{ fontSize: '17px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업현황 메모</h2>
+                    <div className="memo-box f2-bottom-memo-box" style={{ ...getFlexibleMemoBoxStyle('112px'), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>{data.operationMemo || '-'}</div>
                 </div>
-                <div className="print-section no-print-margin f2-section">
-                    <h2 className="f2-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '12px', color: '#333' }}>임대차권리 메모</h2>
-                    <div className="memo-box memo-box-6lines" style={{ ...getBoxStyle('103px', 6), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>{data.leaseMemo || '-'}</div>
+                <div className="print-section no-print-margin f2-section f2-bottom-memo-section">
+                    <h2 className="f2-h2" style={{ fontSize: '17px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '12px', color: '#333' }}>임대차권리 메모</h2>
+                    <div className="memo-box f2-bottom-memo-box" style={{ ...getFlexibleMemoBoxStyle('112px'), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>{data.leaseMemo || '-'}</div>
                 </div>
             </div>
         </div>
@@ -1667,13 +1951,13 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             {/* Header */}
             <div style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                 <div>
-                    <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 5px 0' }}>매물 상세 리포트</h1>
-                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '2px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                    <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                    <h1 style={{ fontSize: '26px', fontWeight: 'bold', margin: '0 0 5px 0' }}>매물 상세 리포트</h1>
+                    <div style={{ fontSize: '11px', color: '#666', marginBottom: '2px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
+                    <div style={{ fontSize: '11px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{data.address || ''}</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold' }}>{data.address || ''}</div>
                 </div>
             </div>
 
@@ -1683,14 +1967,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     width: 80px !important;
                 }
                 .f3-table {
-                    font-size: 13px;
+                    font-size: 11px;
                 }
             `}</style>
 
             {/* 1. Overview & Status (2 Columns) */}
             <div className="print-section f3-section f3-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px', marginTop: '15px', alignItems: 'stretch' }}>
                 <div>
-                    <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 개요</h2>
+                    <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 개요</h2>
                     <table className="report-table f3-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <colgroup>
                             <col style={{ width: '65px' }} />
@@ -1711,7 +1995,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     </table>
                 </div>
                 <div>
-                    <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #495057', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 현황</h2>
+                    <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #495057', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 현황</h2>
                     <div>
                         <table className="report-table f3-table" style={{ width: '100%', tableLayout: 'fixed', marginBottom: '0' }}>
                             <colgroup>
@@ -1756,14 +2040,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             </div>
 
             {/* Store Characteristics (Full Width) */}
-            <div className="print-section f3-section" style={{ marginBottom: '15px', marginTop: '15px' }}>
-                <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>매장특성</h2>
-                <div className="memo-box memo-box-medium-3" style={{ ...getBoxStyle('57px', 3), backgroundColor: '#f8f9fa' }}>{data.overviewMemo || '-'}</div>
+            <div className="print-section f3-section f3-overview-memo-section" style={{ marginBottom: '15px', marginTop: '15px' }}>
+                <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>매장특성</h2>
+                <div className="memo-box f3-overview-memo-box" style={{ ...getFlexibleMemoBoxStyle('82px'), backgroundColor: '#f8f9fa' }}>{data.overviewMemo || '-'}</div>
             </div>
 
             {/* 2. Price (Full Width Table) */}
             <div className="print-section f3-section" style={{ marginBottom: '15px', marginTop: '15px' }}>
-                <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #fab005', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>금액 정보</h2>
+                <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #fab005', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>금액 정보</h2>
                 <table className="report-table f3-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                     <colgroup>
                         <col style={{ width: '12%' }} /><col style={{ width: '21%' }} />
@@ -1776,7 +2060,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             <th style={thStyle}>{reportLabels.premium}</th><td colSpan={3} style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
                         </tr>
                         <tr>
-                            <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? `${reportLabels.vat} 포함` : `${reportLabels.vat} 별도`})</span></td>
+                            <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '9px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? `${reportLabels.vat} 포함` : `${reportLabels.vat} 별도`})</span></td>
                             <th style={thStyle}>{reportLabels.maintenance}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
                             <th style={{ ...thStyle, backgroundColor: '#fff9db' }}>{reportLabels.totalAmount}</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f03e3e', backgroundColor: '#fff9db' }}>{formatCurrency((data.deposit || 0) + (data.premium || 0))} 만원</td>
                         </tr>
@@ -1787,7 +2071,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             {/* 3. Operations & Lease (2 Columns) */}
             <div className="print-section f3-section f3-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px', marginTop: '15px' }}>
                 <div>
-                    <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업/임대 현황</h2>
+                    <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업/임대 현황</h2>
                     <table className="report-table f3-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <tbody>
                             <tr><th style={thStyle} title="골든피크타임">피크타임</th><td style={tdStyle}>{data.peakTime || '-'}</td></tr>
@@ -1799,7 +2083,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     </table>
                 </div>
                 <div>
-                    <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 관리</h2>
+                    <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 관리</h2>
                     <table className="report-table f3-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                         <tbody>
                             <tr><th style={thStyle}>공부서류하자</th><td style={tdStyle}>{data.docDefects || '-'}</td></tr>
@@ -1813,24 +2097,24 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             </div>
 
             {/* 4. Memos + Map Combined */}
-            <div className="print-section f3-section" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', height: 'calc(100% - 650px)', minHeight: '380px', marginBottom: '10px', marginTop: '15px' }}>
+            <div className="print-section f3-section f3-bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', height: 'calc(100% - 625px)', minHeight: '400px', marginBottom: '10px', marginTop: '15px', alignItems: 'stretch' }}>
 
                 {/* Left Column: Memos */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '45px' }}>
-                    <div className="print-section no-print-margin f3-section" style={{ display: 'flex', flexDirection: 'column' }}>
-                        <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업현황 메모</h2>
-                        <div className="memo-box memo-box-7lines" style={{ ...getBoxStyle('118px', 7), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>{data.operationMemo || '-'}</div>
+                <div className="f3-bottom-memo-column" style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', minHeight: 0 }}>
+                    <div className="print-section no-print-margin f3-section f3-bottom-memo-section" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}>
+                        <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #82c91e', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>영업현황 메모</h2>
+                        <div className="memo-box f3-bottom-memo-box" style={{ ...getFlexibleMemoBoxStyle('136px'), backgroundColor: '#f4fce3', borderColor: '#d8f5a2' }}>{data.operationMemo || '-'}</div>
                     </div>
-                    <div className="print-section no-print-margin f3-section" style={{ display: 'flex', flexDirection: 'column' }}>
-                        <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차권리 메모</h2>
-                        <div className="memo-box memo-box-7lines" style={{ ...getBoxStyle('118px', 7), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>{data.leaseMemo || '-'}</div>
+                    <div className="print-section no-print-margin f3-section f3-bottom-memo-section" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}>
+                        <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차권리 메모</h2>
+                        <div className="memo-box f3-bottom-memo-box" style={{ ...getFlexibleMemoBoxStyle('136px'), backgroundColor: '#e7f5ff', borderColor: '#d0ebff' }}>{data.leaseMemo || '-'}</div>
                     </div>
                 </div>
 
                 {/* Right Column: Map */}
-                <div className="print-section no-print-margin f3-section" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    <h2 className="f3-h2" style={{ fontSize: '19px', borderLeft: '4px solid #e64980', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>위치 정보</h2>
-                    <div className="map-container-print" style={{ flex: 1, width: '100%', height: '100%', minHeight: '300px' }}>
+                <div className="print-section no-print-margin f3-section f3-bottom-map-section" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                    <h2 className="f3-h2" style={{ fontSize: '17px', borderLeft: '4px solid #e64980', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>위치 정보</h2>
+                    <div className="map-container-print f3-bottom-map-box" style={{ flex: 1, width: '100%', height: '100%', minHeight: '300px' }}>
                         {(coords && coords.lat && coords.lng) ? (
                             <Map
                                 center={coords}
@@ -2014,29 +2298,29 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
 
     const renderFormat4 = () => (
-        <>
+        <div className="f4-wrapper">
             {/* Header */}
             {/* Header */}
             <div style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                 <div>
-                    <h1 style={{ fontSize: '33px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                    <div style={{ fontSize: '15px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                    <div style={{ fontSize: '15px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                    <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
+                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
+                    <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '25px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                    <div style={{ fontSize: '17px', fontWeight: 'bold' }}>{data.address || ''}</div>
+                    <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '125mm 55mm', gap: '10mm', marginBottom: '30px' }}>
+            <div className="f4-main-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2.2fr) minmax(0, 1fr)', gap: '8mm', marginBottom: '20px', alignItems: 'stretch' }}>
                 {/* Left Column: Tables */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div className="f4-left-column" style={{ display: 'flex', flexDirection: 'column', gap: '15px', minWidth: 0 }}>
 
                     {/* 1. Overview & Scale Combined */}
                     <div>
-                        <h2 style={{ fontSize: '19px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 개요 및 규모</h2>
-                        <table className="report-table" style={{ width: '100%', fontSize: '14px', tableLayout: 'fixed' }}>
+                        <h2 style={{ fontSize: '17px', borderLeft: '4px solid #333', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>물건 개요 및 규모</h2>
+                        <table className="report-table" style={{ width: '100%', fontSize: '12px', tableLayout: 'fixed' }}>
                             <tbody>
                                 <tr>
                                     <th style={thStyle}>업종</th><td colSpan={3} style={tdStyle}>{[data.industryCategory, data.industrySector, data.industryDetail].filter(Boolean).join(' > ')}</td>
@@ -2057,12 +2341,12 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                     {/* 2. Price Information */}
                     <div>
-                        <h2 style={{ fontSize: '19px', borderLeft: '4px solid #fab005', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>금액 정보</h2>
-                        <table className="report-table" style={{ width: '100%', fontSize: '14px', tableLayout: 'fixed' }}>
+                        <h2 style={{ fontSize: '17px', borderLeft: '4px solid #fab005', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>금액 정보</h2>
+                        <table className="report-table" style={{ width: '100%', fontSize: '12px', tableLayout: 'fixed' }}>
                             <tbody>
                                 <tr>
                                     <th style={thStyle}>{reportLabels.deposit}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.deposit)} 만원</td>
-                                    <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '11px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? `${reportLabels.vat} 포함` : `${reportLabels.vat} 별도`})</span></td>
+                                    <th style={thStyle}>{reportLabels.monthlyRent}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatValueWithUnit(priceValues.monthlyRent, monthlyRentUnit)} <span style={{ fontSize: '9px', color: '#666', fontWeight: 'normal' }}>({data.vatIncluded ? `${reportLabels.vat} 포함` : `${reportLabels.vat} 별도`})</span></td>
                                 </tr>
                                 <tr>
                                     <th style={thStyle}>{reportLabels.premium}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
@@ -2078,8 +2362,8 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                     {/* 3. Operations */}
                     <div>
-                        <h2 style={{ fontSize: '19px', borderLeft: '4px solid #12b886', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>운영 및 매출 분석</h2>
-                        <table className="report-table" style={{ width: '100%', fontSize: '14px', tableLayout: 'fixed' }}>
+                        <h2 style={{ fontSize: '17px', borderLeft: '4px solid #12b886', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>운영 및 매출 분석</h2>
+                        <table className="report-table" style={{ width: '100%', fontSize: '12px', tableLayout: 'fixed' }}>
                             <tbody>
                                 <tr>
                                     <th style={thStyle}>{reportLabels.monthlyRevenue}</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#1c7ed6' }}>{formatCurrency(data.monthlyRevenue)} 만원</td>
@@ -2098,7 +2382,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                     <th style={{ ...thStyle, backgroundColor: '#e6fcf5', whiteSpace: 'nowrap' }}>{reportLabels.monthlyProfit}</th>
                                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#0ca678', backgroundColor: '#e6fcf5' }}>
                                         {formatCurrency(data.monthlyProfit)} 만원
-                                        <span style={{ fontSize: '12px', color: '#495057', marginLeft: '6px' }}>({data.yieldPercent ? Number(data.yieldPercent).toFixed(1) : '0'}%)</span>
+                                        <span style={{ fontSize: '10px', color: '#495057', marginLeft: '6px' }}>({data.yieldPercent ? Number(data.yieldPercent).toFixed(1) : '0'}%)</span>
                                     </td>
                                 </tr>
                             </tbody>
@@ -2107,8 +2391,16 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                     {/* 4. Lease Rights Analysis (Moved) - Condensed (3 items per row) */}
                     <div>
-                        <h2 style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 권리 분석</h2>
-                        <table className="report-table" style={{ width: '100%', fontSize: '13px', tableLayout: 'auto' }}>
+                        <h2 style={{ fontSize: '17px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 권리 분석</h2>
+                        <table className="report-table f4-lease-table" style={{ width: '100%', fontSize: '11px', tableLayout: 'fixed' }}>
+                            <colgroup>
+                                <col style={{ width: '11%' }} />
+                                <col style={{ width: '22%' }} />
+                                <col style={{ width: '11%' }} />
+                                <col style={{ width: '22%' }} />
+                                <col style={{ width: '11%' }} />
+                                <col style={{ width: '23%' }} />
+                            </colgroup>
                             <tbody>
                                 <tr>
                                     <th style={{ ...thStyle, padding: '11px 4px', width: 'auto', whiteSpace: 'nowrap' }}>임대기간</th><td style={{ ...tdStyle, padding: '11px 4px', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.leasePeriod || '-'}</td>
@@ -2132,22 +2424,22 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 {/* Right Column: Memos (Less items, more gap) */}
                 {/* Right Column: Memos (Less items, more gap) */}
                 {/* Right Column: Memos (Less items, more gap) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <h2 style={{ fontSize: '17px', borderBottom: '2px solid #333', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>물건 메모</h2>
-                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '133px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                <div className="f4-right-column" style={{ display: 'flex', flexDirection: 'column', gap: '15px', minWidth: 0, height: '100%' }}>
+                    <div className="f4-right-memo-section" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}>
+                        <h2 style={{ fontSize: '15px', borderBottom: '2px solid #333', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>물건 메모</h2>
+                        <div className="memo-box f4-right-memo-box" style={{ ...getFlexibleMemoBoxStyle('146px'), padding: '15px', backgroundColor: '#f8f9fa' }}>
                             {data.overviewMemo || '-'}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <h2 style={{ fontSize: '17px', borderBottom: '2px solid #fd7e14', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>가맹 메모</h2>
-                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#fff4e6', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '133px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                    <div className="f4-right-memo-section" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}>
+                        <h2 style={{ fontSize: '15px', borderBottom: '2px solid #fd7e14', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>가맹 메모</h2>
+                        <div className="memo-box f4-right-memo-box" style={{ ...getFlexibleMemoBoxStyle('146px'), padding: '15px', backgroundColor: '#fff4e6' }}>
                             {data.franchiseMemo || '-'}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <h2 style={{ fontSize: '17px', borderBottom: '2px solid #82c91e', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>영업 메모</h2>
-                        <div className="memo-box" style={{ padding: '15px', backgroundColor: '#f4fce3', borderRadius: '4px', fontSize: '13px', lineHeight: '1.6', height: '133px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                    <div className="f4-right-memo-section" style={{ display: 'flex', flexDirection: 'column', flex: '1 1 0', minHeight: 0 }}>
+                        <h2 style={{ fontSize: '15px', borderBottom: '2px solid #82c91e', paddingBottom: '8px', marginBottom: '10px', color: '#333' }}>영업 메모</h2>
+                        <div className="memo-box f4-right-memo-box" style={{ ...getFlexibleMemoBoxStyle('146px'), padding: '15px', backgroundColor: '#f4fce3' }}>
                             {data.operationMemo || '-'}
                         </div>
                     </div>
@@ -2155,22 +2447,22 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
             </div>
 
             {/* Bottom: Revenue & Lease Memo (Split 50/50) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '48% 48%', gap: '30px', marginBottom: '10px' }}>
-                <div>
-                    <h2 style={{ fontSize: '19px', borderLeft: '4px solid #12b886', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>매출 메모</h2>
-                    <div className="memo-box" style={{ padding: '20px', backgroundColor: '#e6fcf5', borderRadius: '4px', fontSize: '14px', lineHeight: '1.6', height: '148px', maxHeight: '148px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 8, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+            <div className="f4-bottom-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '10px' }}>
+                <div className="f4-bottom-section" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <h2 style={{ fontSize: '17px', borderLeft: '4px solid #12b886', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>매출 메모</h2>
+                    <div className="memo-box f4-bottom-memo-box" style={{ ...getFlexibleMemoBoxStyle('164px'), padding: '20px', backgroundColor: '#e6fcf5', fontSize: '12px' }}>
                         {data.revenueMemo || '-'}
                     </div>
                 </div>
-                <div>
-                    <h2 style={{ fontSize: '19px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 메모</h2>
-                    <div className="memo-box" style={{ padding: '20px', backgroundColor: '#e7f5ff', borderRadius: '4px', fontSize: '14px', lineHeight: '1.6', height: '147px', maxHeight: '147px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 9, WebkitBoxOrient: 'vertical', wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
+                <div className="f4-bottom-section" style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <h2 style={{ fontSize: '17px', borderLeft: '4px solid #228be6', paddingLeft: '10px', marginBottom: '15px', color: '#333' }}>임대차 메모</h2>
+                    <div className="memo-box f4-bottom-memo-box" style={{ ...getFlexibleMemoBoxStyle('164px'), padding: '20px', backgroundColor: '#e7f5ff', fontSize: '12px' }}>
                         {data.leaseMemo || '-'}
                     </div>
                 </div>
             </div>
 
-        </>
+        </div>
     );
 
     const renderFormat5 = () => {
@@ -2211,20 +2503,20 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 {/* Header */}
                 <div className="format5-header" style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '10px', marginTop: '-15px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                     <div>
-                        <h1 style={{ fontSize: '33px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                        <div style={{ fontSize: '15px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                        <div style={{ fontSize: '15px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                        <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
+                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
+                        <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '25px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                        <div style={{ fontSize: '17px', fontWeight: 'bold' }}>{data.address || ''}</div>
+                        <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
+                        <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                     </div>
                 </div>
 
                 {/* 1. Property Overview Grid */}
                 <div className="format5-compact-margin" style={{ marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '16px', borderLeft: '4px solid #333', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>물건 개요</h2>
-                    <table className="report-table" style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <h2 style={{ fontSize: '14px', borderLeft: '4px solid #333', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>물건 개요</h2>
+                    <table className="report-table" style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                         <colgroup>
                             <col style={{ width: '15%' }} />
                             <col style={{ width: '25%' }} />
@@ -2289,8 +2581,8 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                         {/* Revenue */}
                         <div>
-                            <h3 style={{ fontSize: '14px', marginBottom: '5px', borderLeft: '3px solid #1c7ed6', paddingLeft: '6px' }}>매출 현황</h3>
-                            <table className="report-table" style={{ width: '100%', fontSize: '12px' }}>
+                            <h3 style={{ fontSize: '12px', marginBottom: '5px', borderLeft: '3px solid #1c7ed6', paddingLeft: '6px' }}>매출 현황</h3>
+                            <table className="report-table" style={{ width: '100%', fontSize: '10px' }}>
                                 <tbody>
                                     <tr><th style={thStyle}>{reportLabels.monthlyRevenue}</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(data.monthlyRevenue)} 만원</td></tr>
                                     <tr><th style={thStyle}>{reportLabels.totalExpense}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency((data.monthlyRevenue || 0) - (data.monthlyProfit || 0))} 만원</td></tr>
@@ -2301,8 +2593,8 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         </div>
                         {/* Expenses */}
                         <div>
-                            <h3 style={{ fontSize: '14px', marginBottom: '5px', borderLeft: '3px solid #fa5252', paddingLeft: '6px' }}>지출 경비 현황</h3>
-                            <table className="report-table" style={{ width: '100%', fontSize: '12px' }}>
+                            <h3 style={{ fontSize: '12px', marginBottom: '5px', borderLeft: '3px solid #fa5252', paddingLeft: '6px' }}>지출 경비 현황</h3>
+                            <table className="report-table" style={{ width: '100%', fontSize: '10px' }}>
                                 <tbody>
                                     <tr>
                                         <th style={thStyle}>{reportLabels.laborCost}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.laborCost)} 만원</td>
@@ -2343,7 +2635,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
-                                        <Legend verticalAlign="middle" align="right" layout="vertical" wrapperStyle={{ fontSize: '11px' }} />
+                                        <Legend verticalAlign="middle" align="right" layout="vertical" wrapperStyle={{ fontSize: '9px' }} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             )}
@@ -2372,7 +2664,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                                 <Cell key={`cell-${index}`} fill={entry.color} />
                                             ))}
                                         </Pie>
-                                        <Legend verticalAlign="middle" align="right" layout="vertical" wrapperStyle={{ fontSize: '11px' }} />
+                                        <Legend verticalAlign="middle" align="right" layout="vertical" wrapperStyle={{ fontSize: '9px' }} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             )}
@@ -2382,7 +2674,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                 {/* 4. Map (Bottom) */}
                 <div style={{ marginBottom: '10px', marginTop: '-15px' }}>
-                    <h2 style={{ fontSize: '19px', borderLeft: '4px solid #e64980', paddingLeft: '10px', marginBottom: '8px', color: '#333' }}>위치 정보</h2>
+                    <h2 style={{ fontSize: '17px', borderLeft: '4px solid #e64980', paddingLeft: '10px', marginBottom: '8px', color: '#333' }}>위치 정보</h2>
                     <div className="map-container-print" style={{ width: '100%', height: '350px' }}>
                         {(coords && coords.lat && coords.lng) ? (
                             <Map
@@ -2599,20 +2891,20 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 {/* Header (Same as Format 5) */}
                 <div className="format5-header" style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                     <div>
-                        <h1 style={{ fontSize: '33px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                        <div style={{ fontSize: '15px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                        <div style={{ fontSize: '15px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                        <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
+                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
+                        <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '25px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                        <div style={{ fontSize: '17px', fontWeight: 'bold' }}>{data.address || ''}</div>
+                        <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
+                        <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                     </div>
                 </div>
 
                 {/* Property Overview Grid (Added per request) */}
                 <div className="format5-compact-margin" style={{ marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '16px', borderLeft: '4px solid #333', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>물건 개요</h2>
-                    <table className="report-table" style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <h2 style={{ fontSize: '14px', borderLeft: '4px solid #333', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>물건 개요</h2>
+                    <table className="report-table" style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                         <colgroup>
                             <col style={{ width: '13%' }} />
                             <col style={{ width: '27%' }} />
@@ -2642,14 +2934,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 </td>
                             </tr>
                             <tr>
-                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>시설/인테리어</th><td style={tdStyle}>{/* Placeholder */} 상태 양호</td>
-                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>주요고객층</th><td style={tdStyle}>{/* Placeholder */} 20~30대 직장인</td>
-                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>피크타임</th><td style={tdStyle}>{/* Placeholder */} 점심 12:00~13:00</td>
+                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '9px' }}>시설/인테리어</th><td style={tdStyle}>{/* Placeholder */} 상태 양호</td>
+                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '9px' }}>주요고객층</th><td style={tdStyle}>{/* Placeholder */} 20~30대 직장인</td>
+                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '9px' }}>피크타임</th><td style={tdStyle}>{/* Placeholder */} 점심 12:00~13:00</td>
                             </tr>
                             <tr>
-                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>{reportLabels.maintenance}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
-                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>총창업비용</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f03e3e' }}>{formatCurrency(totalStartup)} 만원</td>
-                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '11px' }}>{reportLabels.premium}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
+                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '9px' }}>{reportLabels.maintenance}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.maintenance)}</td>
+                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '9px' }}>총창업비용</th><td style={{ ...tdStyle, textAlign: 'right', fontWeight: 'bold', color: '#f03e3e' }}>{formatCurrency(totalStartup)} 만원</td>
+                                <th style={{ ...thStyle, whiteSpace: 'nowrap', fontSize: '9px' }}>{reportLabels.premium}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.premium)} 만원</td>
                             </tr>
                             <tr>
                                 <th style={thStyle}>{reportLabels.deposit}</th><td style={{ ...tdStyle, textAlign: 'right' }}>{formatCurrency(data.deposit)} 만원</td>
@@ -2689,7 +2981,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         <div style={{ display: 'flex', gap: '15px' }}>
                             {/* Revenue Analysis Table */}
                             <div style={{ flex: 1 }}>
-                                <h3 className="mini-report-table-title" style={{ fontSize: '14px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0' }}>매출현황</h3>
+                                <h3 className="mini-report-table-title" style={{ fontSize: '12px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0' }}>매출현황</h3>
                                 <table className="mini-report-table">
                                     <colgroup>
                                         <col style={{ width: '40%' }} />
@@ -2725,7 +3017,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                                     <span>{reportLabels.monthlyProfit}</span>
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '6px 4px', borderBottom: '1px solid #dee2e6', textAlign: 'right', fontWeight: 'bold', color: '#be4bdb', fontSize: '14px' }}>
+                                            <td style={{ padding: '6px 4px', borderBottom: '1px solid #dee2e6', textAlign: 'right', fontWeight: 'bold', color: '#be4bdb', fontSize: '12px' }}>
                                                 {formatCurrency(data.monthlyProfit)}
                                             </td>
                                         </tr>
@@ -2741,7 +3033,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                             {/* Expense Analysis Table */}
                             <div style={{ flex: 1 }}>
-                                <h3 className="mini-report-table-title" style={{ fontSize: '14px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0' }}>지출경비현황</h3>
+                                <h3 className="mini-report-table-title" style={{ fontSize: '12px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0' }}>지출경비현황</h3>
                                 <table className="mini-report-table">
                                     <colgroup>
                                         <col style={{ width: '48%' }} />
@@ -2864,7 +3156,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', height: '300px' }}>
                     {/* Map */}
                     <div>
-                        <h2 style={{ fontSize: '16px', borderLeft: '4px solid #e64980', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>위치</h2>
+                        <h2 style={{ fontSize: '14px', borderLeft: '4px solid #e64980', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>위치</h2>
                         <div className="map-container-print" style={{ width: '100%', height: '260px' }}>
                             {(coords && coords.lat && coords.lng) ? (
                                 <Map
@@ -3041,7 +3333,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                     backgroundColor: '#e9ecef',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     color: '#868e96',
-                                    fontSize: '14px'
+                                    fontSize: '12px'
                                 }}>
                                     지도 정보를 불러올 수 없습니다.
                                 </div>
@@ -3051,14 +3343,14 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                     {/* Consulting Report */}
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <h2 style={{ fontSize: '16px', borderLeft: '4px solid #7950f2', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>컨설팅 리포트</h2>
+                        <h2 style={{ fontSize: '14px', borderLeft: '4px solid #7950f2', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>컨설팅 리포트</h2>
                         <div style={{
                             flex: 1,
                             backgroundColor: '#f8f9fa',
                             border: '1px solid #dee2e6',
                             borderRadius: '4px',
                             padding: '20px',
-                            fontSize: '14px',
+                            fontSize: '12px',
                             lineHeight: '1.7',
                             whiteSpace: 'pre-wrap',
                             overflowY: 'auto',
@@ -3139,20 +3431,20 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                 {/* Header */}
                 <div className="format5-header" style={{ borderBottom: '2px solid #333', paddingBottom: '15px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'end' }}>
                     <div>
-                        <h1 style={{ fontSize: '33px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
-                        <div style={{ fontSize: '15px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
-                        <div style={{ fontSize: '15px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
+                        <h1 style={{ fontSize: '31px', fontWeight: 'bold', margin: '0 0 10px 0' }}>매물 상세 리포트</h1>
+                        <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>발행일: {new Date().toLocaleDateString('ko-KR')}</div>
+                        <div style={{ fontSize: '13px', color: '#333' }}>담당자: <span style={{ fontWeight: 'bold' }}>{data.managerName}</span> {data.managerPhone && `(${data.managerPhone})`}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '25px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
-                        <div style={{ fontSize: '17px', fontWeight: 'bold' }}>{data.address || ''}</div>
+                        <div style={{ fontSize: '23px', fontWeight: 'bold', color: '#1c7ed6' }}>{data.name || '제목 없음'}</div>
+                        <div style={{ fontSize: '15px', fontWeight: 'bold' }}>{data.address || ''}</div>
                     </div>
                 </div>
 
                 {/* Property Overview (Simplified) */}
                 <div className="format5-compact-margin" style={{ marginBottom: '20px' }}>
-                    <h2 style={{ fontSize: '16px', borderLeft: '4px solid #333', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>물건 개요</h2>
-                    <table className="report-table" style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <h2 style={{ fontSize: '14px', borderLeft: '4px solid #333', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>물건 개요</h2>
+                    <table className="report-table" style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                         <colgroup>
                             <col style={{ width: '15%' }} />
                             <col style={{ width: '35%' }} />
@@ -3185,9 +3477,9 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                     {/* Left: Monthly Revenue Table */}
                     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                        <h3 style={{ fontSize: '14px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0', borderTop: '2px solid #495057' }}>월별 매출 현황</h3>
+                        <h3 style={{ fontSize: '12px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0', borderTop: '2px solid #495057' }}>월별 매출 현황</h3>
                         <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <table className="report-table" style={{ width: '100%', height: '100%', fontSize: '12px', textAlign: 'center', tableLayout: 'fixed' }}>
+                            <table className="report-table" style={{ width: '100%', height: '100%', fontSize: '10px', textAlign: 'center', tableLayout: 'fixed' }}>
                                 <colgroup>
                                     <col style={{ width: '12%' }} />
                                     <col style={{ width: '22%' }} />
@@ -3198,23 +3490,23 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                 </colgroup>
                                 <thead>
                                     <tr style={{ backgroundColor: '#f1f3f5' }}>
-                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '12px' }}>날짜</th>
-                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '12px' }}>현금</th>
-                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '12px' }}>%</th>
-                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '12px' }}>카드</th>
-                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '12px' }}>%</th>
-                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '12px' }}>합계</th>
+                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '10px' }}>날짜</th>
+                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '10px' }}>현금</th>
+                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '10px' }}>%</th>
+                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '10px' }}>카드</th>
+                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '10px' }}>%</th>
+                                        <th style={{ padding: '6px', textAlign: 'center', fontSize: '10px' }}>합계</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {monthlyHistoryData.length > 0 ? monthlyHistoryData.map((item: any, idx: number) => (
                                         <tr key={idx}>
-                                            <td style={{ padding: '10px 4px', fontSize: '12px' }}>{item.name}</td>
-                                            <td style={{ padding: '10px 4px', textAlign: 'right', letterSpacing: '-0.5px', fontSize: '12px' }}>{formatCurrency(item.cash)}</td>
-                                            <td style={{ padding: '10px 4px', fontSize: '12px' }}>{item.cashRate}</td>
-                                            <td style={{ padding: '10px 4px', textAlign: 'right', letterSpacing: '-0.5px', fontSize: '12px' }}>{formatCurrency(item.card)}</td>
-                                            <td style={{ padding: '10px 4px', fontSize: '12px' }}>{item.cardRate}</td>
-                                            <td style={{ padding: '10px 4px', fontWeight: 'bold', textAlign: 'right', letterSpacing: '-0.5px', fontSize: '12px' }}>{formatCurrency(item.total)}</td>
+                                            <td style={{ padding: '10px 4px', fontSize: '10px' }}>{item.name}</td>
+                                            <td style={{ padding: '10px 4px', textAlign: 'right', letterSpacing: '-0.5px', fontSize: '10px' }}>{formatCurrency(item.cash)}</td>
+                                            <td style={{ padding: '10px 4px', fontSize: '10px' }}>{item.cashRate}</td>
+                                            <td style={{ padding: '10px 4px', textAlign: 'right', letterSpacing: '-0.5px', fontSize: '10px' }}>{formatCurrency(item.card)}</td>
+                                            <td style={{ padding: '10px 4px', fontSize: '10px' }}>{item.cardRate}</td>
+                                            <td style={{ padding: '10px 4px', fontWeight: 'bold', textAlign: 'right', letterSpacing: '-0.5px', fontSize: '10px' }}>{formatCurrency(item.total)}</td>
                                         </tr>
                                     )) : (
                                         <tr><td colSpan={6} style={{ padding: '20px', color: '#868e96' }}>매출 내역이 없습니다.</td></tr>
@@ -3229,7 +3521,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                         <div style={{ display: 'flex', gap: '15px' }}>
                             {/* Revenue Analysis Table */}
                             <div style={{ flex: 1 }}>
-                                <h3 className="mini-report-table-title" style={{ fontSize: '14px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0' }}>매출현황</h3>
+                                <h3 className="mini-report-table-title" style={{ fontSize: '12px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0' }}>매출현황</h3>
                                 <table className="mini-report-table">
                                     <colgroup>
                                         <col style={{ width: '40%' }} />
@@ -3265,7 +3557,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                                     <span>{reportLabels.monthlyProfit}</span>
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '6px 4px', borderBottom: '1px solid #dee2e6', textAlign: 'right', fontWeight: 'bold', color: '#be4bdb', fontSize: '14px' }}>
+                                            <td style={{ padding: '6px 4px', borderBottom: '1px solid #dee2e6', textAlign: 'right', fontWeight: 'bold', color: '#be4bdb', fontSize: '12px' }}>
                                                 {formatCurrency(data.monthlyProfit)}
                                             </td>
                                         </tr>
@@ -3281,7 +3573,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                             {/* Expense Analysis Table */}
                             <div style={{ flex: 1 }}>
-                                <h3 className="mini-report-table-title" style={{ fontSize: '14px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0' }}>지출경비현황</h3>
+                                <h3 className="mini-report-table-title" style={{ fontSize: '12px', marginBottom: '5px', textAlign: 'center', backgroundColor: '#e9ecef', padding: '4px 0' }}>지출경비현황</h3>
                                 <table className="mini-report-table">
                                     <colgroup>
                                         <col style={{ width: '48%' }} />
@@ -3400,7 +3692,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
                 {/* Bottom Section: Monthly Revenue Graph */}
                 <div style={{ height: '300px', marginTop: '20px' }}>
-                    <h2 style={{ fontSize: '16px', borderLeft: '4px solid #333', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>매출 시계열 분석</h2>
+                    <h2 style={{ fontSize: '14px', borderLeft: '4px solid #333', paddingLeft: '8px', marginBottom: '10px', color: '#333' }}>매출 시계열 분석</h2>
                     <div style={{ width: '100%', height: '220px', backgroundColor: '#f8f9fa', borderRadius: '4px', padding: '5px' }}>
                         {typeof window !== 'undefined' && (
                             <ResponsiveContainer width="100%" height="100%">
@@ -3421,7 +3713,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                                         verticalAlign="top"
                                         align="right"
                                         iconType="circle"
-                                        wrapperStyle={{ fontSize: '10px', top: 0, paddingRight: '10px' }}
+                                        wrapperStyle={{ fontSize: '8px', top: 0, paddingRight: '10px' }}
                                     />
                                     <Bar dataKey="cash" name="현금" stackId="a" fill="#1c7ed6" barSize={15} isAnimationActive={false} />
                                     <Bar dataKey="card" name="카드" stackId="a" fill="#37b24d" barSize={15} isAnimationActive={false} />
