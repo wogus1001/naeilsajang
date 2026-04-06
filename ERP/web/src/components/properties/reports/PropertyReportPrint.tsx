@@ -1756,9 +1756,7 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
 
 
             {/* Memo/Description */}
-            {
-                (data.memo || data.details) && (
-                    <div className="print-section f1-section">
+            <div className="print-section f1-section">
                         <h2 className="f1-h2" style={{ borderLeftColor: '#868e96' }}>상세 내용</h2>
                         <div className="memo-box memo-box-details" style={{
                             ...getBoxStyle('88px', 5),
@@ -1773,13 +1771,9 @@ const PropertyReportPrint: React.FC<PropertyReportPrintProps> = ({ data, format 
                             wordBreak: 'break-all',
                             textOverflow: 'clip'
                         }}>
-                            {data.memo}
-                            {data.memo && data.details && '\n\n'}
-                            {data.details}
+                            {[data.memo, data.details].filter(Boolean).join('\n\n') || '-'}
                         </div>
                     </div>
-                )
-            }
 
         </div>
     );
