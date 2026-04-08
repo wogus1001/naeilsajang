@@ -1,90 +1,123 @@
-# PROJECT_HANDOFF.md
+# PROJECT HANDOFF — 매장 체크리스트 미니앱
 
-## 프로젝트
-- 이름: 매장 체크리스트
-- 형태: Toss 앱 내 WebView 미니앱 MVP
-- 목적: 점주가 매일 오픈/마감 체크리스트를 수행하고, 완료 이력과 담당자를 간단히 관리할 수 있게 한다.
-- 기준 문서: `README.md`, `ARCHITECTURE.md`
+> 세션 간 컨텍스트 전달용. 맥북에서 작업 재개 시 이 파일을 먼저 읽어주세요.
 
-## 현재 상태
-- 단계: MVP 1차 구현 완료
-- 마지막 완료 작업:
-  - React + TypeScript + Vite 앱 골격 생성
-  - localStorage 기반 상태 관리와 체크리스트 훅 구현
-  - 로그인, 셋업, 홈, 체크리스트, 이력, 설정 화면 구현
-  - 브라우저용 데모 로그인 폴백 추가
-  - `npm run build` 통과 및 Playwright 스크린샷 확보
-- 현재 코드 상태:
-  - 앱 소스와 기본 스타일 구현 완료
-  - 로컬 저장 기반 MVP 흐름 동작
-  - Toss 실제 런타임 로그인 브리지는 후속 검증 필요
+## 현재 상태: MVP 프런트 완성, 맥북 이전 준비 완료
 
-## 이번 프로젝트의 다음 실행 작업
-- Toss 런타임에서 실제 `appLogin` 브리지 동작 확인
-- Figma/TDS 기준으로 UI 디테일 보정
-- 필요 시 서버 연동을 위한 인증/저장 구조 확장
+**마지막 작업일:** 2026-04-08
+**Git 브랜치:** `feature/toss-checklist`
+**리포:** `github.com/wogus1001/naeilsajang`
 
-## 확정된 구현 범위
-- 인증:
-  - Toss `appLogin()` 성공을 세션 시작 기준으로 사용
-  - MVP에서는 사용자 실명 조회 없이 `authCode`를 로컬 세션 마커로 저장
-- 데이터:
-  - `store_profile`
-  - `workers`
-  - `checklist_items`
-  - `completion_history`
-- 화면:
-  - `/login`
-  - `/setup`
-  - `/`
-  - `/checklist/:type`
-  - `/history`
-  - `/settings`
-- 핵심 기능:
-  - 매장 정보 등록
-  - 오픈/마감 체크리스트 실행
-  - 완료자 선택
-  - 최근 완료 이력 조회
-  - 스트릭 계산
-  - 체크리스트 항목/알바생 관리
+---
 
-## 다음 TODO
-1. Toss 실제 앱 환경에서 로그인 브리지 경로 점검 및 연결
-2. Figma 링크 기준으로 카드/간격/타이포 디테일 보정
-3. Playwright 시나리오를 로그인 외 홈/체크리스트까지 확대
-4. 체크리스트 항목 순서 변경 기능 필요 여부 결정
-5. 백엔드 연동 전제의 인증 토큰 교환 구조 설계
+## 이번 세션에서 한 일
 
-## 검증 기준
-- 필수:
-  - `npm run build`
-  - 주요 화면 진입 가능 여부 확인
-  - localStorage 저장/복원 동작 확인
-- UI 변경 시:
-  - 로그인
-  - 설정
-  - 홈
-  - 체크리스트 실행
-  - 이력 확인
-  - 각 흐름별 스크린샷 확보
-- 현재 확보한 증거:
-  - Playwright 스크린샷: `.playwright-mcp/store-checklist-login.png`
+### 1. 프로젝트 기획 & 계획 수립
+- 앱인토스 개발자센터 문서 조사 (llms.txt, WebView 튜토리얼, Granite SDK)
+- TDS Mobile 컴포넌트 API 확인 (Button, Checkbox 등)
+- Figma MCP 연동 완료 (TDS Mobile for Apps-in-Toss UI Kit)
+- 상세 구현 계획 작성 → ARCHITECTURE.md, README.md
 
-## 리스크와 주의사항
-- Toss `appLogin()`은 실제 앱 환경 의존성이 있어 일반 브라우저 개발 환경에서는 직접 동작하지 않을 수 있다.
-- 현재 구현은 브라우저용 데모 로그인 폴백을 사용한다.
-- 서버가 없으므로 사용자 실명/전화번호 등 실제 프로필 연동은 MVP 범위 밖이다.
-- `handoff.md`는 워크스페이스 규칙상 Claude가 최종 작성하는 파일이므로, 이 문서는 프로젝트 전용 작업 handoff로 유지한다.
+### 2. 주요 설계 결정
 
-## 다음 작업자가 바로 보면 좋은 체크포인트
-- 우선 문서 구현 일치 여부를 유지할 것
-- TypeScript에서 `any` 없이 진행할 것
-- UI는 모바일 우선, 체크리스트 조작은 한 손 사용을 고려할 것
-- 설계 변경이 생기면 `README.md`와 `ARCHITECTURE.md`를 함께 갱신할 것
+**토스 로그인:**
+- `appLogin()` → authorizationCode 반환 (클라이언트)
+- 서버 측 mTLS 토큰 교환 필수 → `scripts/toss-auth-server.mjs`
+- 브라우저 환경에서는 데모 로그인으로 폴백
 
-## Codex 증거 패키지 형식
-- 변경 파일 목록
-- 실행한 명령어
-- 빌드/테스트 결과
-- 스크린샷 경로
-- 남은 리스크
+**데이터 저장:**
+- 1차: localStorage / 2차: Supabase 동기화 (auth 서버 경유)
+- 스키마: `supabase/migrations/`
+
+**직원 관리:**
+- 점주가 초대코드/링크 발급 → 직원 토스 로그인 → 닉네임 입력 → 합류
+- MVP는 자체 인코딩 초대코드 (추후 서버 검증 전환)
+
+**게이미피케이션:**
+- 마감(close) 연속 완료 일수 추적 (🔥 스트릭)
+- `src/lib/streak.ts` → calcStreak()
+
+### 3. MCP 연동 상태
+- **Figma**: `claude mcp add --transport http figma https://mcp.figma.com/mcp`
+  - TDS Mobile UI Kit fileKey: `NF92wLpk0ks0IQqDYXnMxm`
+- **apps-in-toss**: 설치됨 (ax mcp start)
+  - search_docs, get_tds_web_doc, list_examples 등 사용 가능
+
+### 4. Git Push
+- `feature/toss-checklist` 브랜치에 51개 파일 커밋/push 완료
+- 민감 파일(mTLS 인증서, .env.local) 제외 확인
+
+---
+
+## 맥북에서 작업 시작
+
+```bash
+# 클론 또는 fetch
+git clone https://github.com/wogus1001/naeilsajang.git  # 또는 git fetch
+cd naeilsajang && git checkout feature/toss-checklist
+cd toss && npm install
+
+# 환경변수
+# .env.local 수동 생성 (README.md 참조)
+
+# 실행
+npm run auth:server  # 터미널 1
+npm run dev          # 터미널 2
+# → http://localhost:5173
+
+# MCP 세팅 (맥북)
+claude mcp add --transport http figma https://mcp.figma.com/mcp
+brew tap toss/tap && brew install ax
+claude mcp add --transport stdio apps-in-toss ax mcp start
+```
+
+---
+
+## 프로젝트 구조
+
+```
+toss/
+├── src/
+│   ├── pages/          ← Login, Setup, Home, Checklist, History, Settings
+│   ├── hooks/          ← useStore, useChecklist, useWorkers
+│   ├── lib/            ← storage, streak, tossAuth, inviteCode, remoteStore
+│   ├── components/     ← BottomTabBar, ProtectedRoute
+│   └── types/
+├── scripts/            ← toss-auth-server.mjs
+├── supabase/           ← 마이그레이션 SQL
+├── cloudrun/           ← Cloud Run 배포 설정
+└── [설정 파일]         ← granite.config.ts, vite.config.ts, tsconfig 등
+```
+
+---
+
+## 다음 작업 (TODO)
+
+- [ ] 맥북에서 npm install + npm run dev 정상 확인
+- [ ] TDS Mobile 컴포넌트 import 테스트
+- [ ] Playwright 6페이지 스크린샷 검증
+- [ ] 토스 샌드박스 `intoss://open-close-check` 테스트
+- [ ] Supabase 프로젝트 생성 + 마이그레이션 적용
+- [ ] Cloud Run auth 서버 배포 (mTLS Secret Manager)
+- [ ] 실제 토스 로그인 E2E 검증
+
+---
+
+## 알려진 이슈
+
+- `@toss/tds-mobile`: 로컬 브라우저에서 일부 컴포넌트 미동작 가능
+- `appLogin()`: 토스 앱/샌드박스 내에서만 동작
+- mTLS 인증서: git 미포함 → 맥북에서 별도 복사 필요
+- 초대코드: MVP 자체 인코딩 → 추후 서버 검증 전환
+
+---
+
+## 주요 문서
+
+| 문서 | 설명 |
+|------|------|
+| README.md | 프로젝트 개요 + 실행법 |
+| ARCHITECTURE.md | 아키텍처 + 도메인 모델 |
+| SCHEMA.md | DB 스키마 |
+| ROADMAP.md | 진행 현황 |
+| CHANGELOG.md | 변경 이력 |
