@@ -1156,37 +1156,37 @@ function ProjectEditor() {
                                             ) : (
                                                 // 일반 모드: 편집/삭제 버튼
                                                 <>{!t.is_system ? (
-                                                <div style={{ display: 'flex', gap: '2px' }}>
+                                                    <div style={{ display: 'flex', gap: '2px' }}>
+                                                        <div
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                window.location.href = `/contracts/builder?templateId=${t.id}&projectId=${project.id}&returnToProject=true`;
+                                                            }}
+                                                            style={{ padding: '8px', color: '#228be6' }}
+                                                            title="양식 수정"
+                                                        >
+                                                            <PenTool size={16} />
+                                                        </div>
+                                                        <div
+                                                            onClick={(e) => handleDeleteTemplate(t.id, e)}
+                                                            style={{ padding: '8px', color: '#fa5252' }}
+                                                            title="양식 영구 삭제"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </div>
+                                                    </div>
+                                                ) : (
                                                     <div
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             window.location.href = `/contracts/builder?templateId=${t.id}&projectId=${project.id}&returnToProject=true`;
                                                         }}
-                                                        style={{ padding: '8px', color: '#228be6' }}
-                                                        title="양식 수정"
+                                                        style={{ padding: '8px', color: '#868e96' }}
+                                                        title="이 양식을 기반으로 새로 만들기"
                                                     >
                                                         <PenTool size={16} />
                                                     </div>
-                                                    <div
-                                                        onClick={(e) => handleDeleteTemplate(t.id, e)}
-                                                        style={{ padding: '8px', color: '#fa5252' }}
-                                                        title="양식 영구 삭제"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        window.location.href = `/contracts/builder?templateId=${t.id}&projectId=${project.id}&returnToProject=true`;
-                                                    }}
-                                                    style={{ padding: '8px', color: '#868e96' }}
-                                                    title="이 양식을 기반으로 새로 만들기"
-                                                >
-                                                    <PenTool size={16} />
-                                                </div>
-                                            )}</>
+                                                )}</>
                                             )}
                                         </div>
                                     ))

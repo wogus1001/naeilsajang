@@ -2,7 +2,7 @@
 
 import { readApiJson } from '@/utils/apiResponse';
 import React, { useState } from 'react';
-import { Save, ArrowLeft, Search, MapPin, X, ChevronDown, ChevronUp, Star, User, FileText, Plus } from 'lucide-react';
+import { Save, ArrowLeft, Search, MapPin, X, ChevronDown, ChevronUp, Star, User, FileText, Plus, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -13,6 +13,13 @@ import styles from './page.module.css';
 import { AlertModal } from '@/components/common/AlertModal';
 
 const KAKAO_SDK_URL = `//dapi.kakao.com/v2/maps/sdk.js?appkey=26c1197bae99e17f8c1f3e688e22914d&libraries=services,drawing&autoload=false`;
+
+type CustomFieldType = 'operation' | 'lease';
+
+interface CustomFieldItem {
+    label: string;
+    value: string;
+}
 
 // Industry Categories Data
 const INDUSTRY_DATA: Record<string, Record<string, string[]>> = {
@@ -435,15 +442,15 @@ export default function RegisterPropertyPage() {
     const franchiseTotal = franchiseData.hqDeposit + franchiseData.franchiseFee + franchiseData.educationFee + franchiseData.renewal;
 
     // Custom Fields State
-    const [operationCustomFields, setOperationCustomFields] = useState<{ label: string; value: string }[]>([]);
-    const [leaseCustomFields, setLeaseCustomFields] = useState<{ label: string; value: string }[]>([]);
+    const [operationCustomFields, setOperationCustomFields] = useState<CustomFieldItem[]>([]);
+    const [leaseCustomFields, setLeaseCustomFields] = useState<CustomFieldItem[]>([]);
 
     const [newOperationCategory, setNewOperationCategory] = useState('');
     const [newLeaseCategory, setNewLeaseCategory] = useState('');
     const [isAddingOperationCategory, setIsAddingOperationCategory] = useState(false);
     const [isAddingLeaseCategory, setIsAddingLeaseCategory] = useState(false);
 
-    const addCustomField = (type: 'operation' | 'lease') => {
+    const addCustomField = (type: CustomFieldType) => {
         if (type === 'operation') {
             if (newOperationCategory.trim()) {
                 setOperationCustomFields(prev => [...prev, { label: newOperationCategory, value: '' }]);
@@ -459,7 +466,7 @@ export default function RegisterPropertyPage() {
         }
     };
 
-    const handleCustomFieldChange = (type: 'operation' | 'lease', index: number, value: string) => {
+    const handleCustomFieldChange = (type: CustomFieldType, index: number, value: string) => {
         if (type === 'operation') {
             const newFields = operationCustomFields.map((field, i) =>
                 i === index ? { ...field, value } : field
@@ -471,6 +478,15 @@ export default function RegisterPropertyPage() {
             );
             setLeaseCustomFields(newFields);
         }
+    };
+
+    const removeCustomField = (type: CustomFieldType, index: number) => {
+        if (type === 'operation') {
+            setOperationCustomFields(prev => prev.filter((_, fieldIndex) => fieldIndex !== index));
+            return;
+        }
+
+        setLeaseCustomFields(prev => prev.filter((_, fieldIndex) => fieldIndex !== index));
     };
 
     // Section visibility state
@@ -1678,7 +1694,18 @@ export default function RegisterPropertyPage() {
                                 {/* Custom Fields */}
                                 {operationCustomFields.map((field, index) => (
                                     <div key={index} className={styles.field}>
-                                        <label className={styles.label}>{field.label}</label>
+                                        <label className={styles.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                                            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{field.label}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCustomField('operation', index)}
+                                                aria-label={`${field.label} 삭제`}
+                                                title="추가한 항목 삭제"
+                                                style={{ border: 'none', background: 'transparent', color: '#e03131', padding: 0, display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </label>
                                         <input
                                             type="text"
                                             className={styles.input}
@@ -1766,7 +1793,18 @@ export default function RegisterPropertyPage() {
                                 {/* Custom Fields */}
                                 {leaseCustomFields.map((field, index) => (
                                     <div key={index} className={styles.field}>
-                                        <label className={styles.label}>{field.label}</label>
+                                        <label className={styles.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                                            <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{field.label}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCustomField('lease', index)}
+                                                aria-label={`${field.label} 삭제`}
+                                                title="추가한 항목 삭제"
+                                                style={{ border: 'none', background: 'transparent', color: '#e03131', padding: 0, display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </label>
                                         <input
                                             type="text"
                                             className={styles.input}

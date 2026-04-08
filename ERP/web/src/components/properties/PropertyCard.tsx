@@ -32,6 +32,13 @@ interface RevenueItem {
     details?: string;
 }
 
+type CustomFieldType = 'operation' | 'lease';
+
+interface CustomFieldItem {
+    label: string;
+    value: string;
+}
+
 // ... (existing interfaces)
 const INDUSTRY_DATA: Record<string, Record<string, string[]>> = {
     '요식업': {
@@ -2054,17 +2061,17 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
     };
 
     // Custom Field Handlers
-    const addCustomField = (type: 'operation' | 'lease') => {
+    const addCustomField = (type: CustomFieldType) => {
         if (type === 'operation') {
             if (newOperationCategory.trim()) {
-                const newFields = [...(formData.operationCustomFields || []), { label: newOperationCategory, value: '' }];
+                const newFields: CustomFieldItem[] = [...(formData.operationCustomFields || []), { label: newOperationCategory, value: '' }];
                 setFormData({ ...formData, operationCustomFields: newFields });
                 setNewOperationCategory('');
                 setIsAddingOperationCategory(false);
             }
         } else {
             if (newLeaseCategory.trim()) {
-                const newFields = [...(formData.leaseCustomFields || []), { label: newLeaseCategory, value: '' }];
+                const newFields: CustomFieldItem[] = [...(formData.leaseCustomFields || []), { label: newLeaseCategory, value: '' }];
                 setFormData({ ...formData, leaseCustomFields: newFields });
                 setNewLeaseCategory('');
                 setIsAddingLeaseCategory(false);
@@ -2072,16 +2079,27 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
         }
     };
 
-    const handleCustomFieldChange = (type: 'operation' | 'lease', index: number, value: string) => {
+    const handleCustomFieldChange = (type: CustomFieldType, index: number, value: string) => {
         if (type === 'operation') {
-            const newFields = [...formData.operationCustomFields];
+            const newFields: CustomFieldItem[] = [...(formData.operationCustomFields || [])];
             newFields[index].value = value;
             setFormData({ ...formData, operationCustomFields: newFields });
         } else {
-            const newFields = [...formData.leaseCustomFields];
+            const newFields: CustomFieldItem[] = [...(formData.leaseCustomFields || [])];
             newFields[index].value = value;
             setFormData({ ...formData, leaseCustomFields: newFields });
         }
+    };
+
+    const removeCustomField = (type: CustomFieldType, index: number) => {
+        if (type === 'operation') {
+            const newFields = (formData.operationCustomFields || []).filter((_: CustomFieldItem, fieldIndex: number) => fieldIndex !== index);
+            setFormData({ ...formData, operationCustomFields: newFields });
+            return;
+        }
+
+        const newFields = (formData.leaseCustomFields || []).filter((_: CustomFieldItem, fieldIndex: number) => fieldIndex !== index);
+        setFormData({ ...formData, leaseCustomFields: newFields });
     };
 
     const formatCurrency = (value: number | string) => {
@@ -3302,9 +3320,21 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     {/* Custom Operation Fields */}
-                                    {formData.operationCustomFields?.map((field: any, idx: number) => (
+                                    {formData.operationCustomFields?.map((field: CustomFieldItem, idx: number) => (
                                         <div className={styles.fieldRow} key={`op-${idx}`}>
-                                            <div className={styles.fieldLabel}>{field.label}</div>
+                                            <div className={styles.fieldLabel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                                                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{field.label}</span>
+                                                <button
+                                                    type="button"
+                                                    className={styles.smallBtn}
+                                                    onClick={() => removeCustomField('operation', idx)}
+                                                    aria-label={`${field.label} 삭제`}
+                                                    title="추가한 항목 삭제"
+                                                    style={{ padding: '2px 6px', minWidth: 'auto', color: '#e03131' }}
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
                                             <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                                 <input
                                                     value={field.value ?? ''}
@@ -3395,9 +3425,21 @@ export default function PropertyCard({ property, onClose, onRefresh, onNavigate,
                                         </div>
                                     </div>
                                     {/* Custom Lease Fields */}
-                                    {formData.leaseCustomFields?.map((field: any, idx: number) => (
+                                    {formData.leaseCustomFields?.map((field: CustomFieldItem, idx: number) => (
                                         <div className={styles.fieldRow} key={`ls-${idx}`}>
-                                            <div className={styles.fieldLabel}>{field.label}</div>
+                                            <div className={styles.fieldLabel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                                                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{field.label}</span>
+                                                <button
+                                                    type="button"
+                                                    className={styles.smallBtn}
+                                                    onClick={() => removeCustomField('lease', idx)}
+                                                    aria-label={`${field.label} 삭제`}
+                                                    title="추가한 항목 삭제"
+                                                    style={{ padding: '2px 6px', minWidth: 'auto', color: '#e03131' }}
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
                                             <div className={styles.fieldValue} style={{ gridColumn: 'span 3' }}>
                                                 <input
                                                     value={field.value ?? ''}

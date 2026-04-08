@@ -479,6 +479,11 @@
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
+.postcodeWrapper {
+    width: 100%;
+    min-height: 460px;
+}
+
 .modalHeader {
     display: flex;
     justify-content: space-between;
