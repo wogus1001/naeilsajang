@@ -1,0 +1,30 @@
+{
+  "name": "open-close-check",
+  "private": true,
+  "version": "0.1.0",
+  "description": "토스 앱 내 WebView 미니앱. 매장 점주가 매일 오픈/마감 체크리스트를 스마트하게 관리.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "auth:server": "node scripts/toss-auth-server.mjs",
+    "build": "tsc --project tsconfig.app.json --noEmit && tsc --project tsconfig.node.json --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@apps-in-toss/framework": "^2.0.9",
+    "@apps-in-toss/web-framework": "^2.0.9",
+    "@supabase/supabase-js": "^2.99.3",
+    "nanoid": "^5.1.7",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.13.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "playwright": "^1.58.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.12"
+  }
+}

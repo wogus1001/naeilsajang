@@ -1,0 +1,31 @@
+node_modules/
+dist/
+*.local
+.env*
+!.env.example
+
+# mTLS 인증서 (절대 커밋 금지)
+mTLS_인증서*/
+*.key
+*.crt
+*.pem
+
+# 빌드 산출물
+*.ait
+*.tsbuildinfo
+build-output.txt
+vite-debug-output.txt
+vite-dev.log
+vite-dev.err.log
+auth-server.log
+auth-server.err.log
+
+# Playwright 스크린샷 (재생성 가능)
+.playwright-mcp/
+
+# Granite 생성물
+.granite/
+
+# IDE
+.claude/
+.DS_Store
