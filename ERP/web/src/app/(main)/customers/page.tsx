@@ -10,6 +10,7 @@ import CustomerCard from '@/components/customers/CustomerCard';
 import ViewModeSwitcher, { ViewMode } from '@/components/properties/ViewModeSwitcher';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { parseSearchTerms } from '@/utils/search';
 
 interface Customer {
     id: string;
@@ -54,9 +55,13 @@ function CustomerListPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [customers, setCustomers] = useState<Customer[]>([]);
+    const [searchCustomers, setSearchCustomers] = useState<Customer[] | null>(null);
     const [managers, setManagers] = useState<Record<string, string>>({}); // id -> name map
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const searchTerms = React.useMemo(() => parseSearchTerms(searchTerm), [searchTerm]);
+    const isSearchActive = searchTerms.length > 0;
+    const sourceCustomers = isSearchActive ? (searchCustomers ?? customers) : customers;
 
     // Filter States
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -134,6 +139,7 @@ function CustomerListPageContent() {
     const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
     const categoryDropdownRef = useRef<HTMLDivElement>(null);
     const fetchControllerRef = useRef<AbortController | null>(null);
+    const searchFetchControllerRef = useRef<AbortController | null>(null);
 
     const [dataManagement, setDataManagement] = useState<any>(null);
 
@@ -194,6 +200,13 @@ function CustomerListPageContent() {
         fetchCustomers();
         fetchManagers();
     }, [limit]);
+
+    useEffect(() => {
+        return () => {
+            fetchControllerRef.current?.abort();
+            searchFetchControllerRef.current?.abort();
+        };
+    }, []);
 
     const parseExcel = (file: File) => {
         return new Promise<any[]>((resolve, reject) => {
@@ -317,8 +330,43 @@ function CustomerListPageContent() {
         });
     };
 
+    const buildCustomerQueryString = React.useCallback((requestedLimit: number | 'all') => {
+        const userStr = localStorage.getItem('user');
+        const queryParams = new URLSearchParams();
+
+        if (requestedLimit !== 'all') {
+            queryParams.append('limit', requestedLimit.toString());
+        } else {
+            queryParams.append('limit', 'all');
+        }
+
+        if (userStr) {
+            const parsed = JSON.parse(userStr);
+            const user = parsed.user || parsed;
+            if (user.companyName) {
+                queryParams.append('company', user.companyName);
+            }
+            const requesterId = user.uid || user.uuid || user.id || user.userId || user.user_id;
+            if (requesterId) {
+                queryParams.append('requesterId', requesterId);
+            }
+        }
+
+        return `?${queryParams.toString()}`;
+    }, []);
+
+    const fetchCustomerList = React.useCallback(async (requestedLimit: number | 'all', signal: AbortSignal) => {
+        const query = buildCustomerQueryString(requestedLimit);
+        const res = await fetch(`/api/customers${query}`, { signal });
+
+        if (!res.ok) {
+            throw new Error(`Failed to fetch customers: ${res.status}`);
+        }
+
+        return await readApiJson(res);
+    }, [buildCustomerQueryString]);
+
     const fetchCustomers = async () => {
-        // Cancel previous request if exists
         if (fetchControllerRef.current) {
             fetchControllerRef.current.abort();
         }
@@ -327,37 +375,9 @@ function CustomerListPageContent() {
 
         try {
             setLoading(true);
-            const userStr = localStorage.getItem('user');
-
-            const queryParams = new URLSearchParams();
-
-            // Limit Param
-            if (limit !== 'all') {
-                queryParams.append('limit', limit.toString());
-            } else {
-                queryParams.append('limit', 'all');
-            }
-
-            // Company Param
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const user = parsed.user || parsed;
-                if (user.companyName) {
-                    queryParams.append('company', user.companyName);
-                }
-                const requesterId = user.uid || user.uuid || user.id || user.userId || user.user_id;
-                if (requesterId) {
-                    queryParams.append('requesterId', requesterId);
-                }
-            }
-
-            const query = `?${queryParams.toString()}`;
-            const res = await fetch(`/api/customers${query}`, { signal: controller.signal });
-
-            if (res.ok) {
-                const data = await readApiJson(res);
-                setCustomers(data);
-            }
+            const data = await fetchCustomerList(limit, controller.signal);
+            setCustomers(data);
+            setSearchCustomers(null);
         } catch (error: any) {
             if (error.name === 'AbortError') return;
             console.error(error);
@@ -368,6 +388,47 @@ function CustomerListPageContent() {
             }
         }
     };
+
+    useEffect(() => {
+        if (!isSearchActive || limit === 'all') {
+            if (searchFetchControllerRef.current) {
+                searchFetchControllerRef.current.abort();
+                searchFetchControllerRef.current = null;
+            }
+            setSearchCustomers(null);
+            return;
+        }
+
+        if (searchCustomers !== null) {
+            return;
+        }
+
+        const controller = new AbortController();
+        searchFetchControllerRef.current = controller;
+
+        void (async () => {
+            try {
+                const data = await fetchCustomerList('all', controller.signal);
+                if (searchFetchControllerRef.current === controller) {
+                    setSearchCustomers(data);
+                }
+            } catch (error: any) {
+                if (error.name === 'AbortError') return;
+                console.error('Failed to fetch searchable customers:', error);
+            } finally {
+                if (searchFetchControllerRef.current === controller) {
+                    searchFetchControllerRef.current = null;
+                }
+            }
+        })();
+
+        return () => {
+            controller.abort();
+            if (searchFetchControllerRef.current === controller) {
+                searchFetchControllerRef.current = null;
+            }
+        };
+    }, [fetchCustomerList, isSearchActive, limit, searchCustomers]);
 
     const fetchManagers = async () => {
         try {
@@ -556,6 +617,7 @@ function CustomerListPageContent() {
 
         // Optimistic update
         setCustomers(prev => prev.map(c => c.id === customer.id ? updatedCustomer : c));
+        setSearchCustomers(prev => prev?.map(c => c.id === customer.id ? updatedCustomer : c) ?? null);
 
         try {
             const userStr = localStorage.getItem('user');
@@ -571,6 +633,7 @@ function CustomerListPageContent() {
             console.error('Failed to update favorite', error);
             // Revert on error
             setCustomers(prev => prev.map(c => c.id === customer.id ? customer : c));
+            setSearchCustomers(prev => prev?.map(c => c.id === customer.id ? customer : c) ?? null);
         }
     };
 
@@ -604,7 +667,9 @@ function CustomerListPageContent() {
     };
 
     const filteredCustomers = React.useMemo(() => {
-        let result = (Array.isArray(customers) ? customers : []).filter(c => {
+        const hasCategoryFilter = selectedCategories.length > 0 && selectedCategories.length < categories.length;
+
+        let result = (Array.isArray(sourceCustomers) ? sourceCustomers : []).filter(c => {
             // 1. Favorite Filter
             if (showFavoritesOnly && !c.isFavorite) return false;
 
@@ -612,11 +677,10 @@ function CustomerListPageContent() {
             if (!selectedStatuses.includes(c.grade)) return false;
 
             // 3. Category Filter
-            if (selectedCategories.length > 0 && !selectedCategories.includes(c.class)) return false;
+            if (hasCategoryFilter && !selectedCategories.includes(c.class)) return false;
 
             // 4. Search Term
-            if (searchTerm) {
-                const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+            if (searchTerms.length > 0) {
                 const mobile = (c.mobile || '').replace(/-/g, '');
                 const companyPhone = (c.companyPhone || '').replace(/-/g, '');
                 const feature = (c.feature || '').toLowerCase();
@@ -626,7 +690,7 @@ function CustomerListPageContent() {
                 const wantedIndustry = (c.wantedIndustry || '').toLowerCase();
                 const wantedArea = (c.wantedArea || '').toLowerCase();
 
-                return terms.some(term => {
+                return searchTerms.some(term => {
                     const cleanTerm = term.replace(/-/g, ''); // For phone number matching
                     return name.includes(cleanTerm) ||
                         mobile.includes(cleanTerm) ||
@@ -671,7 +735,7 @@ function CustomerListPageContent() {
         }
 
         return result;
-    }, [customers, showFavoritesOnly, selectedStatuses, selectedCategories, searchTerm, sortConfig, managers]);
+    }, [sourceCustomers, categories.length, showFavoritesOnly, selectedStatuses, selectedCategories, searchTerms, sortConfig, managers]);
 
     // Selection Handlers
     const toggleSelectAll = (checked: boolean) => {
@@ -862,7 +926,7 @@ function CustomerListPageContent() {
                     <span>검색 : </span>
                     <input
                         className={styles.searchInput}
-                        placeholder="검색어 입력..."
+                        placeholder="쉼표 또는 띄어쓰기로 여러 키워드 검색"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
