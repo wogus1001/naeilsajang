@@ -13,6 +13,7 @@ import PropertyUploadModal from '@/components/properties/PropertyUploadModal';
 import ViewModeSwitcher, { ViewMode } from '@/components/properties/ViewModeSwitcher';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { parseSearchTerms } from '@/utils/search';
 import { getRequesterId, getStoredCompanyName, getStoredUser } from '@/utils/userUtils';
 
 const Resizer = ({ onResize, onAutoFit }: { onResize: (e: React.MouseEvent) => void, onAutoFit: () => void }) => (
@@ -112,11 +113,13 @@ const KAKAO_SDK_URL = `//dapi.kakao.com/v2/maps/sdk.js?appkey=26c1197bae99e17f8c
 function PropertiesPageContent() {
     const router = useRouter();
     const [properties, setProperties] = useState<any[]>([]);
+    const [searchProperties, setSearchProperties] = useState<any[] | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('center');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const fetchControllerRef = useRef<AbortController | null>(null);
+    const searchFetchControllerRef = useRef<AbortController | null>(null);
     const [isCustomLimit, setIsCustomLimit] = useState(false);
 
     const [dataManagement, setDataManagement] = useState<any>(null);
@@ -164,6 +167,9 @@ function PropertiesPageContent() {
     const [openFilterId, setOpenFilterId] = useState<string | null>(null);
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const searchTerms = useMemo(() => parseSearchTerms(searchTerm), [searchTerm]);
+    const isSearchActive = searchTerms.length > 0;
+    const sourceProperties = isSearchActive ? (searchProperties ?? properties) : properties;
 
     // UI Refs
     const filterContainerRef = React.useRef<HTMLDivElement>(null);
@@ -557,6 +563,8 @@ function PropertiesPageContent() {
             // ... existing cleanup
             document.removeEventListener('mousemove', handleDrawerMouseMove);
             document.removeEventListener('mouseup', handleDrawerMouseUp);
+            fetchControllerRef.current?.abort();
+            searchFetchControllerRef.current?.abort();
         };
     }, [handleDrawerMouseMove]);
 
@@ -594,8 +602,44 @@ function PropertiesPageContent() {
         document.body.style.cursor = '';
     }, [handleDrawerMouseMove, handleMouseMove]); // Cleaned up deps
 
+    const buildPropertyQueryString = React.useCallback((requestedLimit: number | 'all') => {
+        const params = new URLSearchParams();
+        const user = getStoredUser();
+
+        if (user) {
+            const requesterId = getRequesterId(user);
+            const companyName = getStoredCompanyName(user);
+            const isAdmin = user.role === 'admin' || user.id === 'admin';
+
+            if (requesterId) {
+                params.append('requesterId', requesterId);
+            }
+            if (companyName && !isAdmin) {
+                params.append('company', companyName);
+            }
+        }
+
+        if (requestedLimit !== 'all') {
+            params.append('limit', requestedLimit.toString());
+        } else {
+            params.append('limit', 'all');
+        }
+
+        return params.toString() ? `?${params.toString()}` : '';
+    }, []);
+
+    const fetchPropertyList = React.useCallback(async (requestedLimit: number | 'all', signal: AbortSignal) => {
+        const queryString = buildPropertyQueryString(requestedLimit);
+        const res = await fetch(`/api/properties${queryString}`, { signal });
+
+        if (!res.ok) {
+            throw new Error(await res.text());
+        }
+
+        return await readApiJson(res);
+    }, [buildPropertyQueryString]);
+
     const fetchProperties = React.useCallback(async () => {
-        // Cancel previous request
         if (fetchControllerRef.current) {
             fetchControllerRef.current.abort();
         }
@@ -604,39 +648,13 @@ function PropertiesPageContent() {
 
         setIsLoading(true);
         try {
-            const params = new URLSearchParams();
-            const user = getStoredUser();
-
-            if (user) {
-                const requesterId = getRequesterId(user);
-                const companyName = getStoredCompanyName(user);
-                const isAdmin = user.role === 'admin' || user.id === 'admin';
-
-                if (requesterId) {
-                    params.append('requesterId', requesterId);
-                }
-                if (companyName && !isAdmin) {
-                    params.append('company', companyName);
-                }
-            }
-
-            // Limit
-            if (limit !== 'all') {
-                params.append('limit', limit.toString());
-            }
-
-            const queryString = params.toString() ? `?${params.toString()}` : '';
-
-            const res = await fetch(`/api/properties${queryString}`, { signal: controller.signal });
-            if (res.ok) {
-                const data = await readApiJson(res);
-                setProperties(data);
-            } else {
-                setProperties([]);
-                console.error('Failed to fetch properties:', await res.text());
-            }
+            const data = await fetchPropertyList(limit, controller.signal);
+            setProperties(data);
+            setSearchProperties(null);
         } catch (error: any) {
             if (error.name === 'AbortError') return;
+            setProperties([]);
+            setSearchProperties(null);
             console.error('Failed to fetch properties:', error);
         } finally {
             if (fetchControllerRef.current === controller) {
@@ -644,11 +662,52 @@ function PropertiesPageContent() {
                 setIsLoading(false);
             }
         }
-    }, [limit]);
+    }, [fetchPropertyList, limit]);
 
     useEffect(() => {
         fetchProperties();
     }, [fetchProperties]);
+
+    useEffect(() => {
+        if (!isSearchActive || limit === 'all') {
+            if (searchFetchControllerRef.current) {
+                searchFetchControllerRef.current.abort();
+                searchFetchControllerRef.current = null;
+            }
+            setSearchProperties(null);
+            return;
+        }
+
+        if (searchProperties !== null) {
+            return;
+        }
+
+        const controller = new AbortController();
+        searchFetchControllerRef.current = controller;
+
+        void (async () => {
+            try {
+                const data = await fetchPropertyList('all', controller.signal);
+                if (searchFetchControllerRef.current === controller) {
+                    setSearchProperties(data);
+                }
+            } catch (error: any) {
+                if (error.name === 'AbortError') return;
+                console.error('Failed to fetch searchable properties:', error);
+            } finally {
+                if (searchFetchControllerRef.current === controller) {
+                    searchFetchControllerRef.current = null;
+                }
+            }
+        })();
+
+        return () => {
+            controller.abort();
+            if (searchFetchControllerRef.current === controller) {
+                searchFetchControllerRef.current = null;
+            }
+        };
+    }, [fetchPropertyList, isSearchActive, limit, searchProperties]);
 
     // Selection Handlers
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -774,18 +833,15 @@ function PropertiesPageContent() {
     };
 
     const filteredProperties = useMemo(() => {
-        let result = [...properties];
+        let result = [...sourceProperties];
 
-        // 1. Search Term
-        // 1. Search Term
-        if (searchTerm) {
-            const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+        if (searchTerms.length > 0) {
             result = result.filter(p => {
                 // Search ALL fields in the property object (Deep Search)
                 // This converts the entire object to a string and checks if the term exists.
                 // It covers top-level fields, arrays (like operationCustomFields), and nested objects.
                 const pStr = JSON.stringify(p).toLowerCase();
-                return terms.some(term => pStr.includes(term));
+                return searchTerms.some(term => pStr.includes(term));
             });
         }
 
@@ -884,7 +940,22 @@ function PropertiesPageContent() {
             });
         }
         return result;
-    }, [properties, searchTerm, statusFilter, addressFilter, managerFilters, priceFilter, areaFilter, floorFilter, typeFilter, sortRules, showFavoritesOnly]);
+    }, [
+        sourceProperties,
+        searchTerms,
+        statusFilter,
+        addressFilter,
+        managerFilters,
+        managers,
+        priceFilter,
+        areaFilter,
+        floorFilter,
+        typeFilter,
+        industryDetailFilter,
+        operationTypeFilter,
+        sortRules,
+        showFavoritesOnly
+    ]);
 
     // Pagination
     const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
@@ -1149,7 +1220,7 @@ function PropertiesPageContent() {
                     <Search size={18} className={styles.searchIcon} />
                     <input
                         type="text"
-                        placeholder="물건명, 주소, 연락처 등 전체 db 검색"
+                        placeholder="물건명, 주소, 연락처 등 쉼표/띄어쓰기로 검색"
                         className={styles.searchInput}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}

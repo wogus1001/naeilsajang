@@ -10,6 +10,7 @@ import BusinessCard from '@/components/business/BusinessCard';
 import ViewModeSwitcher, { ViewMode } from '@/components/properties/ViewModeSwitcher';
 import { AlertModal } from '@/components/common/AlertModal';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { parseSearchTerms } from '@/utils/search';
 
 interface BusinessCardData {
     id: string;
@@ -37,9 +38,13 @@ function BusinessCardListContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [cards, setCards] = useState<BusinessCardData[]>([]);
+    const [searchCards, setSearchCards] = useState<BusinessCardData[] | null>(null);
     const [managers, setManagers] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const searchTerms = React.useMemo(() => parseSearchTerms(searchTerm), [searchTerm]);
+    const isSearchActive = searchTerms.length > 0;
+    const sourceCards = isSearchActive ? (searchCards ?? cards) : cards;
     const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
     // Filter States
@@ -49,6 +54,7 @@ function BusinessCardListContent() {
     const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
     const categoryDropdownRef = useRef<HTMLDivElement>(null);
     const fetchControllerRef = useRef<AbortController | null>(null);
+    const searchFetchControllerRef = useRef<AbortController | null>(null);
 
     // Selection State
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -169,6 +175,13 @@ function BusinessCardListContent() {
         };
     }, [isCategoryDropdownOpen]);
 
+    useEffect(() => {
+        return () => {
+            fetchControllerRef.current?.abort();
+            searchFetchControllerRef.current?.abort();
+        };
+    }, []);
+
     const fetchManagers = async () => {
         try {
             const userStr = localStorage.getItem('user');
@@ -202,8 +215,39 @@ function BusinessCardListContent() {
         }
     };
 
+    const buildBusinessCardQueryString = React.useCallback((requestedLimit: number | 'all') => {
+        const userStr = localStorage.getItem('user');
+        const params = new URLSearchParams();
+
+        if (requestedLimit !== 'all') {
+            params.append('limit', requestedLimit.toString());
+        } else {
+            params.append('limit', 'all');
+        }
+
+        if (userStr) {
+            const parsed = JSON.parse(userStr);
+            const user = parsed.user || parsed;
+            if (user.companyName) params.append('company', user.companyName);
+            if (user.uid) params.append('userId', user.uid);
+            else if (user.id) params.append('userId', user.id);
+        }
+
+        return `?${params.toString()}`;
+    }, []);
+
+    const fetchBusinessCardList = React.useCallback(async (requestedLimit: number | 'all', signal: AbortSignal) => {
+        const query = buildBusinessCardQueryString(requestedLimit);
+        const res = await fetch(`/api/business-cards${query}`, { signal });
+
+        if (!res.ok) {
+            throw new Error(`Failed to fetch business cards: ${res.status}`);
+        }
+
+        return await readApiJson(res);
+    }, [buildBusinessCardQueryString]);
+
     const fetchCards = async () => {
-        // Cancel previous request if exists
         if (fetchControllerRef.current) {
             fetchControllerRef.current.abort();
         }
@@ -212,39 +256,14 @@ function BusinessCardListContent() {
 
         try {
             setLoading(true);
-            const userStr = localStorage.getItem('user');
+            const data = await fetchBusinessCardList(limit, controller.signal);
 
-            const params = new URLSearchParams();
+            setCards(data);
+            setSearchCards(null);
 
-            // Limit Param
-            if (limit !== 'all') {
-                params.append('limit', limit.toString());
-            } else {
-                params.append('limit', 'all');
-            }
-
-            if (userStr) {
-                const parsed = JSON.parse(userStr);
-                const user = parsed.user || parsed; // Handle wrapped 'user' object
-                if (user.companyName) params.append('company', user.companyName);
-                // Use uid (UUID) if available, fallback to id (legacy)
-                if (user.uid) params.append('userId', user.uid);
-                else if (user.id) params.append('userId', user.id);
-            }
-
-            const query = `?${params.toString()}`;
-
-            const res = await fetch(`/api/business-cards${query}`, { signal: controller.signal });
-            if (res.ok) {
-                const data = await readApiJson(res);
-
-                setCards(data);
-
-                // Extract Categories
-                const uniqueCats = Array.from(new Set(data.map((c: any) => c.category).filter(Boolean))).sort() as string[];
-                setCategories(uniqueCats);
-                setSelectedCategories(uniqueCats); // Default select all
-            }
+            const uniqueCats = Array.from(new Set(data.map((c: any) => c.category).filter(Boolean))).sort() as string[];
+            setCategories(uniqueCats);
+            setSelectedCategories(uniqueCats);
         } catch (error: any) {
             if (error.name === 'AbortError') return;
             console.error(error);
@@ -255,6 +274,47 @@ function BusinessCardListContent() {
             }
         }
     };
+
+    useEffect(() => {
+        if (!isSearchActive || limit === 'all') {
+            if (searchFetchControllerRef.current) {
+                searchFetchControllerRef.current.abort();
+                searchFetchControllerRef.current = null;
+            }
+            setSearchCards(null);
+            return;
+        }
+
+        if (searchCards !== null) {
+            return;
+        }
+
+        const controller = new AbortController();
+        searchFetchControllerRef.current = controller;
+
+        void (async () => {
+            try {
+                const data = await fetchBusinessCardList('all', controller.signal);
+                if (searchFetchControllerRef.current === controller) {
+                    setSearchCards(data);
+                }
+            } catch (error: any) {
+                if (error.name === 'AbortError') return;
+                console.error('Failed to fetch searchable business cards:', error);
+            } finally {
+                if (searchFetchControllerRef.current === controller) {
+                    searchFetchControllerRef.current = null;
+                }
+            }
+        })();
+
+        return () => {
+            controller.abort();
+            if (searchFetchControllerRef.current === controller) {
+                searchFetchControllerRef.current = null;
+            }
+        };
+    }, [fetchBusinessCardList, isSearchActive, limit, searchCards]);
 
     // Upload State
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -506,6 +566,7 @@ function BusinessCardListContent() {
 
         // Optimistic Update
         setCards(prev => prev.map(c => c.id === id ? { ...c, isFavorite: newStatus } : c));
+        setSearchCards(prev => prev?.map(c => c.id === id ? { ...c, isFavorite: newStatus } : c) ?? null);
 
         try {
             const userStr = localStorage.getItem('user');
@@ -522,6 +583,7 @@ function BusinessCardListContent() {
             console.error(e);
             // Revert on error
             setCards(prev => prev.map(c => c.id === id ? { ...c, isFavorite: currentStatus } : c));
+            setSearchCards(prev => prev?.map(c => c.id === id ? { ...c, isFavorite: currentStatus } : c) ?? null);
         }
     };
 
@@ -543,16 +605,15 @@ function BusinessCardListContent() {
         setSortConfig({ key: startKey, direction });
     };
 
+    const filteredCards = sourceCards.filter(c => {
+        const hasCategoryFilter = selectedCategories.length > 0 && selectedCategories.length < categories.length;
 
-
-    const filteredCards = cards.filter(c => {
         if (showFavoritesOnly && !c.isFavorite) return false;
 
-        if (selectedCategories.length > 0 && c.category && !selectedCategories.includes(c.category)) return false;
+        if (hasCategoryFilter && c.category && !selectedCategories.includes(c.category)) return false;
 
-        if (searchTerm) {
-            const terms = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
-            return terms.some(term => {
+        if (searchTerms.length > 0) {
+            return searchTerms.some(term => {
                 return (
                     (c.name || '').toLowerCase().includes(term) ||
                     (c.companyName || '').toLowerCase().includes(term) ||
@@ -691,7 +752,7 @@ function BusinessCardListContent() {
                     <span className={styles.mobileHidden}>검색어 : </span>
                     <input
                         className={styles.searchInput}
-                        placeholder="이름, 회사, 전화번호, 분류"
+                        placeholder="이름, 회사, 전화번호를 쉼표/띄어쓰기로 검색"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
